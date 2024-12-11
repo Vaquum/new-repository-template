@@ -1,0 +1,58 @@
+name: Setup New Repository
+
+on:
+  push:
+    branches:
+      - main  # Runs the workflow when the first push occurs on the main branch of the new repo.
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Remove Default Labels
+      - name: Remove Default Labels
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NEW_REPO="${{ github.repository }}"
+          # Fetch current labels
+          gh api --paginate -X GET /repos/$NEW_REPO/labels | jq -r '.[].name' | while read label; do
+            # Delete each label
+            gh api -X DELETE /repos/$NEW_REPO/labels/"$label"
+          done
+
+      # Step 2: Add Labels from Template Repository
+      - name: Add Labels from Template Repository
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TEMPLATE_REPO="Vaquum/new-repository-template"
+          NEW_REPO="${{ github.repository }}"
+          
+          # Fetch labels from the template repository
+          gh api --paginate -X GET /repos/$TEMPLATE_REPO/labels | jq -c '.[]' | while read label; do
+            name=$(echo $label | jq -r '.name')
+            color=$(echo $label | jq -r '.color')
+            description=$(echo $label | jq -r '.description // empty')
+            # Add each label to the new repository
+            gh api -X POST /repos/$NEW_REPO/labels \
+              -f name="$name" -f color="$color" -f description="$description" || true
+          done
+
+      # Step 3: Set Branch Protection Rules
+      - name: Configure Branch Protection Rules
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TEMPLATE_REPO="Vaquum/new-repository-template"
+          TEMPLATE_BRANCH="main"
+          NEW_REPO="${{ github.repository }}"
+          NEW_BRANCH="main"
+
+          # Fetch branch protection rules from the template repository
+          gh api -X GET /repos/$TEMPLATE_REPO/branches/$TEMPLATE_BRANCH/protection > branch-protection.json
+
+          # Apply branch protection rules to the new repository
+          gh api -X PUT /repos/$NEW_REPO/branches/$NEW_BRANCH/protection \
+            --input branch-protection.json
