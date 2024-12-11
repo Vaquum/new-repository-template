@@ -62,3 +62,15 @@ jobs:
               -f conditions="$ruleset_conditions" \
               -f rules="$ruleset_rules"
           done
+          
+      # Step 4: Enable CodeQL Security Analysis
+      - name: Enable CodeQL Security Analysis
+        env:
+          GH_TOKEN: ${{ secrets.NEW_REPO_SECRET }}
+        run: |
+          NEW_REPO="${{ github.repository }}"
+
+          # Enable CodeQL Analysis
+          gh api -X PATCH /repos/$NEW_REPO \
+            -f "security_and_analysis.enabled=true" \
+            -f "security_and_analysis.security_and_code_scanning.enabled=true"
