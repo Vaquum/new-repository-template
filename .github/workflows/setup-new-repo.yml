@@ -1,9 +1,8 @@
 name: Setup New Repository
 
 on:
-  push:
-    branches:
-      - main  # Runs the workflow when the first push occurs on the main branch of the new repo.
+  repository_dispatch:
+    types: [repository_created]
 
 jobs:
   setup:
@@ -43,7 +42,7 @@ jobs:
       # Step 3: Set Branch Protection Rules
       - name: Configure Branch Protection Rules
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.NEW_REPO_SECRET }}
         run: |
           TEMPLATE_REPO="Vaquum/new-repository-template"
           TEMPLATE_BRANCH="main"
