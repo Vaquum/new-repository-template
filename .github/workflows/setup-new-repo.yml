@@ -1,8 +1,9 @@
 name: Setup New Repository with Rulesets
 
 on:
-  repository_dispatch:
-    types: [repository_created]
+  create:
+    branches:
+      - main
 
 jobs:
   setup:
