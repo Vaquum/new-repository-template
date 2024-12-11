@@ -1,4 +1,4 @@
-name: Setup New Repository
+name: Setup New Repository with Rulesets
 
 on:
   repository_dispatch:
@@ -39,19 +39,26 @@ jobs:
               -f name="$name" -f color="$color" -f description="$description" || true
           done
 
-      # Step 3: Set Branch Protection Rules
-      - name: Configure Branch Protection Rules
+      # Step 3: Apply Ruleset from Template Repository
+      - name: Apply Ruleset to New Repository
         env:
           GH_TOKEN: ${{ secrets.NEW_REPO_SECRET }}
         run: |
           TEMPLATE_REPO="Vaquum/new-repository-template"
-          TEMPLATE_BRANCH="main"
           NEW_REPO="${{ github.repository }}"
-          NEW_BRANCH="main"
+          
+          # Fetch rulesets from the template repository
+          gh api -X GET /repos/$TEMPLATE_REPO/rules > rulesets.json
+          
+          # Apply each ruleset to the new repository
+          jq -c '.[]' rulesets.json | while read ruleset; do
+            ruleset_name=$(echo $ruleset | jq -r '.name')
+            ruleset_conditions=$(echo $ruleset | jq -r '.conditions')
+            ruleset_rules=$(echo $ruleset | jq -r '.rules')
 
-          # Fetch branch protection rules from the template repository
-          gh api -X GET /repos/$TEMPLATE_REPO/branches/$TEMPLATE_BRANCH/protection > branch-protection.json
-
-          # Apply branch protection rules to the new repository
-          gh api -X PUT /repos/$NEW_REPO/branches/$NEW_BRANCH/protection \
-            --input branch-protection.json
+            # Apply the ruleset to the new repository
+            gh api -X POST /repos/$NEW_REPO/rules \
+              -f name="$ruleset_name" \
+              -f conditions="$ruleset_conditions" \
+              -f rules="$ruleset_rules"
+          done
