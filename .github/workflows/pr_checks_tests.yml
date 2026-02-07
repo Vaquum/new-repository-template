@@ -44,6 +44,7 @@ jobs:
           fi
 
       - name: Run limen tests (verbose)
+        if: ${{ hashFiles('tests/run.py') != '' }}
         run: |
           set -x
           python -u -m tests.run
