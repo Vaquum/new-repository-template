@@ -1,4 +1,6 @@
 name: PR Validation
+permissions:
+  contents: read
 
 on:
   push:
