@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "{REPOSITORY_NAME}"
+name = "new-repository-template"
 version = "0.0.1"
-description = "{REPOSITORY_DESCRIPTION}"
+description = "The template for creating new repositories"
 readme = "README.md"
 authors = [
   { name = "Mikko Kotila", email = "mailme@mikkokotila.com" },
@@ -23,11 +23,11 @@ dependencies = []
 
 [project.urls]
 Homepage = "https://vaquum.fi"
-Repository = "https://github.com/vaquum/{REPOSITORY_NAME}"
+Repository = "https://github.com/vaquum/new-repository-template"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["limen*"]
+include = ["new_repository_template*"]
 exclude = ["tests*", "scripts*"]
 
 [tool.ruff]
@@ -99,7 +99,7 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 max-statements = 50
 
 [tool.ruff.lint.isort]
-known-first-party = ["limen"]
+known-first-party = ["new_repository_template"]
 section-order = [
   "future",
   "standard-library",
