@@ -32,4 +32,4 @@ jobs:
         if: ${{ hashFiles('tests/run.py') != '' }}
         run: |
           set -x
-          python -u -m tests.run
+          python -u tests/run.py
