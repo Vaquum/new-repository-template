@@ -27,7 +27,7 @@ Repository = "https://github.com/vaquum/{REPOSITORY_NAME}"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["limen*"]
+include = ["{REPOSITORY_NAME}*"]
 exclude = ["tests*", "scripts*"]
 
 [tool.ruff]
