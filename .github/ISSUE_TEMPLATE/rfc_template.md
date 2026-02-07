@@ -5,7 +5,7 @@ title: "RFC-XXXX: "
 assignees: []
 ---
 
-<!-- Docs for this template: https://github.com/Vaquum/Limen/blob/main/docs/Developer/Writing-RFC.md  -->
+<!-- Docs for this template: https://github.com/Vaquum/dev-docs/blob/main/src/Writing-RFC.md  -->
 
 ## Objective
 
