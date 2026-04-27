@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 import tomllib
+import urllib.parse
 from pathlib import Path
 from typing import Final
 
@@ -880,7 +881,8 @@ def _copy_labels(repo: str, template_repo: str) -> None:
     for label in existing.splitlines():
         if not label:
             continue
-        _run_gh(['api', '-X', 'DELETE', f'repos/{repo}/labels/{label}'])
+        encoded_label = urllib.parse.quote(label, safe='')
+        _run_gh(['api', '-X', 'DELETE', f'repos/{repo}/labels/{encoded_label}'])
 
     labels_raw = _run_gh(['api', '--paginate', f'repos/{template_repo}/labels'])
     labels = json.loads(labels_raw)

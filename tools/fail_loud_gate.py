@@ -110,8 +110,11 @@ def _collect_contextlib_names(tree: ast.AST) -> tuple[set[str], set[str]]:
     module_aliases: set[str] = set()
     direct_names: set[str] = set()
 
-    # Pass 1: import statements.
-    for node in ast.walk(tree):
+    if not isinstance(tree, ast.Module):
+        return module_aliases, direct_names
+
+    # Pass 1: module-level import statements.
+    for node in tree.body:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 if alias.name == 'contextlib':
@@ -127,7 +130,7 @@ def _collect_contextlib_names(tree: ast.AST) -> tuple[set[str], set[str]]:
     # when neither set changes in a round.
     for _ in range(16):
         before = (len(module_aliases), len(direct_names))
-        for node in ast.walk(tree):
+        for node in tree.body:
             value: ast.AST | None = None
             target_names: list[str] = []
             if isinstance(node, ast.Assign):

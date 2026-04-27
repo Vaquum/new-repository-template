@@ -23,7 +23,8 @@ jobs:
           gh api --paginate -X GET "/repos/$NEW_REPOSITORY/labels" \
             | jq -r '.[].name' \
             | while IFS= read -r label; do
-                gh api -X DELETE "/repos/$NEW_REPOSITORY/labels/$label"
+                encoded_label="$(jq -rn --arg value "$label" '$value | @uri')"
+                gh api -X DELETE "/repos/$NEW_REPOSITORY/labels/$encoded_label"
               done
 
           gh api --paginate -X GET "/repos/$template_repo/labels" \
