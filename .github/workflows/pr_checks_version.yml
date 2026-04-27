@@ -78,8 +78,14 @@ jobs:
             exit 1
           fi
           if ! git show "$BASE_REV:CHANGELOG.md" > base_CHANGELOG.md 2>/dev/null; then
-            echo "::error::base ref has no CHANGELOG.md; cannot run version gate"
-            exit 1
+            CHANGED="$(git diff --name-only "$BASE_REV"...HEAD)"
+            if echo "$CHANGED" | grep -qx 'CHANGELOG.md'; then
+              : > base_CHANGELOG.md
+              echo "::warning::bootstrap commit: base ref has no CHANGELOG.md; HEAD introduces it."
+            else
+              echo "::error::base ref has no CHANGELOG.md and this commit does not introduce it. Restore CHANGELOG.md before merging."
+              exit 1
+            fi
           fi
 
           # Head artifacts come from the checkout -- they must be
