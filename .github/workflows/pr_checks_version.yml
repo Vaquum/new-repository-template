@@ -67,6 +67,7 @@ jobs:
           echo "PR title: $PR_TITLE"
 
       - name: Extract base + head artifacts
+        id: artifacts
         run: |
           set -euo pipefail
           BASE_REV="origin/${{ github.base_ref }}"
@@ -108,9 +109,16 @@ jobs:
           echo "base CHANGELOG bytes:  $(wc -c < base_CHANGELOG.md)"
           echo "head CHANGELOG bytes:  $(wc -c < head_CHANGELOG.md)"
 
+          mode="$(REPOSITORY_NAME="${{ github.event.repository.name }}" python -c 'import os, tomllib; from pathlib import Path; base = tomllib.loads(Path("base_pyproject.toml").read_text())["project"]["name"]; head = tomllib.loads(Path("head_pyproject.toml").read_text())["project"]["name"]; repo = os.environ["REPOSITORY_NAME"]; print("template-specialization" if base == "new-repository-template" and head == repo else "normal")')"
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+
       - name: Run version gate
         run: |
           set -euo pipefail
+          if [ "${{ steps.artifacts.outputs.mode }}" = "template-specialization" ]; then
+            echo "::warning::template specialization PR: project identity is being rewritten from the source template; version/changelog ratchet starts after this merge."
+            exit 0
+          fi
           PR_TITLE=$(cat pr_title.txt)
           python tools/version_gate.py \
             --pr-title "$PR_TITLE" \
