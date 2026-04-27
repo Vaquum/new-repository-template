@@ -1,0 +1,53 @@
+name: pr_checks_ruleset
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pr_checks_ruleset:
+    name: pr_checks_ruleset
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up contract venv
+        run: python -m venv .venv-ruleset
+
+      - name: Install contract dependencies
+        run: .venv-ruleset/bin/python -m pip install --upgrade pip pytest 'ruff==0.15.11'
+
+      - name: Run CI contract tests
+        run: .venv-ruleset/bin/python -m pytest tests/tools/test_cc_gate.py tests/tools/test_ruleset_gate.py tests/tools/test_ci_contract.py tests/tools/test_lint_ci_contract.py tests/tools/test_tests_ci_contract.py -q
+
+      - name: Compare live ruleset to checked-in snapshot
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${{ vars.RULESET_ID }}" ]; then
+            BASE_REV="origin/${{ github.base_ref }}"
+            git fetch origin "${{ github.base_ref }}" --depth=1
+            if ! git show "$BASE_REV:.github/rulesets/main.json" >/dev/null 2>&1 \
+              && git diff --name-only "$BASE_REV" HEAD | grep -qx '.github/rulesets/main.json'; then
+              echo "::warning::bootstrap commit: base ref has no ruleset snapshot and repository variable RULESET_ID is not set yet."
+              exit 0
+            fi
+            echo "::error::repository variable RULESET_ID is not set. Configure it to the live Protect-Main ruleset id."
+            exit 2
+          fi
+          python3 tools/ruleset_gate.py \
+            --ruleset-file .github/rulesets/main.json \
+            --repo "${{ github.repository }}" \
+            --ruleset-id "${{ vars.RULESET_ID }}"

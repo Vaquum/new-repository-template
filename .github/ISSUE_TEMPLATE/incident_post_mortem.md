@@ -6,7 +6,7 @@ about: Template for adding resolution details to an incident
 ## 🔍 Post-Mortem Analysis
 
 ### Resolution Timeline
-**Incident Resolved:** YYYY-MM-DD HH:MM UTC  
+**Incident Resolved:** YYYY-MM-DD HH:MM UTC
 **Total Duration:** [X hours/minutes]
 
 ---
@@ -25,22 +25,22 @@ about: Template for adding resolution details to an incident
 
 ### Five Whys Analysis
 
-**1. Why did this happen?**  
+**1. Why did this happen?**
 [Answer]
 
-**2. Why?**  
+**2. Why?**
 [Answer]
 
-**3. Why?**  
+**3. Why?**
 [Answer]
 
-**4. Why?**  
+**4. Why?**
 [Answer]
 
-**5. Why?**  
+**5. Why?**
 [Answer]
 
-**Root Cause:**  
+**Root Cause:**
 [Final root cause identified]
 
 ---
@@ -56,12 +56,12 @@ about: Template for adding resolution details to an incident
 ### Lessons Learned
 
 **What went well:**
-- 
+-
 
 **What could be improved:**
-- 
+-
 
 **Preventive measures:**
-- 
+-
 
 ---

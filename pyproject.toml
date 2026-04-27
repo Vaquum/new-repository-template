@@ -4,109 +4,158 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "new-repository-template"
-version = "0.0.1"
-description = "A repo for the template that governs how new repos are created."
+version = "0.2.0"
+description = "Gate-enforced Python repository template."
 readme = "README.md"
-authors = [
-  { name = "Mikko Kotila", email = "mailme@mikkokotila.com" },
-  { name = "Prasenjit Dey" },
-  { name = "Arun Raguraman" },
-  { name = "Jatin Thakur" },
-  { name = "Soujanyaa Boruah" },
-  { name = "Ng Wei Da" },
+requires-python = ">=3.12"
+dependencies = [
+  "dagster",
+  "dagster-cloud",
+  "boto3",
+  "pandas",
+  "requests",
+  "matplotlib",
+  "clickhouse-driver",
+  "clickhouse-connect>=0.7",
+  "polars>=1.0",
+  "pyarrow>=15.0",
+  "huggingface_hub",
+  "lz4>=4.0.0",
+  "clickhouse-cityhash>=1.0.2",
+  "freezegun>=1.5.0",
+  "numpy>=2.0",
+  "scipy>=1.13",
+  "aiosqlite>=0.20",
+  "orjson>=3.10",
 ]
-license = { text = "MIT" }
-requires-python = ">=3.10"
-dependencies = []
 
 [project.optional-dependencies]
-
-[project.urls]
-Homepage = "https://vaquum.fi"
-Repository = "https://github.com/vaquum/new-repository-template"
+dev = [
+  "dagster-webserver",
+  "pytest",
+  "pytest-asyncio",
+  "ruff==0.15.11",
+  "pyright==1.1.408",
+  "vulture>=2.14",
+  "coverage[toml]>=7.6",
+  "scikit-learn>=1.5",
+  "jupyter>=1.0",
+  "nbconvert>=7.0",
+  "ipykernel>=6.0",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["new-repository-template*"]
-exclude = ["tests*", "scripts*"]
+include = ["new_repository_template*"]
+exclude = ["tests*", "demo*"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+include = ["new_repository_template"]
+exclude = [
+  "**/__pycache__",
+  "build",
+  "dist",
+  "tests",
+  "demo",
+]
+stubPath = "stubs"
+reportExplicitAny = "error"
+reportMissingImports = "error"
+reportMissingTypeStubs = "error"
+reportUnknownArgumentType = "error"
+reportUnknownMemberType = "error"
+reportUnknownVariableType = "error"
+reportUnknownLambdaType = "error"
+reportUnknownParameterType = "error"
+reportMissingParameterType = "error"
+reportConstantRedefinition = "error"
+reportImportCycles = "error"
 
 [tool.ruff]
-target-version = "py310"
-line-length = 88
-fix = false
+target-version = "py312"
+line-length = 100
+exclude = [
+  ".git",
+  "__pycache__",
+  "build",
+  "dist",
+  "demo",
+  "tests/fixtures",
+]
+
+[tool.ruff.format]
+quote-style = "single"
 
 [tool.ruff.lint]
 select = [
-  "F",    # Pyflakes
   "E",
-  "W",    # pycodestyle
-  "N",    # pep8-naming
-  "UP",   # pyupgrade
-  "ANN",  # flake8-annotations
-  "S",    # flake8-bandit
-  "BLE",  # flake8-blind-except
-  "B",    # flake8-bugbear
-  "A",    # flake8-builtins
-  "C4",   # flake8-comprehensions
-  "G",    # flake8-logging-format
-  "T20",  # flake8-print
-  "PT",   # flake8-pytest-style
-  "RET",  # flake8-return
-  "SIM",  # flake8-simplify
-  "ARG",  # flake8-unused-arguments
-  "PTH1", # flake8-use-pathlib (PTH1xx only: os.path replacements)
-  "ERA",  # eradicate
-  "PL",   # Pylint
-  "RUF",  # Ruff-specific rules
+  "F",
+  "I",
+  "UP",
+  "RUF",
+  "BLE",
+  "ANN",
+  "C901",
+  "PLR0912",
+  "PLR0913",
+  "PLR0915",
+  "T201",
+  "FIX001",
+  "FIX002",
+  "FIX003",
+  "FIX004",
+  "ERA001",
+  "D200",
+  "D205",
+  "D415",
+  "PIE790",
 ]
 ignore = [
-  "D201", # No blank line before function docstring (We want the opposite)
-  "D202", # No blank line after function docstring (We want the opposite)
-  "D203", # 1 blank line required before class docstring (Conflicts with D211)
-  "D212", # Multi-line docstring summary at first line (Conflicts with D213)
-  "E501", # Line too long (Handled by formatter/wrap)
-  "I",    # Ignore isort import order rules
-  "D200", # Allow one-line docstring to span multiple lines
-  "D100", # Ignore missing docstring in public module
-  "ANN201", # Missing return type annotation for public function
-  "D102",   # Missing docstring in public method
-  "PLR0913", # Too many arguments in function definition
-  "D107",   # Missing docstring in __init__
-  "S101",    # Use of assert detected
-  "S113",    # Probable use of requests call without timeout
-  "S608",    # Possible SQL injection vector through string-based query construction
-  "S311",    # Standard pseudo-random generators are not suitable for cryptographic purposes
-  "N806",    # Variable in function should be lowercase
-  "PLC0415", # Import should be at the top-level of a file
-  "PLR0912", # Too many branches
-  "PLR0915", # Too many statements
-  "RUF002",  # Docstring contains ambiguous unicode character
-  "PT",      # flake8-pytest-style
-  "N803",    # Argument name should be lowercase
-  "ANN401",  # Dynamically typed expressions (typing.Any) are disallowed
-  "C401",    # Unnecessary generator (rewrite as a set comprehension)
-  "RET504",  # Unnecessary assignment to variable before return statement
-  "PLW0108", # Lambda may be unnecessary; consider inlining inner function
+  "E501",
 ]
 
-# Allow unused variables when underscore-prefixed.
-dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
-
-[tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["S101", "BLE001"]
+[tool.ruff.lint.mccabe]
+max-complexity = 10
 
 [tool.ruff.lint.pylint]
+max-args = 6
+max-branches = 12
 max-statements = 50
 
-[tool.ruff.lint.isort]
-known-first-party = ["new-repository-template"]
-section-order = [
-  "future",
-  "standard-library",
-  "third-party",
-  "first-party",
-  "local-folder",
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+  "S101", "ANN", "BLE001",
+  "PLR0912", "PLR0913", "PLR0915",
+  "D200", "D205", "D415",
+]
+"tools/**/*.py" = [
+  "C901", "PLR0912", "PLR0913", "PLR0915",
+  "T201",
+  "FIX001", "FIX002", "FIX003", "FIX004",
+  "ERA001", "D200", "D205", "D415",
+]
+"scripts/**/*.py" = [
+  "C901", "PLR0912", "PLR0913", "PLR0915",
+  "T201",
+  "FIX001", "FIX002", "FIX003", "FIX004",
+  "ERA001", "D200", "D205", "D415",
 ]
 
-[tool.ruff.lint.pydocstyle]
-convention = "google"
+[tool.ruff.lint.isort]
+known-first-party = ["new_repository_template"]
+
+[tool.vulture]
+paths = ["new_repository_template"]
+min_confidence = 80
+
+[tool.coverage.run]
+branch = true
+source = ["new_repository_template"]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.coverage.json]
+output = "coverage.json"

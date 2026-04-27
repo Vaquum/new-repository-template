@@ -1,39 +1,40 @@
 name: Setup New Repository with Labels
 
 on:
-  workflow_dispatch:  # Allows manual triggering
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
 
 jobs:
   setup:
     runs-on: ubuntu-latest
-
     steps:
-      # Step 1: Remove Default Labels
-      - name: Remove Default Labels
+      - name: Replace labels from template repository
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TEMPLATE_REPOSITORY: ${{ vars.LABEL_TEMPLATE_REPOSITORY }}
+          NEW_REPOSITORY: ${{ github.repository }}
         run: |
-          NEW_REPO="${{ github.repository }}"
-          # Fetch current labels
-          gh api --paginate -X GET /repos/$NEW_REPO/labels | jq -r '.[].name' | while read label; do
-            # Delete each label
-            gh api -X DELETE /repos/$NEW_REPO/labels/"$label"
-          done
+          set -euo pipefail
+          template_repo="${TEMPLATE_REPOSITORY:-Vaquum/new-repository-template}"
 
-      # Step 2: Add Labels from Template Repository
-      - name: Add Labels from Template Repository
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TEMPLATE_REPO="Vaquum/new-repository-template"
-          NEW_REPO="${{ github.repository }}"
-          
-          # Fetch labels from the template repository
-          gh api --paginate -X GET /repos/$TEMPLATE_REPO/labels | jq -c '.[]' | while read label; do
-            name=$(echo $label | jq -r '.name')
-            color=$(echo $label | jq -r '.color')
-            description=$(echo $label | jq -r '.description // empty')
-            # Add each label to the new repository
-            gh api -X POST /repos/$NEW_REPO/labels \
-              -f name="$name" -f color="$color" -f description="$description" || true
-          done
+          gh api --paginate -X GET "/repos/$NEW_REPOSITORY/labels" \
+            | jq -r '.[].name' \
+            | while IFS= read -r label; do
+                encoded_label="$(jq -rn --arg value "$label" '$value | @uri')"
+                gh api -X DELETE "/repos/$NEW_REPOSITORY/labels/$encoded_label"
+              done
+
+          gh api --paginate -X GET "/repos/$template_repo/labels" \
+            | jq -c '.[]' \
+            | while IFS= read -r label; do
+                name="$(echo "$label" | jq -r '.name')"
+                color="$(echo "$label" | jq -r '.color')"
+                description="$(echo "$label" | jq -r '.description // empty')"
+                gh api -X POST "/repos/$NEW_REPOSITORY/labels" \
+                  -f name="$name" \
+                  -f color="$color" \
+                  -f description="$description"
+              done
