@@ -1,3 +1,7 @@
-Always start a task by reading `Claude.md` and come back to it whenever you feel like you need to.
+Always start a task by reading `AGENTS.md` and `CLAUDE.md`.
 
-Always refer to `/docs` for the part of the system you plan to work on.
+Use `CLAUDE.md` for the repository law and operating discipline. Use
+`AGENTS.md` for repository-specific guidance when it is populated.
+
+Refer to `/docs` and `/docs/Developer` for system and developer context
+when the task touches documented behavior.

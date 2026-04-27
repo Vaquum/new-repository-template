@@ -1,0 +1,66 @@
+name: Bootstrap Repository
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      package_name:
+        description: Optional Python import package name. Defaults to repository slug converted to snake_case.
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    name: Bootstrap Repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Rewrite repository-specific files
+        run: |
+          set -euo pipefail
+          args=(--repo-name "${{ github.event.repository.name }}" --owner "${{ github.repository_owner }}" --files-only)
+          if [ -n "${{ inputs.package_name }}" ]; then
+            args+=(--package-name "${{ inputs.package_name }}")
+          fi
+          python tools/bootstrap_repository.py "${args[@]}"
+
+      - name: Commit bootstrap changes
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- .; then
+            echo "No repository bootstrap file changes."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: bootstrap repository law"
+          git push
+
+      - name: Apply labels and protected-main ruleset
+        env:
+          GH_TOKEN: ${{ secrets.REPO_BOOTSTRAP_TOKEN }}
+          LABEL_TEMPLATE_REPOSITORY: ${{ vars.LABEL_TEMPLATE_REPOSITORY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::REPO_BOOTSTRAP_TOKEN is not configured. File bootstrap is complete, but labels and the live protected-main ruleset were not applied."
+            exit 1
+          fi
+          python tools/bootstrap_repository.py \
+            --repo-name "${{ github.event.repository.name }}" \
+            --owner "${{ github.repository_owner }}" \
+            --github-only

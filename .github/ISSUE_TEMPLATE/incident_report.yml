@@ -10,7 +10,7 @@ body:
       value: |
         ## 🚨 Initial Incident Report
         Report incidents immediately with the information available. This issue will be updated throughout the incident lifecycle and concluded with a post-mortem.
-        
+
         **Workflow:**
         1. 📝 File this initial report (you are here)
         2. 💬 Add updates as comments during the incident
@@ -77,12 +77,12 @@ body:
         ## 📋 On-Going Resolution Checklist
 
         **During the incident, keep this issue up to date:**
-        
+
         - [ ] Keep all discussion and updates in this issue
         - [ ] If discussion takes place in other channels, summarize here
-        
+
         ## 📋 Post-Resolution Checklist
-        
+
         **Engineering team: Complete these items once the incident is resolved:**
 
         - [ ] Create a sub-issue using the Incident Post-Mortem template
@@ -91,5 +91,5 @@ body:
         - [ ] Root cause analysis (Five Whys) completed
         - [ ] Action items identified and tracked
         - [ ] Post-mortem review scheduled (if needed)
-        
+
         **Use the post-mortem comment template below to document resolution details.**

@@ -4,4 +4,4 @@
 
 [Vaquum Developer Docs](https://github.com/Vaquum/dev-docs/blob/main/src/README.md)
 
-## {REPOSITORY_NAME} Specific Developer Docs
+## new_repository_template Specific Developer Docs

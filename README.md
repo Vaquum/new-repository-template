@@ -4,38 +4,33 @@
   <br>
 </h1>
 
-<h3 align="center">New Repository Template</h3>
-
-<!-- Replace the title of the repository -->
+<h3 align="center">new_repository_template: Python package with repository law built in.</h3>
 
 <p align="center">
-  <a href="#description">Description</a> •
-  <a href="#owner">Owner</a> •
-  <a href="#integrations">Integrations</a> •
-  <a href="#docs">Docs</a>
+  <a href="#value-proposition">Value Proposition</a> •
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#contributing">Contributing</a> •
+  <a href="#citations">Citations</a> •
+  <a href="#license">License</a>
 </p>
 <hr>
 
-## Description
+# Value Proposition
 
-The template for creating new repositories.
+{VALUE_PROPOSITION}
 
-<!-- This section provides a high-level overview for the repo -->
+# Quick Start
 
-## Owner
+{QUICK_START}
 
-- [@mikkokotila](https://github.com/mikkokotila)
+# Contributing
 
-<!-- This section lists the owners of the repo -->
+{CONTRIBUTING}
 
-## Integrations
+# Citations
 
-- No integrations with other repos.
+{CITATIONS}
 
-<!-- This section must list as bulleted list how this repo depends or is integrated with other repos -->
+# License
 
-## Docs
-
-No documentations.
-
-<!-- This section must link to the docs which are in the root of the repository in /docs -->
+{LICENSE}
