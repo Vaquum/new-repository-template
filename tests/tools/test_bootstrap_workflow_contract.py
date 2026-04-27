@@ -62,3 +62,12 @@ def test_bootstrap_rewrite_leaves_workflow_files_static() -> None:
 
     assert "rel_path.startswith('.github/workflows/')" in script
     assert 'changed += _write_workflows(package_name)' not in script
+    for dead_name in (
+        '_lint_workflow',
+        '_honesty_workflow',
+        '_typing_workflow',
+        '_deploy_workflow',
+        '_bootstrap_workflow',
+        '_write_workflows',
+    ):
+        assert f'def {dead_name}' not in script

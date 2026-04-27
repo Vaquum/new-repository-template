@@ -49,7 +49,6 @@ jobs:
           BOOTSTRAP_BRANCH: bootstrap/repository-law-${{ github.run_id }}
           BOOTSTRAP_TITLE: "chore: bootstrap repository law"
           REPOSITORY: ${{ github.repository }}
-          REPOSITORY_NAME: ${{ github.event.repository.name }}
         run: |
           set -euo pipefail
           if git diff --quiet -- .; then
