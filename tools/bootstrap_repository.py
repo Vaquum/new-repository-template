@@ -183,6 +183,8 @@ def _replace_identity_tokens(
         if text is None:
             continue
         rel_path = path.relative_to(REPO_ROOT).as_posix()
+        if rel_path.startswith('.github/workflows/'):
+            continue
         if rel_path in {'.github/workflows/copy-standard-labels.yml', 'tools/bootstrap_repository.py'}:
             updated = text.replace('Vaquum/new-repository-template', label_template_sentinel)
         else:
@@ -811,7 +813,6 @@ def _apply_file_bootstrap(repo_slug: str, package_name: str, owner: str | None) 
     changed += _rewrite_pyproject(repo_slug, package_name)
     changed += _create_package_baseline(repo_slug, package_name)
     changed += _write_budgets(package_name)
-    changed += _write_workflows(package_name)
     print(f'bootstrap: file bootstrap complete ({changed} file groups changed)')
 
 
@@ -849,7 +850,11 @@ def _find_ruleset_id(repo: str, ruleset_name: str) -> int | None:
     if not isinstance(payload, list):
         raise SystemExit('bootstrap: expected list from repository rulesets API')
     for item in payload:
-        if isinstance(item, dict) and item.get('name') == ruleset_name:
+        if (
+            isinstance(item, dict)
+            and item.get('name') == ruleset_name
+            and item.get('source_type') == 'Repository'
+        ):
             ruleset_id = item.get('id')
             if isinstance(ruleset_id, int):
                 return ruleset_id

@@ -41,14 +41,23 @@ jobs:
           if [ -n "${{ github.base_ref }}" ]; then
             BASE_REV="origin/${{ github.base_ref }}"
             git fetch origin "${{ github.base_ref }}" --depth=1
-          else
+          elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
             BASE_REV="HEAD~1"
+          else
+            echo "mode=bootstrap" >> "$GITHUB_OUTPUT"
+            echo "::warning::initial repository commit has no parent; running typing gate in bootstrap mode."
+            exit 0
           fi
           echo "base rev: $BASE_REV"
           git rev-parse --verify "$BASE_REV" >/dev/null
 
           if git show "$BASE_REV:.github/typing_budget.json" > base_budget.json 2>/dev/null; then
-            echo "mode=compare" >> "$GITHUB_OUTPUT"
+            if git show "$BASE_REV:pyproject.toml" > base_pyproject.toml 2>/dev/null; then
+              mode="$(REPOSITORY_NAME="${{ github.event.repository.name }}" python -c 'import os, tomllib; from pathlib import Path; base = tomllib.loads(Path("base_pyproject.toml").read_text())["project"]["name"]; head = tomllib.loads(Path("pyproject.toml").read_text())["project"]["name"]; repo = os.environ["REPOSITORY_NAME"]; print("bootstrap" if base == "new-repository-template" and head == repo else "compare")')"
+            else
+              mode="compare"
+            fi
+            echo "mode=$mode" >> "$GITHUB_OUTPUT"
           else
             rm -f base_budget.json
             CHANGED="$(git diff --name-only "$BASE_REV"...HEAD)"

@@ -105,7 +105,10 @@ def test_pr_checks_lint_runs_pinned_ruff_on_tools_and_tests_tools() -> None:
     workflow = LINT_WORKFLOW.read_text(encoding='utf-8')
 
     assert f"'ruff=={RUFF_VERSION}'" in workflow
-    assert '.venv-lint/bin/python -m ruff check new_repository_template tools tests scripts' in workflow
+    assert 'id: package' in workflow
+    assert 'package_root="$(python - <<' in workflow
+    assert '.venv-lint/bin/python -m ruff check "${{ steps.package.outputs.package_root }}" tools tests scripts' in workflow
+    assert '--source="${{ steps.package.outputs.package_root }}"' in workflow
     assert 'continue-on-error' not in workflow
     # Hard-mechanical gate surfaces from slice #11 — each invocation
     # must appear verbatim somewhere in the workflow.
@@ -116,6 +119,7 @@ def test_pr_checks_lint_runs_pinned_ruff_on_tools_and_tests_tools() -> None:
     assert 'scripts/check_coverage_floor.py' in workflow
     assert 'scripts/check_budget_ratchet.py' in workflow
     assert 'vulture' in workflow
+    assert '"${{ steps.package.outputs.package_root }}/" --min-confidence 80' in workflow
     # No soft-fail pathway: no `|| true`, no continue-on-error on any step.
     assert '|| true' not in workflow
 

@@ -113,8 +113,9 @@ def test_workflow_invokes_every_gate() -> None:
     workflow = LINT_WORKFLOW.read_text(encoding='utf-8')
     for script in GATE_SCRIPTS:
         assert f'scripts/{script}' in workflow, f'{script} not invoked by workflow'
-    assert 'vulture new_repository_template/' in workflow
-    assert 'ruff check new_repository_template tools tests scripts' in workflow
+    assert 'steps.package.outputs.package_root' in workflow
+    assert 'vulture "${{ steps.package.outputs.package_root }}/"' in workflow
+    assert 'ruff check "${{ steps.package.outputs.package_root }}" tools tests scripts' in workflow
 
 
 def test_no_soft_fail_pathway_in_workflow() -> None:
