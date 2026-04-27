@@ -40,7 +40,7 @@ jobs:
             BASE_REV="origin/${{ github.base_ref }}"
             git fetch origin "${{ github.base_ref }}" --depth=1
             if ! git show "$BASE_REV:.github/rulesets/main.json" >/dev/null 2>&1 \
-              && git diff --name-only "$BASE_REV"...HEAD | grep -qx '.github/rulesets/main.json'; then
+              && git diff --name-only "$BASE_REV" HEAD | grep -qx '.github/rulesets/main.json'; then
               echo "::warning::bootstrap commit: base ref has no ruleset snapshot and repository variable RULESET_ID is not set yet."
               exit 0
             fi
