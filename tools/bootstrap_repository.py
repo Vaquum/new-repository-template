@@ -471,7 +471,90 @@ def _rename_seed_package_dirs(package_name: str, old_packages: set[str]) -> int:
     return changed
 
 
-def _apply_file_bootstrap(repo_slug: str, package_name: str, owner: str | None) -> None:
+CODEQL_CONTEXT: Final[str] = 'PR Checks CodeQL (python)'
+
+
+def _drop_codeql_law(text: str) -> str:
+    # Remove the CodeQL law from "## The laws", renumber the remaining laws
+    # sequentially, and correct the count header. The laws <-> ruleset
+    # bijection (pr_checks_honesty) requires the CodeQL law and the CodeQL
+    # required-status-check to be dropped together.
+    out: list[str] = []
+    in_laws = False
+    counter = 0
+    for line in text.split('\n'):
+        if line.startswith('## '):
+            in_laws = line.strip() == '## The laws'
+            out.append(line)
+            continue
+        if in_laws and re.match(r'^\d+\.\s', line):
+            if f'*({CODEQL_CONTEXT})*' in line:
+                continue
+            counter += 1
+            line = re.sub(r'^\d+\.', f'{counter}.', line)
+        out.append(line)
+    return '\n'.join(out).replace(
+        'Eleven laws. Ten are workflow gates on every PR; the eleventh is branch protection',
+        'Ten laws. Nine are workflow gates on every PR; the tenth is branch protection',
+    )
+
+
+def _drop_codeql_context(ruleset: dict[str, object]) -> bool:
+    rules = ruleset.get('rules')
+    if not isinstance(rules, list):
+        return False
+    for rule in rules:
+        if not isinstance(rule, dict) or rule.get('type') != 'required_status_checks':
+            continue
+        params = rule.get('parameters')
+        if not isinstance(params, dict):
+            continue
+        checks = params.get('required_status_checks')
+        if not isinstance(checks, list):
+            continue
+        kept = [
+            c for c in checks
+            if not (isinstance(c, dict) and c.get('context') == CODEQL_CONTEXT)
+        ]
+        if len(kept) != len(checks):
+            params['required_status_checks'] = kept
+            return True
+    return False
+
+
+def disable_codeql(repo_root: Path = REPO_ROOT) -> int:
+    """Drop CodeQL from the laws, the ruleset snapshot, and the workflows.
+
+    Used at bootstrap when the target repository cannot run CodeQL (private
+    without GitHub Advanced Security). Removing the law and the required
+    status check together keeps the pr_checks_honesty bijection satisfied.
+    """
+    changed = 0
+    laws_path = repo_root / 'CLAUDE.md'
+    if laws_path.is_file():
+        changed += _write_text_if_changed(
+            laws_path, _drop_codeql_law(laws_path.read_text(encoding='utf-8'))
+        )
+    ruleset_path = repo_root / '.github' / 'rulesets' / 'main.json'
+    if ruleset_path.is_file():
+        ruleset = json.loads(ruleset_path.read_text(encoding='utf-8'))
+        if isinstance(ruleset, dict) and _drop_codeql_context(ruleset):
+            changed += _write_text_if_changed(
+                ruleset_path, json.dumps(ruleset, indent=2) + '\n'
+            )
+    workflow_path = repo_root / '.github' / 'workflows' / 'pr_checks_codeql.yml'
+    if workflow_path.is_file():
+        workflow_path.unlink()
+        changed += 1
+    return changed
+
+
+def _apply_file_bootstrap(
+    repo_slug: str,
+    package_name: str,
+    owner: str | None,
+    codeql: str = 'supported',
+) -> None:
     pyproject = _load_pyproject()
     old_packages = _package_roots_from_config(pyproject)
     old_packages.add(package_name)
@@ -482,6 +565,8 @@ def _apply_file_bootstrap(repo_slug: str, package_name: str, owner: str | None) 
     changed += _rewrite_pyproject(repo_slug, package_name)
     changed += _create_package_baseline(repo_slug, package_name)
     changed += _write_budgets(package_name)
+    if codeql == 'unsupported':
+        changed += disable_codeql()
     print(f'bootstrap: file bootstrap complete ({changed} file groups changed)')
 
 
@@ -603,6 +688,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument('--package-name')
     parser.add_argument('--files-only', action='store_true')
     parser.add_argument('--github-only', action='store_true')
+    parser.add_argument('--codeql', choices=('supported', 'unsupported'), default='supported')
     return parser.parse_args()
 
 
@@ -621,7 +707,7 @@ def main() -> int:
         raise SystemExit('bootstrap: choose at most one of --files-only and --github-only')
 
     if not args.github_only:
-        _apply_file_bootstrap(repo_slug, package_name, args.owner)
+        _apply_file_bootstrap(repo_slug, package_name, args.owner, codeql=args.codeql)
     if not args.files_only:
         _apply_github_bootstrap(repo_slug, args.owner)
     return 0

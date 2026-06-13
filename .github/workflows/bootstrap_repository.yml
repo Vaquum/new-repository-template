@@ -33,10 +33,25 @@ jobs:
       - name: Install bootstrap dependencies
         run: python -m pip install --upgrade pip 'pyyaml==6.0.2'
 
+      - name: Detect CodeQL availability
+        id: codeql
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          visibility="$(gh api "repos/${{ github.repository }}" --jq '.visibility' 2>/dev/null || echo unknown)"
+          ghas="$(gh api "repos/${{ github.repository }}" --jq '.security_and_analysis.advanced_security.status // "unknown"' 2>/dev/null || echo unknown)"
+          if [ "$visibility" = "public" ] || [ "$ghas" = "enabled" ]; then
+            echo "supported=supported" >> "$GITHUB_OUTPUT"
+          else
+            echo "supported=unsupported" >> "$GITHUB_OUTPUT"
+            echo "::warning::CodeQL cannot run here (private repository without GitHub Advanced Security); it will be removed from the laws, the ruleset, and the workflows so the bijection holds."
+          fi
+
       - name: Rewrite repository-specific files
         run: |
           set -euo pipefail
-          args=(--repo-name "${{ github.event.repository.name }}" --owner "${{ github.repository_owner }}" --files-only)
+          args=(--repo-name "${{ github.event.repository.name }}" --owner "${{ github.repository_owner }}" --files-only --codeql "${{ steps.codeql.outputs.supported }}")
           if [ -n "${{ inputs.package_name }}" ]; then
             args+=(--package-name "${{ inputs.package_name }}")
           fi
@@ -157,3 +172,16 @@ jobs:
             --repo-name "${{ github.event.repository.name }}" \
             --owner "${{ github.repository_owner }}" \
             --github-only
+
+      - name: Track CodeQL re-enablement
+        if: ${{ steps.codeql.outputs.supported == 'unsupported' }}
+        env:
+          GH_TOKEN: ${{ secrets.REPO_BOOTSTRAP_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          title="ci: re-enable CodeQL when the repository can run it"
+          existing="$(gh issue list --repo "$REPOSITORY" --state open --search "$title in:title" --json number --jq '.[0].number // empty')"
+          if [ -z "$existing" ]; then
+            gh issue create --repo "$REPOSITORY" --title "$title" --body "CodeQL was removed during bootstrap because this repository cannot run it (private without GitHub Advanced Security). It was dropped from .github/rulesets/main.json, the laws in CLAUDE.md, and .github/workflows/pr_checks_codeql.yml together, so the laws<->ruleset bijection (pr_checks_honesty) still holds. Re-enable once the repository is public or Advanced Security is enabled: restore pr_checks_codeql.yml, add the law and the 'PR Checks CodeQL (python)' required status check back to CLAUDE.md and .github/rulesets/main.json in their own PR, then PUT the updated snapshot to the live ruleset."
+          fi
