@@ -1,3 +1,8 @@
+# v0.5.3
+
+- De-scar the template: empty the runtime `dependencies` (was a full tdw/origo data stack — dagster, clickhouse, pandas, numpy, polars, …, none of which the stub package uses) and trim the `dev` extras to the actual toolchain (pytest, ruff, pyright, vulture, coverage). Zero dagster references remain.
+- Bootstrap: `KNOWN_SEED_PACKAGES` is now just the real sentinel `new_repository_template` (not past app names), and the `tests/origo_source_native` test-path rewrite and the dead embedded honesty-test generator (superseded by the shipped bijection test) are removed.
+
 # v0.5.2
 
 - Rewrite `README.md` in the Vaquum/Limen structure (centered header, nav, About / Quick Start / Repository Law / Contributing / Using This Template / License) and replace the unfilled `{VALUE_PROPOSITION}`/`{QUICK_START}`/`{CONTRIBUTING}`/`{CITATIONS}`/`{LICENSE}` placeholders with real content, leaving only the three tokens the bootstrap fills.

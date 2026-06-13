@@ -50,8 +50,7 @@ SKIP_DIRS: Final[frozenset[str]] = frozenset({
 })
 
 KNOWN_SEED_PACKAGES: Final[frozenset[str]] = frozenset({
-    'backtest_simulator',
-    'repo_law_template',
+    'new_repository_template',
 })
 
 
@@ -198,10 +197,6 @@ def _replace_identity_tokens(
         updated = updated.replace('{REPOSITORY_NAME}', repo_slug)
         updated = updated.replace('{ONE_SENTENCE_DESCRIPTION}', description)
         updated = updated.replace('{DISPLAY_NAME}', display_name)
-        updated = updated.replace(
-            'pytest tests/origo_source_native',
-            'pytest tests/package -q --maxfail=1',
-        )
         updated = updated.replace(f'Vaquum/{package_name}', f'{owner_name}/{repo_slug}')
         updated = updated.replace(label_template_sentinel, 'Vaquum/new-repository-template')
         if _write_text_if_changed(path, updated):
@@ -276,7 +271,6 @@ def _rewrite_pyproject(repo_slug: str, package_name: str) -> bool:
     text = _remove_private_integration_extra(text)
     text = _remove_table(text, 'tool.uv')
     text = _remove_table(text, 'project.scripts')
-    text = _remove_table(text, 'tool.dagster')
     text = _remove_package_per_file_ignores(text, package_name)
     text = _replace_line(text, r'^name = ".*"$', f'name = "{repo_slug}"')
     text = _replace_line(
@@ -328,33 +322,6 @@ def _create_package_baseline(repo_slug: str, package_name: str) -> int:
                 'import importlib\n\n\n'
                 'def test_package_imports() -> None:\n'
                 f"    assert importlib.import_module('{package_name}').__name__ == '{package_name}'\n"
-            ),
-        )
-
-    honesty_tests = REPO_ROOT / 'tests' / 'honesty' / 'test_repository_law.py'
-    if not honesty_tests.exists():
-        changed += _write_text_if_changed(
-            honesty_tests,
-            (
-                'from __future__ import annotations\n\n'
-                'import json\n'
-                'from pathlib import Path\n\n'
-                'REPO_ROOT = Path(__file__).resolve().parents[2]\n\n\n'
-                'def test_required_status_contexts_include_hard_power() -> None:\n'
-                "    payload = json.loads((REPO_ROOT / '.github/rulesets/main.json').read_text())\n"
-                "    checks = next(rule for rule in payload['rules'] if rule['type'] == 'required_status_checks')\n"
-                "    contexts = {entry['context'] for entry in checks['parameters']['required_status_checks']}\n"
-                '    assert {\n'
-                "        'pr_checks_cc',\n"
-                "        'pr_checks_lint',\n"
-                "        'pr_checks_ruleset',\n"
-                "        'pr_checks_slice',\n"
-                "        'pr_checks_fail_loud',\n"
-                "        'pr_checks_typing',\n"
-                "        'pr_checks_version',\n"
-                "        'pr_checks_tests',\n"
-                "        'pr_checks_honesty',\n"
-                '    } <= contexts\n'
             ),
         )
 
