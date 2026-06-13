@@ -26,6 +26,8 @@ Eleven laws. Ten are workflow gates on every PR; the eleventh is branch protecti
 
 11. **No direct push to `main`. No force-push. No branch deletion.** Branch must be up-to-date with `main` before merge. One Copilot review required; all review threads resolved. *(branch protection, server-side)*
 
+Beyond the gates, `audit_main_ruleset` re-checks the live ruleset on every push to `main` with a privileged token — including `bypass_actors`, which the PR-time ruleset gate (law 10) cannot observe. It is a post-merge alarm, not a merge gate, so it carries no law of its own.
+
 ## Workflow
 
 Branch off `main`. Push to a remote branch of the same name. **Open the PR the moment the change is ready for CI to run on it — not when it feels finished.** The gates run on GitHub while you keep working locally. Don't wait for CI in the foreground.
