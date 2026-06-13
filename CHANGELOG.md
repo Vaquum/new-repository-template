@@ -1,3 +1,7 @@
+# v0.5.4
+
+- Replace the issue templates with Furnace's `slice.yml` and `prd.yml` (the `slice.yml` description neutralized from "one Furnace slice" to "one repository slice"); remove `incident_report.yml` and `incident_post_mortem.md`. The `.github/ISSUE_TEMPLATE/` directory now holds exactly those two templates. The slice gate and bootstrap extract the 11 Significance blockquotes from this template dynamically, so they self-adjust.
+
 # v0.5.3
 
 - De-scar the template: empty the runtime `dependencies` (was a full tdw/origo data stack — dagster, clickhouse, pandas, numpy, polars, …, none of which the stub package uses) and trim the `dev` extras to the actual toolchain (pytest, ruff, pyright, vulture, coverage). Zero dagster references remain.
