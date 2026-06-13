@@ -1,3 +1,8 @@
+# v0.5.2
+
+- Rewrite `README.md` in the Vaquum/Limen structure (centered header, nav, About / Quick Start / Repository Law / Contributing / Using This Template / License) and replace the unfilled `{VALUE_PROPOSITION}`/`{QUICK_START}`/`{CONTRIBUTING}`/`{CITATIONS}`/`{LICENSE}` placeholders with real content, leaving only the three tokens the bootstrap fills.
+- Expand `docs/Developer/README.md` to document the once-per-organization roll-out prerequisites (`REPO_BOOTSTRAP_TOKEN`, `LABEL_TEMPLATE_REPOSITORY`, `RULESET_AUDIT_TOKEN`, and the auto-set `RULESET_ID`), the CodeQL-on-private behavior, and the recipe for adding an app-specific required gate.
+
 # v0.5.1
 
 - Consolidate the constitution: `CLAUDE.md` is the single canonical document (now titled `# CLAUDE.md`, not `# AGENTS.md`, with Motivation folded in); `AGENTS.md` and `.github/copilot-instructions.md` are pointers to it. (A raw SHA-pin of the constitution was deliberately not added — the bootstrap mutates `CLAUDE.md` via token rewrite and `disable_codeql`, so a fixed hash would break every derived repo; the laws are instead guarded structurally by the `pr_checks_honesty` bijection.)

@@ -1,36 +1,72 @@
-<h1 align="center">
-  <br>
-  <a href="https://github.com/Vaquum"><img src="https://github.com/Vaquum/Home/raw/main/assets/Logo.png" alt="Vaquum" width="150"></a>
-  <br>
-</h1>
+<div align="center">
+  <br />
+  <a href="https://github.com/Vaquum"><img src="https://github.com/Vaquum/Home/raw/main/assets/Logo.png" alt="Vaquum" width="150" /></a>
+  <br />
+</div>
+<br />
+<div align="center"><strong>{DISPLAY_NAME} — {ONE_SENTENCE_DESCRIPTION}</strong></div>
 
-<h3 align="center">new_repository_template: Python package with repository law built in.</h3>
-
-<p align="center">
-  <a href="#value-proposition">Value Proposition</a> •
+<div align="center">
+  <a href="#about">About</a> •
   <a href="#quick-start">Quick Start</a> •
+  <a href="#repository-law">Repository Law</a> •
   <a href="#contributing">Contributing</a> •
-  <a href="#citations">Citations</a> •
+  <a href="#using-this-template">Using This Template</a> •
   <a href="#license">License</a>
-</p>
-<hr>
+</div>
 
-# Value Proposition
+<hr />
 
-{VALUE_PROPOSITION}
+<a id="about"></a>
 
-# Quick Start
+# {DISPLAY_NAME}
 
-{QUICK_START}
+*{ONE_SENTENCE_DESCRIPTION}*
 
-# Contributing
+Describe {DISPLAY_NAME} here: what it does, who it is for, and the one capability it delivers. Keep it to the smallest honest description a new reader can act on.
 
-{CONTRIBUTING}
+<a id="quick-start"></a>
 
-# Citations
+## Quick Start
 
-{CITATIONS}
+```bash
+pip install {REPOSITORY_NAME}
+```
 
-# License
+Then import the package and call its public surface. Document the smallest first success here — the one command or snippet that gives a new user a real result.
 
-{LICENSE}
+<a id="repository-law"></a>
+
+## Repository Law
+
+This repository is governed by **[repository law](CLAUDE.md)** — a set of mechanically-enforced gates that make every change prove its own discipline before it can merge. There is no bypass.
+
+- Every PR closes exactly one mechanically-scoped `slice` issue and stays inside the file globs that issue declares.
+- Conventional Commits, a forced version + `CHANGELOG` bump, strict typing, and fail-loud (no silent fallbacks) are enforced on every PR.
+- The branch-protection ruleset is checked into the repository and drift-audited, and the written laws are kept in exact agreement with the gates that actually run.
+
+The full constitution is [`CLAUDE.md`](CLAUDE.md).
+
+<a id="contributing"></a>
+
+## Contributing
+
+Branch off `main`, open one PR per `slice` issue, and let the gates run on GitHub while you keep working. Every push re-runs every gate; the merge unlocks only when all are green and the branch is up to date with `main`. See [`CLAUDE.md`](CLAUDE.md) for the laws and [`docs/Developer`](docs/Developer/README.md) for the development model.
+
+<a id="using-this-template"></a>
+
+## Using This Template
+
+This repository was generated from [`Vaquum/new-repository-template`](https://github.com/Vaquum/new-repository-template). To roll out a new repository from the template:
+
+1. **Once per organization:** create a `REPO_BOOTSTRAP_TOKEN` secret (a token that can open PRs, merge through branch rules, apply labels, and apply rulesets) and set the `LABEL_TEMPLATE_REPOSITORY` variable. See [`docs/Developer`](docs/Developer/README.md) for the full prerequisite list.
+2. Click **Use this template** and create your repository.
+3. Push to `main`. The bootstrap workflow renames the package, regenerates the budgets, opens a bootstrap PR, merges it through the gates, and applies the protected-`main` ruleset — then you open your first `slice` issue.
+
+If the repository is private without GitHub Advanced Security, the bootstrap removes CodeQL from the laws, the ruleset, and the workflows together (keeping them in agreement) and opens an issue to re-enable it once the repository can run it.
+
+<a id="license"></a>
+
+## License
+
+See [`LICENSE`](LICENSE).
