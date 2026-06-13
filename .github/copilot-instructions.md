@@ -1,7 +1,6 @@
-Always start a task by reading `AGENTS.md` and `CLAUDE.md`.
+Always start a task by reading [`CLAUDE.md`](../CLAUDE.md) — the single canonical
+constitution: the laws, the workflow, and the code stance. [`AGENTS.md`](../AGENTS.md)
+is a pointer to it.
 
-Use `CLAUDE.md` for the repository law and operating discipline. Use
-`AGENTS.md` for repository-specific guidance when it is populated.
-
-Refer to `/docs` and `/docs/Developer` for system and developer context
-when the task touches documented behavior.
+Refer to `/docs` and `/docs/Developer` for system and developer context when the
+task touches documented behavior.

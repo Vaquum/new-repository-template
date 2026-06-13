@@ -1,4 +1,10 @@
-# AGENTS.md
+# CLAUDE.md
+
+The repository law, operating discipline, and code stance — the single canonical constitution for every contributor, human or agent.
+
+## Motivation
+
+We don't want saga ornamentation. We want commits that move the needle. The needle is the thing that humans actually benefit from in the software. Always ask "what are the key usage paths here, and how is this proposed change moving those?". Never be satisfied with work that seems to check the boxes, but doesn't really move the capability where the actual benefit is.
 
 ## The laws
 
