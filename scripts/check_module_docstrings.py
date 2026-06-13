@@ -3,11 +3,31 @@
 from __future__ import annotations
 
 import ast
+import json
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-SOURCE_DIR = REPO_ROOT / 'new_repository_template'
+TYPING_BUDGET = REPO_ROOT / '.github' / 'typing_budget.json'
+
+
+def _package_dir() -> Path:
+    # Single source of truth: typing_budget.json's package_root. Fail
+    # closed if it cannot be resolved -- a gate that cannot find its scan
+    # target blocks the merge instead of passing over an empty tree, so a
+    # half-finished package rename cannot silently disable it.
+    if not TYPING_BUDGET.is_file():
+        print('MODULE DOCSTRING GATE -- FAIL', file=sys.stderr)
+        print(f'  missing {TYPING_BUDGET.relative_to(REPO_ROOT)}', file=sys.stderr)
+        sys.exit(2)
+    data = json.loads(TYPING_BUDGET.read_text(encoding='utf-8'))
+    root = data.get('package_root') if isinstance(data, dict) else None
+    path = REPO_ROOT / root if isinstance(root, str) and root else None
+    if path is None or not path.is_dir():
+        print('MODULE DOCSTRING GATE -- FAIL', file=sys.stderr)
+        print(f'  package_root {root!r} is not a directory under the repo root', file=sys.stderr)
+        sys.exit(2)
+    return path
 
 
 def first_statement_docstring(source: str) -> ast.Constant | None:
@@ -44,11 +64,9 @@ def check_file(path: Path) -> str | None:
 
 
 def main() -> int:
-    if not SOURCE_DIR.is_dir():
-        print('MODULE DOCSTRING GATE -- PASS (vacuous: new_repository_template/ missing)')
-        return 0
+    source_dir = _package_dir()
     violations: list[tuple[Path, str]] = []
-    for path in sorted(SOURCE_DIR.rglob('*.py')):
+    for path in sorted(source_dir.rglob('*.py')):
         msg = check_file(path)
         if msg is not None:
             violations.append((path, msg))

@@ -32,9 +32,20 @@ def _run(script: Path, *args: str, cwd: Path) -> subprocess.CompletedProcess[str
     )
 
 
+def _write_typing_budget(root: Path, package: str = 'new_repository_template') -> None:
+    # The bloat gates resolve their scan target from this single source
+    # and fail closed without it. A synthetic repo must declare it.
+    github = root / '.github'
+    github.mkdir(parents=True, exist_ok=True)
+    (github / 'typing_budget.json').write_text(
+        json.dumps({'package_root': package}), encoding='utf-8',
+    )
+
+
 def test_module_budget_mutation_fires(tmp_path: Path) -> None:
     (tmp_path / '.github').mkdir()
     (tmp_path / 'new_repository_template').mkdir()
+    _write_typing_budget(tmp_path)
     budget = {'new_repository_template/oversized.py': 5}
     (tmp_path / '.github' / 'module_budgets.json').write_text(json.dumps(budget), encoding='utf-8')
     (tmp_path / 'new_repository_template' / 'oversized.py').write_text(
@@ -50,6 +61,7 @@ def test_module_budget_mutation_fires(tmp_path: Path) -> None:
 
 def test_module_docstring_mutation_fires(tmp_path: Path) -> None:
     (tmp_path / 'new_repository_template').mkdir()
+    _write_typing_budget(tmp_path)
     (tmp_path / 'new_repository_template' / 'no_docstring.py').write_text(
         'x = 1\n',
         encoding='utf-8',
@@ -63,6 +75,7 @@ def test_module_docstring_mutation_fires(tmp_path: Path) -> None:
 
 def test_module_docstring_multiline_mutation_fires(tmp_path: Path) -> None:
     (tmp_path / 'new_repository_template').mkdir()
+    _write_typing_budget(tmp_path)
     (tmp_path / 'new_repository_template' / 'multiline.py').write_text(
         '"""Summary line.\n\nDetailed paragraph."""\nx = 1\n',
         encoding='utf-8',
@@ -76,6 +89,7 @@ def test_module_docstring_multiline_mutation_fires(tmp_path: Path) -> None:
 
 def test_file_size_balance_mutation_fires(tmp_path: Path) -> None:
     (tmp_path / 'new_repository_template').mkdir()
+    _write_typing_budget(tmp_path)
     (tmp_path / 'new_repository_template' / 'small_a.py').write_text('a = 1\n', encoding='utf-8')
     (tmp_path / 'new_repository_template' / 'small_b.py').write_text('b = 2\n', encoding='utf-8')
     # Median will be ~1 line; a 10-line file gives ratio > 2.5.
@@ -92,6 +106,7 @@ def test_test_code_ratio_mutation_fires(tmp_path: Path) -> None:
     # but tests too small -> ratio < 0.60.
     source_dir = tmp_path / 'new_repository_template'
     source_dir.mkdir()
+    _write_typing_budget(tmp_path)
     (source_dir / 'big.py').write_text('\n'.join(f'x_{i} = {i}' for i in range(60)) + '\n', encoding='utf-8')
     (tmp_path / 'tests').mkdir()
     (tmp_path / 'tests' / 'tiny.py').write_text('y = 1\n', encoding='utf-8')

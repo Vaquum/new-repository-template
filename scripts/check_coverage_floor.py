@@ -37,8 +37,13 @@ def main() -> int:
     totals = data.get('totals', {})
     num_statements = int(totals.get('num_statements', 0))
     if num_statements == 0:
-        print('COVERAGE FLOOR GATE -- PASS (vacuous: no statements in source)')
-        return 0
+        print('COVERAGE FLOOR GATE -- FAIL', file=sys.stderr)
+        print('  coverage.json reports 0 statements under the package root', file=sys.stderr)
+        print('  a configured package must have measurable statements;', file=sys.stderr)
+        print('  0 usually means coverage ran over an empty or wrong --source', file=sys.stderr)
+        print('', file=sys.stderr)
+        print('Merge blocked.', file=sys.stderr)
+        return 1
     line_pct = float(totals.get('percent_covered', 0.0))
     branch_pct = float(totals.get('percent_covered_branches', 0.0)) if 'percent_covered_branches' in totals else float(totals.get('percent_covered', 0.0))
     line_ok = line_pct >= FLOOR_PCT
