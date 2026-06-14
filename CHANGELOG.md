@@ -1,3 +1,8 @@
+# v0.6.0
+
+- Add [`SETUP.md`](SETUP.md): the complete, agent-ready runbook for creating a new repository from the template — every secret (`REPO_BOOTSTRAP_TOKEN`, `RULESET_AUDIT_TOKEN`), variable, and token scope the rules require, why the bootstrap token must be a PAT/App (not `GITHUB_TOKEN`), why the secrets must be org-level, what the bootstrap does automatically, verification commands, and a failure-mode table. Linked from `CLAUDE.md`, `README.md`, and `copilot-instructions.md` so an agent finds it on first read; `docs/Developer` now points to it as the single source.
+- Fix the bootstrap file rewrite to preserve `Vaquum/new-repository-template` references (provenance, the SETUP `--template` command, the label source) in every file rather than only in the bootstrap script, with an integration test.
+
 # v0.5.4
 
 - Replace the issue templates with Furnace's `slice.yml` and `prd.yml` (the `slice.yml` description neutralized from "one Furnace slice" to "one repository slice"); remove `incident_report.yml` and `incident_post_mortem.md`. The `.github/ISSUE_TEMPLATE/` directory now holds exactly those two templates. The slice gate and bootstrap extract the 11 Significance blockquotes from this template dynamically, so they self-adjust.

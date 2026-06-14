@@ -184,10 +184,10 @@ def _replace_identity_tokens(
         rel_path = path.relative_to(REPO_ROOT).as_posix()
         if rel_path.startswith('.github/workflows/'):
             continue
-        if rel_path == 'tools/bootstrap_repository.py':
-            updated = text.replace('Vaquum/new-repository-template', label_template_sentinel)
-        else:
-            updated = text
+        # References to the template's own slug -- provenance in README, the
+        # SETUP runbook, the bootstrap label source -- must survive
+        # specialization unchanged, in every file, not just this script.
+        updated = text.replace('Vaquum/new-repository-template', label_template_sentinel)
         for old_package in sorted(old_packages, key=len, reverse=True):
             if old_package != package_name:
                 updated = updated.replace(old_package, package_name)

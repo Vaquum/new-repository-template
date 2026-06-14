@@ -13,32 +13,12 @@ rolled out and extended.
 
 ## Rolling out a new repository from the template
 
-The template self-bootstraps. On the first push to `main` of a repository
-created from it, `bootstrap_repository.yml` renames the package to the
-repository's name, regenerates the typing / fail-loud / module budgets against
-that package, opens a `slice`-labelled bootstrap PR, merges it through the
-gates, and applies the protected-`main` ruleset.
-
-That flow needs three things configured **once per organization** (the
-bootstrap fails loud, naming the missing one, if they are absent):
-
-| Name | Kind | Purpose |
-| --- | --- | --- |
-| `REPO_BOOTSTRAP_TOKEN` | secret | A token that can push a branch, open and merge a PR through branch rules, create labels, and create/update repository rulesets. The bootstrap uses it to land the bootstrap PR and apply the ruleset. |
-| `LABEL_TEMPLATE_REPOSITORY` | variable | The repository whose issue labels are copied into the new repository. Defaults to `Vaquum/new-repository-template`. |
-| `RULESET_AUDIT_TOKEN` | secret | A privileged token used by `audit_main_ruleset` (post-merge) to read the live ruleset including `bypass_actors`, which the PR-time gate's token cannot observe. |
-
-`RULESET_ID` is a repository **variable** the bootstrap sets automatically once
-it applies the live ruleset; the ruleset and audit gates read it. You do not set
-it by hand.
-
-### CodeQL on private repositories
-
-CodeQL needs a public repository or GitHub Advanced Security. When the bootstrap
-detects that neither is available, it removes CodeQL from the laws, the ruleset
-snapshot, and the workflows **together** (so the laws ↔ ruleset bijection still
-holds) and opens an issue to re-enable it. Make the repository public, or enable
-Advanced Security, then follow that issue to restore it.
+The complete setup runbook — the once-per-organization secrets and variables
+(`REPO_BOOTSTRAP_TOKEN`, `RULESET_AUDIT_TOKEN`, `LABEL_TEMPLATE_REPOSITORY`),
+the exact token scopes, what the bootstrap does automatically, how to verify it,
+the CodeQL-on-private behavior, and every failure mode — is
+[`SETUP.md`](../../SETUP.md). Follow it when creating a new repository from this
+template.
 
 ## Adding an app-specific required gate
 

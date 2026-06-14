@@ -2,6 +2,8 @@
 
 The repository law, operating discipline, and code stance — the single canonical constitution for every contributor, human or agent.
 
+> **Creating or bootstrapping a new repository from this template?** Read [SETUP.md](SETUP.md) first — it lists every secret, variable, and permission the rules require, with the exact steps, verification, and failure modes. Set those up before relying on any gate.
+
 ## Motivation
 
 We don't want saga ornamentation. We want commits that move the needle. The needle is the thing that humans actually benefit from in the software. Always ask "what are the key usage paths here, and how is this proposed change moving those?". Never be satisfied with work that seems to check the boxes, but doesn't really move the capability where the actual benefit is.

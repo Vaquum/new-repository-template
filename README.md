@@ -57,7 +57,7 @@ Branch off `main`, open one PR per `slice` issue, and let the gates run on GitHu
 
 ## Using This Template
 
-This repository was generated from [`Vaquum/new-repository-template`](https://github.com/Vaquum/new-repository-template). To roll out a new repository from the template:
+This repository was generated from [`Vaquum/new-repository-template`](https://github.com/Vaquum/new-repository-template). The complete, agent-ready setup runbook — every secret, variable, and permission, with verification and failure modes — is **[SETUP.md](SETUP.md)**. In short:
 
 1. **Once per organization:** create a `REPO_BOOTSTRAP_TOKEN` secret (a token that can open PRs, merge through branch rules, apply labels, and apply rulesets) and set the `LABEL_TEMPLATE_REPOSITORY` variable. See [`docs/Developer`](docs/Developer/README.md) for the full prerequisite list.
 2. Click **Use this template** and create your repository.
