@@ -1,3 +1,7 @@
+# v0.9.0
+
+- Add a test-fallback gate (`scripts/check_test_fallbacks.py`, run in `pr_checks_lint`): test files may not use `try`/`except` (the legitimate way to assert exception behavior is `pytest.raises`). Closes the test-hygiene gap where `fail_loud_gate` scans only the package and ruff ignores `BLE001` in tests.
+
 # v0.8.0
 
 - Add a diff-coverage gate (`scripts/check_diff_coverage.py`, run in `pr_checks_lint`): executable lines added to the package by a PR must be covered at >= 80% (a real per-diff floor, where the global 50/45 floor can be satisfied by old code). Resolves `package_root` from the single source and fails closed; parsing and evaluation are pure-function unit-tested.

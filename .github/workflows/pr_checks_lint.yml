@@ -75,6 +75,9 @@ jobs:
       - name: No-swallowed-violations gate
         run: .venv-lint/bin/python scripts/check_no_swallowed_violations.py
 
+      - name: Test fallback gate
+        run: .venv-lint/bin/python scripts/check_test_fallbacks.py
+
       - name: Coverage floor gate
         run: |
           .venv-lint/bin/python -m coverage run --branch --source="${{ steps.package.outputs.package_root }}" \

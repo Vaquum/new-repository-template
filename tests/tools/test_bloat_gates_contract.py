@@ -24,6 +24,7 @@ GATE_SCRIPTS: Final[list[str]] = [
     'check_diff_coverage.py',
     'check_budget_ratchet.py',
     'check_no_swallowed_violations.py',
+    'check_test_fallbacks.py',
 ]
 
 GATE_BANNERS: Final[dict[str, str]] = {
@@ -35,6 +36,7 @@ GATE_BANNERS: Final[dict[str, str]] = {
     'check_diff_coverage.py': 'DIFF COVERAGE GATE',
     'check_budget_ratchet.py': 'BUDGET RATCHET GATE',
     'check_no_swallowed_violations.py': 'NO SWALLOWED VIOLATIONS GATE',
+    'check_test_fallbacks.py': 'TEST FALLBACK GATE',
 }
 
 
@@ -63,7 +65,7 @@ def test_module_budgets_covers_every_package_path() -> None:
         f'extra={sorted(package_paths - actual_paths)}, '
         f'missing={sorted(actual_paths - package_paths)}'
     )
-    assert len(script_paths) == 9, f'expected 9 scripts paths, got {len(script_paths)}'
+    assert len(script_paths) == 10, f'expected 10 scripts paths, got {len(script_paths)}'
 
 
 def _actual_package_paths() -> set[str]:

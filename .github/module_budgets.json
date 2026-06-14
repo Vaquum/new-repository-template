@@ -8,5 +8,6 @@
   "scripts/check_module_budgets.py": 120,
   "scripts/check_module_docstrings.py": 120,
   "scripts/check_no_swallowed_violations.py": 120,
-  "scripts/check_test_code_ratio.py": 120
+  "scripts/check_test_code_ratio.py": 120,
+  "scripts/check_test_fallbacks.py": 120
 }
