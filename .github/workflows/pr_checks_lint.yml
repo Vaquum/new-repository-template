@@ -105,3 +105,14 @@ jobs:
           .venv-lint/bin/python governance/check_budget_ratchet.py \
             --base-ref "origin/$BASE_REF" \
             --pr-number "$PR_NUMBER"
+
+      - name: Coverage ratchet gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch origin "$BASE_REF" --depth=1
+          .venv-lint/bin/python governance/check_coverage_ratchet.py \
+            --base-ref "origin/$BASE_REF" \
+            --pr-number "$PR_NUMBER"

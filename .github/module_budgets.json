@@ -3,6 +3,7 @@
   "governance/__init__.py": 10,
   "governance/check_budget_ratchet.py": 120,
   "governance/check_coverage_floor.py": 120,
+  "governance/check_coverage_ratchet.py": 120,
   "governance/check_diff_coverage.py": 120,
   "governance/check_docstrings.py": 120,
   "governance/check_file_size_balance.py": 120,

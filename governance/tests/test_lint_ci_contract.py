@@ -116,6 +116,7 @@ def test_pr_checks_lint_runs_pinned_ruff_on_tools_and_tests_tools() -> None:
     assert 'governance/check_file_size_balance.py' in workflow
     assert 'governance/check_test_code_ratio.py' in workflow
     assert 'governance/check_coverage_floor.py' in workflow
+    assert 'governance/check_coverage_ratchet.py' in workflow
     assert 'governance/check_budget_ratchet.py' in workflow
     assert 'vulture' in workflow
     assert '"${{ steps.package.outputs.package_root }}/" --min-confidence 80' in workflow
