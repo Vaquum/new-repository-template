@@ -534,6 +534,19 @@ def _apply_file_bootstrap(
     owner: str | None,
     codeql: str = 'supported',
 ) -> None:
+    # Idempotency guard. The bootstrap workflow triggers on every push to
+    # main, but the rewrite must run exactly once. Once the seed package has
+    # been renamed away the repository is already bootstrapped; re-running
+    # would only regenerate the module budgets against the values the
+    # repository has since tuned, producing a diff that opens a spurious
+    # bootstrap PR on every later merge. If no seed package remains, do
+    # nothing so the rewrite is a clean no-op.
+    if not any((REPO_ROOT / seed).is_dir() for seed in KNOWN_SEED_PACKAGES):
+        print(
+            'bootstrap: repository already bootstrapped '
+            '(no seed package present); skipping file rewrite.'
+        )
+        return
     pyproject = _load_pyproject()
     old_packages = _package_roots_from_config(pyproject)
     old_packages.add(package_name)

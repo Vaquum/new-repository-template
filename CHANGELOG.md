@@ -1,3 +1,7 @@
+# v0.11.4
+
+- Make the bootstrap file rewrite idempotent. The bootstrap workflow triggers on every push to `main`, but `_apply_file_bootstrap` always re-ran `_write_module_budgets`, which regenerates budgets from the current source — so once a repository had tuned a module budget (every real slice does), each later merge re-derived different numbers, saw a diff, and opened a fresh `chore: bootstrap repository law` PR that could not auto-merge (the live ruleset now requires a review), leaving stuck PRs to accumulate. `_apply_file_bootstrap` now returns early when no seed package remains (the repository is already specialized), so re-runs are a clean no-op and open no PR. Covered by a new `test_file_bootstrap_is_idempotent` that runs the rewrite twice and asserts the second run changes nothing. Found end-to-end: every verification repo accrued one spurious bootstrap PR per merged slice.
+
 # v0.11.3
 
 - Move every workflow off the Node 20 GitHub Actions that GitHub is retiring (forced to Node 24 on 2026-06-16, removed 2026-09-16). Bumped to their Node-24 majors across all `.github/workflows`: `actions/checkout@v4` → `@v5`, `actions/setup-python@v4`/`@v5` → `@v6`, `actions/upload-artifact@v4` → `@v7`, `astral-sh/setup-uv@v4` → `@v7`, and `github/codeql-action/{init,autobuild,analyze}@v3` → `@v4`. Every action whose `action.yml` declared `runs.using: node20` is now on a Node-24 major; no Node-20 action remains. Surfaced by the deprecation warning on bootstrapped repos' Actions runs.
