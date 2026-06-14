@@ -22,7 +22,7 @@ Eleven laws. Ten are workflow gates on every PR; the eleventh is branch protecti
 
 5. **Every PR bumps the version and leaves a CHANGELOG trail.** `[project].version` advances strictly forward by `MAJOR.MINOR.PATCH`. `CHANGELOG.md`'s first `# v<X.Y.Z>` header equals the new version and carries at least one content line. Bump level meets the Conventional Commits type minimum: `type!` → major, `feat` → minor, else patch. *(pr_checks_version)*
 
-6. **The lint gate passes.** Ruff 0.15.11 across the package, `governance/`, and `tests/`; no dead code (vulture); every module within its line budget; the coverage floor holds. *(pr_checks_lint)*
+6. **The lint gate passes.** Ruff 0.15.11 across the package, `governance/`, and `tests/`; no dead code (vulture); every module within its line budget; changed lines arrive covered; and the coverage floor in `.github/coverage_budget.json` holds and ratchets upward — it tracks real coverage and cannot be lowered by the PR it gates without a `[coverage-lower: <field>: <reason>]` marker. *(pr_checks_lint)*
 
 7. **`pytest tests/package -q --maxfail=1` passes.** *(pr_checks_tests)*
 
@@ -59,6 +59,8 @@ When reviewing comments left on an issue you are working on, always address the 
 The opinion is the deliverable. Confirming before posting adds a round-trip and slows collaboration.
 
 ## Beyond the laws
+
+**Reviewing a PR right now?** Read the PR-review guideline in [`.github/copilot-instructions.md`](.github/copilot-instructions.md) first — how to read a diff beyond its own lines, what to hunt, the verdict ladder, and how to post. Every reviewer here (Copilot, agent, or human) works from that one brief.
 
 The gates check shape, scope, format, ratchets, and named test suites. They do not check whether the slice's capability actually works. The operator judges that at review time, against the following stance:
 

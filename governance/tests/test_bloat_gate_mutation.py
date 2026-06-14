@@ -116,14 +116,23 @@ def test_test_code_ratio_mutation_fires(tmp_path: Path) -> None:
     assert 'TEST/CODE RATIO GATE -- FAIL' in result.stderr
 
 
+def _write_coverage_budget(root: Path, line: int = 50, branch: int = 45) -> None:
+    github = root / '.github'
+    github.mkdir(parents=True, exist_ok=True)
+    (github / 'coverage_budget.json').write_text(
+        json.dumps({'line': line, 'branch': branch}), encoding='utf-8',
+    )
+
+
 def test_coverage_floor_mutation_fires(tmp_path: Path) -> None:
-    # Mutation input must be below both the line floor (50%) and the
-    # branch floor (45%) to trip the gate.
+    # Actual coverage below both the line floor (50%) and branch floor (45%).
+    _write_coverage_budget(tmp_path)
     coverage = {
         'totals': {
             'num_statements': 100,
-            'percent_covered': 40.0,
-            'percent_covered_branches': 35.0,
+            'num_branches': 20,
+            'percent_statements_covered': 40.0,
+            'percent_branches_covered': 35.0,
         },
         'files': {'new_repository_template/foo.py': {'missing_lines': [10, 11, 12]}},
     }
@@ -133,6 +142,41 @@ def test_coverage_floor_mutation_fires(tmp_path: Path) -> None:
     assert result.returncode == 1
     assert 'COVERAGE FLOOR GATE -- FAIL' in result.stderr
     assert '40.0%' in result.stderr
+
+
+def test_coverage_floor_track_mutation_fires(tmp_path: Path) -> None:
+    # Actual coverage clears the floor but has run far ahead of it: the
+    # TRACK rule demands the gain be banked, so the gate fires.
+    _write_coverage_budget(tmp_path, line=50, branch=45)
+    coverage = {
+        'totals': {
+            'num_statements': 100,
+            'num_branches': 30,
+            'percent_statements_covered': 92.0,
+            'percent_branches_covered': 90.0,
+        },
+        'files': {},
+    }
+    (tmp_path / 'coverage.json').write_text(json.dumps(coverage), encoding='utf-8')
+    script = _clone_script_into(tmp_path, 'check_coverage_floor.py')
+    result = _run(script, cwd=tmp_path)
+    assert result.returncode == 1
+    assert 'COVERAGE FLOOR GATE -- FAIL' in result.stderr
+    assert 'Bank the gain' in result.stderr
+
+
+def test_coverage_ratchet_mutation_fires(tmp_path: Path) -> None:
+    # Head floor is lowered below the base floor with no marker -> fires.
+    _write_coverage_budget(tmp_path, line=50, branch=45)
+    base_file = tmp_path / 'base.json'
+    base_file.write_text(json.dumps({'line': 80, 'branch': 70}), encoding='utf-8')
+    body_file = tmp_path / 'body.txt'
+    body_file.write_text('', encoding='utf-8')
+    script = _clone_script_into(tmp_path, 'check_coverage_ratchet.py')
+    result = _run(script, '--base-file', str(base_file), '--pr-body-file', str(body_file), cwd=tmp_path)
+    assert result.returncode == 1
+    assert 'COVERAGE RATCHET GATE -- FAIL' in result.stderr
+    assert 'lowered without marker' in result.stderr
 
 
 def test_budget_ratchet_mutation_fires(tmp_path: Path) -> None:

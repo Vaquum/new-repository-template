@@ -1,64 +1,123 @@
 #!/usr/bin/env python3
-"""Coverage floor gate: line >= 50%, branch >= 45%, over new_repository_template/."""
+"""Coverage floor gate: actual coverage must clear a ratcheting floor.
+
+Two rules over `new_repository_template/`, read from `coverage.json`:
+
+  FLOOR  actual line/branch coverage >= the floor in
+         `.github/coverage_budget.json`. The Limen-style absolute gate.
+  TRACK  once the package is non-trivial, the floor may not lag actual
+         coverage by more than TRACK_SLACK points -- a real improvement
+         must be banked into the floor so it cannot silently erode back.
+
+FLOOR alone lets a 95%-covered package rot to 51% under a static 50%
+floor. TRACK closes that slack: gains are locked in. The floor can only
+be *lowered* through `check_coverage_ratchet.py` (with a PR-body marker),
+so the two rules together make the floor a genuine ratchet.
+"""
 from __future__ import annotations
 
 import json
+import math
 import sys
 from pathlib import Path
-from typing import Final
+from typing import Final, NoReturn
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 COVERAGE_JSON = REPO_ROOT / 'coverage.json'
+BUDGET_PATH = REPO_ROOT / '.github' / 'coverage_budget.json'
 
-# Bootstrap floor: 50% line / 45% branch.
-#
-# The original 95/90 floor assumed the package would be mostly
-# pure-Python algorithmic code. A fresh repository often starts with
-# package scaffolding and enforcement code before it has enough domain
-# logic for a high coverage floor to be meaningful.
-#
-# The 50/45 floor still catches:
-#   - a production module that ships with zero tests.
-#   - a pure-Python module whose unit coverage drops below half.
-#   - an accidental code-death in a previously-tested module.
-#
-# Follow-up slices should raise the floor as the package surface grows.
-FLOOR_PCT: Final[float] = 50.0
-BRANCH_FLOOR_PCT: Final[float] = 45.0
+# TRACK engages only once there is enough code for the percentage to be a
+# stable signal -- a 1-statement stub at a vacuous 100% must not be forced
+# to a 98% floor that breaks the first real, partially-tested module.
+MIN_STATEMENTS_FOR_TRACK: Final[int] = 50
+MIN_BRANCHES_FOR_TRACK: Final[int] = 20
+TRACK_SLACK: Final[int] = 2
+
+
+def _fail_setup(message: str) -> NoReturn:
+    print('COVERAGE FLOOR GATE -- FAIL', file=sys.stderr)
+    print(f'  {message}', file=sys.stderr)
+    sys.exit(2)
+
+
+def _num(totals: dict[str, object], key: str) -> float:
+    value = totals.get(key, 0)
+    return float(value) if isinstance(value, (int, float)) else 0.0
+
+
+def _load_floor() -> tuple[int, int]:
+    if not BUDGET_PATH.is_file():
+        _fail_setup(f'missing {BUDGET_PATH.relative_to(REPO_ROOT)} (the coverage floor)')
+    try:
+        raw = json.loads(BUDGET_PATH.read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError) as exc:
+        _fail_setup(f'cannot read {BUDGET_PATH}: {exc}')
+    if not isinstance(raw, dict):
+        _fail_setup(f'{BUDGET_PATH} is not a JSON object')
+    out: list[int] = []
+    for key in ('line', 'branch'):
+        value = raw.get(key)
+        if not isinstance(value, int) or isinstance(value, bool) or not 0 <= value <= 100:
+            _fail_setup(f'{BUDGET_PATH}["{key}"] must be an int in [0, 100], got {value!r}')
+        out.append(int(value))
+    return out[0], out[1]
+
+
+def _line_pct(totals: dict[str, object]) -> float:
+    raw = totals.get('percent_statements_covered', totals.get('percent_covered', 0.0))
+    return float(raw) if isinstance(raw, (int, float)) else 0.0
+
+
+def _branch_pct(totals: dict[str, object]) -> float:
+    if int(_num(totals, 'num_branches')) == 0:
+        return 100.0  # no branches -> branch coverage is vacuously complete
+    raw = totals.get('percent_branches_covered', totals.get('percent_covered', 0.0))
+    return float(raw) if isinstance(raw, (int, float)) else 0.0
+
+
+def _track_violation(label: str, actual: float, floor: int, units: int, min_units: int) -> str | None:
+    if units < min_units:
+        return None
+    banked = math.floor(actual) - TRACK_SLACK
+    if banked <= floor:
+        return None
+    return (
+        f'{label} coverage is {actual:.1f}% but the floor is still {floor}%. '
+        f'Bank the gain: raise "{label}" in coverage_budget.json to >= {banked}%.'
+    )
 
 
 def main() -> int:
     if not COVERAGE_JSON.is_file():
-        print('COVERAGE FLOOR GATE -- FAIL', file=sys.stderr)
-        print(f'  no coverage.json at {COVERAGE_JSON}', file=sys.stderr)
-        print('  expected from a prior `coverage json -o coverage.json` run', file=sys.stderr)
-        return 2
+        _fail_setup(f'no coverage.json at {COVERAGE_JSON} (run `coverage json` first)')
     data = json.loads(COVERAGE_JSON.read_text(encoding='utf-8'))
     totals = data.get('totals', {})
-    num_statements = int(totals.get('num_statements', 0))
+    num_statements = int(_num(totals, 'num_statements'))
     if num_statements == 0:
+        _fail_setup('coverage.json reports 0 statements under the package root '
+                    '(coverage likely ran over an empty or wrong --source)')
+    num_branches = int(_num(totals, 'num_branches'))
+    line_pct = _line_pct(totals)
+    branch_pct = _branch_pct(totals)
+    line_floor, branch_floor = _load_floor()
+
+    failures: list[str] = []
+    if line_pct < line_floor:
+        failures.append(f'line coverage:   {line_pct:.1f}% (floor {line_floor}%)')
+    if branch_pct < branch_floor:
+        failures.append(f'branch coverage: {branch_pct:.1f}% (floor {branch_floor}%)')
+    for msg in (
+        _track_violation('line', line_pct, line_floor, num_statements, MIN_STATEMENTS_FOR_TRACK),
+        _track_violation('branch', branch_pct, branch_floor, num_branches, MIN_BRANCHES_FOR_TRACK),
+    ):
+        if msg is not None:
+            failures.append(msg)
+
+    if failures:
         print('COVERAGE FLOOR GATE -- FAIL', file=sys.stderr)
-        print('  coverage.json reports 0 statements under the package root', file=sys.stderr)
-        print('  a configured package must have measurable statements;', file=sys.stderr)
-        print('  0 usually means coverage ran over an empty or wrong --source', file=sys.stderr)
         print('', file=sys.stderr)
-        print('Merge blocked.', file=sys.stderr)
-        return 1
-    line_pct = float(totals.get('percent_covered', 0.0))
-    branch_pct = float(totals.get('percent_covered_branches', 0.0)) if 'percent_covered_branches' in totals else float(totals.get('percent_covered', 0.0))
-    line_ok = line_pct >= FLOOR_PCT
-    branch_ok = branch_pct >= BRANCH_FLOOR_PCT
-    if not (line_ok and branch_ok):
-        print('COVERAGE FLOOR GATE -- FAIL', file=sys.stderr)
-        print('', file=sys.stderr)
-        print(
-            f'  line coverage:   {line_pct:.1f}% (required: >= {FLOOR_PCT}%)',
-            file=sys.stderr,
-        )
-        print(
-            f'  branch coverage: {branch_pct:.1f}% (required: >= {BRANCH_FLOOR_PCT}%)',
-            file=sys.stderr,
-        )
+        for line in failures:
+            print(f'  {line}', file=sys.stderr)
         missing = sorted(
             (rel, f['missing_lines'])
             for rel, f in (data.get('files') or {}).items()
@@ -69,15 +128,12 @@ def main() -> int:
             print('  missing lines (top 10 files):', file=sys.stderr)
             for rel, lines in missing:
                 preview = ','.join(str(n) for n in lines[:5])
-                suffix = '…' if len(lines) > 5 else ''
-                print(f'    {rel}: {preview}{suffix}', file=sys.stderr)
+                print(f'    {rel}: {preview}{"…" if len(lines) > 5 else ""}', file=sys.stderr)
         print('', file=sys.stderr)
         print('Merge blocked.', file=sys.stderr)
         return 1
-    print(
-        f'COVERAGE FLOOR GATE -- PASS '
-        f'(line={line_pct:.1f}%, branch={branch_pct:.1f}%)'
-    )
+    print(f'COVERAGE FLOOR GATE -- PASS (line={line_pct:.1f}%>={line_floor}%, '
+          f'branch={branch_pct:.1f}%>={branch_floor}%)')
     return 0
 
 

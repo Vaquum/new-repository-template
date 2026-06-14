@@ -52,15 +52,6 @@ import sys
 from pathlib import Path
 from typing import Final
 
-try:
-    import yaml  # type: ignore[import-untyped]
-except ImportError as _exc:
-    print(
-        'slice_gate: PyYAML is required (pip install pyyaml)',
-        file=sys.stderr,
-    )
-    raise SystemExit(2) from _exc
-
 # GitHub's own regex for closing keywords.
 # https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue
 CLOSING_KEYWORD_RE: Final[re.Pattern[str]] = re.compile(
@@ -89,6 +80,10 @@ def extract_significance_blockquotes(template_path: Path) -> list[str]:
     template: if the template's Significance paragraphs change, the
     gate immediately expects the new text in every slice issue body.
     """
+    try:
+        import yaml  # type: ignore[import-untyped]
+    except ImportError as exc:
+        raise SystemExit('slice_gate: PyYAML is required (pip install pyyaml)') from exc
     try:
         with template_path.open(encoding='utf-8') as fh:
             template = yaml.safe_load(fh)

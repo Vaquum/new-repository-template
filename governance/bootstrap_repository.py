@@ -515,6 +515,16 @@ def disable_codeql(repo_root: Path = REPO_ROOT) -> int:
     if workflow_path.is_file():
         workflow_path.unlink()
         changed += 1
+    # Keep the ruleset test fixtures consistent with the de-CodeQL'd snapshot,
+    # so the ruleset-gate and audit contract tests do not see false drift.
+    fixtures_dir = repo_root / 'governance' / 'tests' / 'fixtures' / 'github'
+    if fixtures_dir.is_dir():
+        for fixture in sorted(fixtures_dir.glob('*.json')):
+            data = json.loads(fixture.read_text(encoding='utf-8'))
+            if isinstance(data, dict) and _drop_codeql_context(data):
+                changed += _write_text_if_changed(
+                    fixture, json.dumps(data, indent=2) + '\n'
+                )
     return changed
 
 
