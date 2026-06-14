@@ -1,3 +1,7 @@
+# v0.13.1
+
+- Consolidate the agent-facing guidelines into one canonical home each. Everything about reviewing a pull request now lives in `.github/copilot-instructions.md` (what GitHub's built-in Copilot review reads), and `CLAUDE.md` points to it for any review task instead of carrying its own copy. The generic, non-gate-enforced conventions move into `CLAUDE.md`: a new Conventions section (dependencies, logging, public surface, resources, LLM output, docs, release notes), a Fail-loud-fix-the-cause stance, and author-side PR discipline (read your own diff before requesting review; one logical change per commit). No code or gate changes.
+
 # v0.13.0
 
 - Add a dependency-vulnerability gate (`governance/check_dependency_vulnerabilities.py`, run in `pr_checks_lint`): the declared runtime dependencies in `[project.dependencies]` are audited with pip-audit, and any known CVE blocks merge unless covered by an active, time-boxed entry in `.github/vuln_exceptions.json` (id + reason + expiry; an expired exception no longer covers). The verdict logic is a pure, unit-tested function; the template ships with no runtime dependencies, so the gate is a vacuous pass until a derived repository declares some. Folded into the existing lint gate, so no new required check and the bijection is untouched.
