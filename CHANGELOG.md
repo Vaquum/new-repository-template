@@ -1,3 +1,7 @@
+# v0.11.3
+
+- Move every workflow off the Node 20 GitHub Actions that GitHub is retiring (forced to Node 24 on 2026-06-16, removed 2026-09-16). Bumped to their Node-24 majors across all `.github/workflows`: `actions/checkout@v4` → `@v5`, `actions/setup-python@v4`/`@v5` → `@v6`, `actions/upload-artifact@v4` → `@v7`, `astral-sh/setup-uv@v4` → `@v7`, and `github/codeql-action/{init,autobuild,analyze}@v3` → `@v4`. Every action whose `action.yml` declared `runs.using: node20` is now on a Node-24 major; no Node-20 action remains. Surfaced by the deprecation warning on bootstrapped repos' Actions runs.
+
 # v0.11.2
 
 - Document in `SETUP.md` that the approving account must have **write** access to the repository: a required approval only counts from a write-access account, so a read-only approver leaves every PR stuck at "review required". Found end-to-end — a freshly bootstrapped repo could not merge any PR until the named approver (`zero-bang`) was granted push access. The platform-settings checklist and the Appendix B failure-mode table now state the requirement and the fix (per-repo collaborator or, preferably, an org team with write on all template repos).
