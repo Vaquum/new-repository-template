@@ -14,7 +14,7 @@ Eleven laws. Ten are workflow gates on every PR; the eleventh is branch protecti
 
 1. **Every PR closes exactly one OPEN slice-labelled issue.** PR title byte-equals the issue title. Diff stays within the issue's `## Surfaces` globs. Diff touches no path in `## Out of Scope`. Issue body preserves every `> **Significance.**` blockquote from the slice template verbatim. *(pr_checks_slice)*
 
-2. **PR title, every non-merge commit, and the linked issue title match Conventional Commits v1.0.0.** Allowed types: `feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert`. *(pr_checks_cc)*
+2. **PR title, every non-merge commit, and the linked issue title match Conventional Commits v1.0.0, and no commit message or the PR title names an AI/LLM assistant.** Allowed types: `feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert`. *(pr_checks_cc)*
 
 3. **Typing discipline never weakens.** No new `Any`, `cast(..., Any)`, `# type: ignore`, `# pyright: ignore`, or `# noqa`. Pyright error count cannot rise. `.github/typing_budget.json` cannot be raised by the PR it gates. *(pr_checks_typing)*
 

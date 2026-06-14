@@ -11,6 +11,10 @@ This gate enforces the Conventional Commits v1.0.0 specification on:
   3. Every non-merge commit message in the PR's commit range
      (``$BASE..$HEAD``).
 
+It additionally fails if the PR title or any non-merge commit message
+names an AI/LLM assistant -- commit metadata in this org never carries
+AI attribution.
+
 Specification reference: https://www.conventionalcommits.org/en/v1.0.0/
 
 Accepted format:
@@ -70,6 +74,17 @@ CC_RE: Final[re.Pattern[str]] = re.compile(
 # should be independently invocable).
 CLOSING_KEYWORD_RE: Final[re.Pattern[str]] = re.compile(
     r'\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)\b',
+    re.IGNORECASE,
+)
+
+# AI/LLM attribution scan. Commit metadata in this org never names an
+# AI/LLM assistant, so the PR title and every non-merge commit message
+# must be free of these markers.
+ATTRIBUTION_RE: Final[re.Pattern[str]] = re.compile(
+    r'\bclaude\b|\bcodex\b|\bchatgpt\b|\bgpt-?\d\b|\bcopilot\b|\bcursor\b'
+    r'|\bgemini\b|\banthropic\b|\bopenai\b|\bllm\b|\bai[ -]?assistant\b'
+    r'|generated[ -]with'
+    r'|co-authored-by:\s*.*(?:claude|openai|anthropic|chatgpt|codex|copilot|cursor|gemini)',
     re.IGNORECASE,
 )
 
@@ -189,6 +204,34 @@ def find_closing_references(body: str) -> list[int]:
     return [int(m.group(1)) for m in CLOSING_KEYWORD_RE.finditer(body)]
 
 
+def attribution_hit(text: str) -> str | None:
+    """Return the first AI/LLM-attribution substring in ``text``, or None."""
+    match = ATTRIBUTION_RE.search(text)
+    if match is None:
+        return None
+    return match.group(0)
+
+
+def list_commit_messages(base_ref: str, head_ref: str) -> list[tuple[str, str]]:
+    """Return ``(sha, full message)`` for every non-merge commit in range.
+
+    Merge commits are excluded (``--no-merges``) so an auto-generated merge
+    subject that happens to name a branch like ``copilot/...`` does not
+    register as authored attribution.
+    """
+    out = run_git([
+        'log', f'{base_ref}..{head_ref}', '--no-merges', '--format=%H%x1f%B%x1e',
+    ])
+    messages: list[tuple[str, str]] = []
+    for record in out.split('\x1e'):
+        stripped = record.strip()
+        if not stripped:
+            continue
+        sha, _, body = stripped.partition('\x1f')
+        messages.append((sha.strip(), body))
+    return messages
+
+
 def gate(
     pr_title: str,
     pr_body: str,
@@ -223,6 +266,20 @@ def gate(
         if err is not None:
             failures.append(
                 f'linked issue #{refs[0]} title {issue_title!r} {err}.'
+            )
+
+    # Rule 4: no AI/LLM attribution in the PR title or any commit message.
+    title_hit = attribution_hit(pr_title)
+    if title_hit is not None:
+        failures.append(
+            f'PR title names an AI/LLM assistant ({title_hit!r}); strip the attribution.'
+        )
+    for sha, message in list_commit_messages(base_ref, head_ref):
+        hit = attribution_hit(message)
+        if hit is not None:
+            failures.append(
+                f'commit {sha[:8]} message names an AI/LLM assistant '
+                f'({hit!r}); strip the attribution.'
             )
 
     return failures

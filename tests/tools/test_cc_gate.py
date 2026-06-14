@@ -16,3 +16,27 @@ def test_issue_title_fetch_is_non_nullable_and_gate_has_no_none_guard() -> None:
     assert 'or None if the issue cannot be' not in block
     assert 'raise SystemExit(2)' in block
     assert 'if issue_title is not None' not in source
+
+
+def _load_cc_gate():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('cc_gate', REPO_ROOT / 'tools/cc_gate.py')
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_attribution_hit_flags_ai_attribution() -> None:
+    cc = _load_cc_gate()
+    assert cc.attribution_hit('Co-Authored-By: Claude <noreply@anthropic.com>') is not None
+    assert cc.attribution_hit('feat: generated with Copilot assistance') is not None
+    assert cc.attribution_hit('chore: 🤖 Generated with the assistant') is not None
+    assert cc.attribution_hit('refactor: address anthropic feedback') is not None
+
+
+def test_attribution_hit_passes_clean_messages() -> None:
+    cc = _load_cc_gate()
+    assert cc.attribution_hit('feat: add the maker-fill evaluator') is None
+    assert cc.attribution_hit('docs: clarify the rollout runbook') is None
+    assert cc.attribution_hit('fix: bound the version read') is None
