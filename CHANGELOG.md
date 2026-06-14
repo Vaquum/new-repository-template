@@ -1,3 +1,7 @@
+# v0.14.0
+
+- Add `governance.yml` as the root central governance config and enforce its first settings against the live workflows, ruleset snapshot, setup docs, review authority, and tool pins through contract tests.
+
 # v0.13.2
 
 - Allow manual reruns of the bootstrap workflow from `main` to repair labels and the protected-main ruleset after file bootstrap has already merged, and bound the bootstrap job while it waits on PR checks.
