@@ -61,3 +61,36 @@ def test_strict_semver_rejects_prerelease_versions() -> None:
     with pytest.raises(SystemExit) as exc:
         version_gate.parse_semver('1.2.4-alpha')
     assert exc.value.code == 2
+
+
+def test_gate_rejects_past_tense_changelog_bullet() -> None:
+    failures = version_gate.gate(
+        'fix: tighten law template',
+        _pyproject('1.2.3'),
+        _pyproject('1.2.4'),
+        _changelog('1.2.3'),
+        _changelog('1.2.4', body='- Added a new helper.\n'),
+    )
+    assert any('past tense' in item for item in failures)
+
+
+def test_gate_rejects_changelog_placeholder() -> None:
+    failures = version_gate.gate(
+        'fix: tighten law template',
+        _pyproject('1.2.3'),
+        _pyproject('1.2.4'),
+        _changelog('1.2.3'),
+        _changelog('1.2.4', body='- Fix the parser (TODO: expand later).\n'),
+    )
+    assert any('placeholder' in item for item in failures)
+
+
+def test_gate_accepts_imperative_changelog_bullet() -> None:
+    failures = version_gate.gate(
+        'fix: tighten law template',
+        _pyproject('1.2.3'),
+        _pyproject('1.2.4'),
+        _changelog('1.2.3'),
+        _changelog('1.2.4', body='- Fix the broken parser path.\n'),
+    )
+    assert failures == []

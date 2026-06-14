@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Version gate -- every PR must bump version and record a CHANGELOG trail.
 
-Enforces six rules, all deterministic:
+Enforces seven rules, all deterministic:
 
   1. The head commit's `pyproject.toml` is different from the base's.
   2. `[project].version` at the head is strictly greater than at base
@@ -19,6 +19,11 @@ Enforces six rules, all deterministic:
      non-header line of content before the next version header.
      A header-only entry satisfies the surface form of rule 4 but
      carries no trail; rule 6 requires the actual changelog item.
+  7. The new top section follows the writing conventions: bullets are
+     imperative ("Add", not "Added") and leave no unfinished marker --
+     a "TODO:"/"FIXME:"-style note or a stub bullet (`- TBD`, `- ...`).
+     Only the top section is checked, so older entries are never
+     re-litigated.
 
 "Whatever is changed must leave a trail" -- rules 1 and 3 enforce that
 every PR edits both artifacts. Rule 5 enforces that the trail records
@@ -148,6 +153,21 @@ _VERSION_HEADER_RE: Final[re.Pattern[str]] = re.compile(
     r'^#\s+v([0-9A-Za-z.+\-]+)\b'
 )
 
+# Changelog writing conventions, the mechanizable subset: entries are
+# imperative ("Add", not "Added"), and carry no leftover template
+# placeholders. Only the new top section is checked, so old entries are
+# never re-litigated.
+_PAST_TENSE_BULLET_RE: Final[re.Pattern[str]] = re.compile(
+    r'^\s*[-*]\s+(Added|Fixed|Removed|Changed|Updated|Renamed|Deleted|Moved|'
+    r'Improved|Refactored|Bumped|Created|Introduced|Implemented|Replaced|'
+    r'Dropped|Reverted|Disabled|Enabled|Documented|Skipped)\b'
+)
+_PLACEHOLDER_RE: Final[re.Pattern[str]] = re.compile(
+    r'\b(?:TODO|FIXME|XXX|HACK|TBD)\s*:'                 # a marker note like "TODO: ..."
+    r'|^\s*[-*]\s+(?:TODO|TBD|WIP|N/?A|\.\.\.)\s*$',     # a bullet that is only a stub
+    re.IGNORECASE,
+)
+
 
 def first_version_header(changelog_text: str) -> str | None:
     """Return the version string from the first `# v<X.Y.Z>` header
@@ -188,6 +208,23 @@ def top_section_is_empty(changelog_text: str) -> bool:
             return False
         i += 1
     return True  # reached EOF without finding content
+
+
+def top_section_lines(changelog_text: str) -> list[str]:
+    """Return the content lines of the first `# v<X.Y.Z>` section: every
+    line between the top version header and the next version header (or
+    end of file). Used to check the new entry's writing conventions
+    without re-litigating older sections."""
+    lines = changelog_text.splitlines()
+    i = 0
+    while i < len(lines) and not _VERSION_HEADER_RE.match(lines[i]):
+        i += 1
+    out: list[str] = []
+    i += 1
+    while i < len(lines) and not _VERSION_HEADER_RE.match(lines[i]):
+        out.append(lines[i])
+        i += 1
+    return out
 
 
 def gate(
@@ -265,6 +302,25 @@ def gate(
                 f'PR title {pr_title!r} requires at least a {required} version '
                 f'bump; the actual bump is {actual} ({base_version} -> '
                 f'{head_version}).'
+            )
+
+    # Rule 7: the new top section follows the writing conventions --
+    # imperative mood and no leftover placeholders. Only the top section
+    # is checked, so historical entries are never re-litigated.
+    for raw in top_section_lines(head_changelog):
+        past = _PAST_TENSE_BULLET_RE.match(raw)
+        if past is not None:
+            failures.append(
+                f'CHANGELOG.md entry uses past tense {past.group(1)!r}; '
+                f'changelog bullets are imperative ("Add", not "Added"): '
+                f'{raw.strip()!r}'
+            )
+        placeholder = _PLACEHOLDER_RE.search(raw)
+        if placeholder is not None:
+            failures.append(
+                f'CHANGELOG.md top section has an unfilled placeholder '
+                f'({placeholder.group(0)!r}); complete the entry before merge: '
+                f'{raw.strip()!r}'
             )
 
     return failures

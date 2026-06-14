@@ -1,3 +1,7 @@
+# v0.12.0
+
+- Extend the version gate (`pr_checks_version`) with two mechanizable CHANGELOG writing conventions, checked only on the new top section so older entries are never re-litigated: bullets must be imperative ("Add", not "Added") and must not leave an unfinished marker note or a stub bullet behind. Folded into the existing version gate, so no new required check and the laws<->ruleset bijection is untouched.
+
 # v0.11.5
 
 - Fix a regression from the idempotency guard (v0.11.4): the two bootstrap-rewrite tests assert the seed package is renamed, which only happens on the template. In a bootstrapped repo the guard correctly makes the rewrite a no-op, so those tests had nothing to rename and failed — which broke `pr_checks_lint` on every new repo's bootstrap PR, so fresh repos could no longer bootstrap. The tests now skip when no seed package is present, reading the seed names from the bootstrap module's `KNOWN_SEED_PACKAGES` (the one constant the bootstrap deliberately does not rewrite) rather than a string literal, which specialization would otherwise rewrite into the new package name and defeat the guard. Caught only by an actual end-to-end bootstrap — the template's own CI always has the seed, so it cannot surface this class of derived-repo regression.
