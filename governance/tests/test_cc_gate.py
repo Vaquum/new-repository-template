@@ -40,3 +40,7 @@ def test_attribution_hit_passes_clean_messages() -> None:
     assert cc.attribution_hit('feat: add the maker-fill evaluator') is None
     assert cc.attribution_hit('docs: clarify the rollout runbook') is None
     assert cc.attribution_hit('fix: bound the version read') is None
+    # The repo's own governance files and the Copilot review feature are
+    # exempt -- they are filenames and a feature, not authorship.
+    assert cc.attribution_hit('docs: retitle CLAUDE.md and point AGENTS.md at it') is None
+    assert cc.attribution_hit('feat: update copilot-instructions.md and require Copilot review') is None

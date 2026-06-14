@@ -1,3 +1,7 @@
+# v0.10.2
+
+- Attribution scan: scrub legitimate topical references before scanning so the gate stops false-flagging the repo's own `*.md` governance files (`CLAUDE.md`, `AGENTS.md`, `copilot-instructions.md`) and the required code-review feature, while still catching real attribution (trailers, "generated with", bare vendor names elsewhere).
+
 # v0.10.1
 
 - Consolidate all repository-law tooling under `governance/`: the former `tools/` (the six `*_gate.py`, `bootstrap_repository.py`, `privileged_ruleset_audit.py`) and `scripts/` (the `check_*.py`) merge into `governance/`, and every gate test plus the honesty test and fixtures move to `governance/tests/`. `tests/` now holds only the app package tests. One place for all repo-template tooling. Depth is preserved (`governance/` is one level deep, `governance/tests/` two), so no `REPO_ROOT` math changed; workflows, `module_budgets.json`, the ruff per-file-ignores, the lint/honesty invocations, the bootstrap budget generator, law 6, and the slice template are all re-pointed. Full suite unchanged at 101 passing.

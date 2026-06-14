@@ -79,7 +79,14 @@ CLOSING_KEYWORD_RE: Final[re.Pattern[str]] = re.compile(
 
 # AI/LLM attribution scan. Commit metadata in this org never names an
 # AI/LLM assistant, so the PR title and every non-merge commit message
-# must be free of these markers.
+# must be free of these markers. Legitimate topical references are scrubbed
+# first (ATTRIBUTION_EXEMPT_RE): the repo's own *.md governance files
+# (CLAUDE.md, AGENTS.md, copilot-instructions.md) and the required GitHub
+# Copilot review -- those are filenames and a feature, not authorship.
+ATTRIBUTION_EXEMPT_RE: Final[re.Pattern[str]] = re.compile(
+    r'\b[\w-]+\.md\b|\bcopilot(?:[ -]code)?[ -]review\b',
+    re.IGNORECASE,
+)
 ATTRIBUTION_RE: Final[re.Pattern[str]] = re.compile(
     r'\bclaude\b|\bcodex\b|\bchatgpt\b|\bgpt-?\d\b|\bcopilot\b|\bcursor\b'
     r'|\bgemini\b|\banthropic\b|\bopenai\b|\bllm\b|\bai[ -]?assistant\b'
@@ -205,8 +212,13 @@ def find_closing_references(body: str) -> list[int]:
 
 
 def attribution_hit(text: str) -> str | None:
-    """Return the first AI/LLM-attribution substring in ``text``, or None."""
-    match = ATTRIBUTION_RE.search(text)
+    """Return the first AI/LLM-attribution substring in ``text``, or None.
+
+    Legitimate topical references (``*.md`` filenames, the Copilot review
+    feature) are scrubbed before the scan so they cannot register.
+    """
+    scrubbed = ATTRIBUTION_EXEMPT_RE.sub(' ', text)
+    match = ATTRIBUTION_RE.search(scrubbed)
     if match is None:
         return None
     return match.group(0)
