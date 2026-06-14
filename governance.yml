@@ -1,0 +1,39 @@
+schema_version: 1
+
+runtime:
+  python_version: "3.12"
+
+toolchain:
+  ruff_version: "0.15.11"
+  pyright_version: "1.1.408"
+
+review:
+  approving_authority: zero-bang
+
+slice:
+  label: slice
+  issue_template: .github/ISSUE_TEMPLATE/slice.yml
+
+bootstrap:
+  timeout_minutes: 30
+  label_template_repository: Vaquum/new-repository-template
+  secrets:
+    bootstrap_token: REPO_BOOTSTRAP_TOKEN
+    ruleset_audit_token: RULESET_AUDIT_TOKEN
+  variables:
+    label_template_repository: LABEL_TEMPLATE_REPOSITORY
+    ruleset_id: RULESET_ID
+
+ruleset:
+  name: Protect-Main
+  required_status_checks:
+    - PR Checks CodeQL (python)
+    - pr_checks_cc
+    - pr_checks_lint
+    - pr_checks_ruleset
+    - pr_checks_slice
+    - pr_checks_fail_loud
+    - pr_checks_typing
+    - pr_checks_version
+    - pr_checks_tests
+    - pr_checks_honesty

@@ -108,6 +108,7 @@ def test_pr_checks_lint_runs_pinned_ruff_on_tools_and_tests_tools() -> None:
     assert 'package_root="$(python - <<' in workflow
     assert '.venv-lint/bin/python -m ruff check "${{ steps.package.outputs.package_root }}" governance tests' in workflow
     assert '--source="${{ steps.package.outputs.package_root }}"' in workflow
+    assert '-m pytest tests/ governance/tests/ -q' in workflow
     assert 'continue-on-error' not in workflow
     # Hard-mechanical gate surfaces from slice #11 — each invocation
     # must appear verbatim somewhere in the workflow.
