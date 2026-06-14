@@ -42,7 +42,7 @@ Branch off `main`. Push to a remote branch of the same name. **Open the PR the m
 
 **`zero-bang` is the approving authority.** Request their review the moment the PR is open. Once every requested change is addressed, re-request `zero-bang`'s review.
 
-Each push re-runs every gate. Prefer new commits to amends — amends don't give you anything and they muddle the PR history.
+Each push re-runs every gate. Prefer new commits to amends — amends don't give you anything and they muddle the PR history. Keep one logical change per commit; don't batch unrelated changes together. Before you request review, read your own full diff in GitHub — catch what you'd flag in someone else's PR.
 
 Merge unlocks when every required gate is green **and** the branch is up-to-date with `main`. Up-to-date is enforced server-side; rebase when main advances.
 
@@ -50,23 +50,19 @@ When a gate fails, the gate's own output names the reason. Read the output, fix 
 
 ## Review work
 
-When reviewing a PR, post each comment inline as a review comment. Do not confirm with the operator first.
+**Reviewing a pull request?** The canonical brief is [`.github/copilot-instructions.md`](.github/copilot-instructions.md) — how to read a diff beyond its own lines, what to hunt, the verdict ladder, and how to post. Work entirely from it; it is also what GitHub's built-in Copilot review reads, so every reviewer (Copilot, agent, or human) holds one shared standard.
 
-When reviewing an issue, post comments as a new comment in the thread. Do not confirm with the operator first.
-
-When reviewing comments left on an issue you are working on, always address the issues by editing the original body or by adding a new comment that clearly explains why something is not addressed. Do not confirm with the operator first
-
-The opinion is the deliverable. Confirming before posting adds a round-trip and slows collaboration.
+The same posture governs the rest of review work. When reviewing an issue, post comments directly in the thread. When addressing comments on your own issue or PR, edit the original body or add a comment explaining the resolution — or why something is not addressed. The opinion is the deliverable; never confirm with the operator before posting — it only adds a round-trip.
 
 ## Beyond the laws
-
-**Reviewing a PR right now?** Read the PR-review guideline in [`.github/copilot-instructions.md`](.github/copilot-instructions.md) first — how to read a diff beyond its own lines, what to hunt, the verdict ladder, and how to post. Every reviewer here (Copilot, agent, or human) works from that one brief.
 
 The gates check shape, scope, format, ratchets, and named test suites. They do not check whether the slice's capability actually works. The operator judges that at review time, against the following stance:
 
 **Radical simplicity.** The simplest code that meets the requirement wins. Complexity earns its place by naming the specific concern it addresses — not "robustness" or "future-proofing" in general.
 
 **No defensive fog.** Agents are primed to produce defensible-looking code: `try/except` that swallows everything, fallbacks for cases that don't happen, docstrings that restate the signature, comments that narrate the line, parameters that might be useful someday. None of it belongs here. The fail-loud gate (`pr_checks_fail_loud`) catches the AST-detectable forms mechanically; the rest is operator-caught at review.
+
+**Fail loud, fix the cause.** When something is wrong, find the root cause — never paper over it with a workaround, a fallback, or a swallowed error. When required state is missing, fail loudly and early rather than limping on with a guess.
 
 **No sitting in the dark.** Do not block callable outputs or script outputs in anyway to save context. Or do not hide sub-agent logs to save your context. Always stay fully aware of what the running thing is doing. 
 
@@ -81,6 +77,18 @@ The gates check shape, scope, format, ratchets, and named test suites. They do n
 **Deliver meaning not mechanics.** It's better to deliver the right meaning poorly, than deliver meaningless scaffolding and mechanics in an impressive way. 
 
 **The smallest possible honest way always.** Slice spec, code, communication, everything, let it be the smallest possible unit size that honestly delivers what is required.
+
+## Conventions
+
+The gates don't mechanically enforce these; hold them anyway.
+
+- **Dependencies.** Prefer the standard library or an existing project dependency. A new external dependency must be required by the task, not a convenience.
+- **Logging.** Use `logging.getLogger(__name__)` in library code. (`print` in the package is already gate-blocked.)
+- **Public surface.** Expose the public API explicitly with `__all__`; prefix internal names with `_`.
+- **Resources.** Use context managers for anything that must close; avoid mutable default arguments; prefer `pathlib` over `os.path`.
+- **LLM output.** A model may draft, but raw model output is never dropped in as-is — the contributor simplifies it, understands it, and owns it.
+- **Docs.** Author each thing once: one page is canonical, the rest link to it. Show real, runnable examples and current behavior — never imaginary examples or aspirational framing.
+- **Release notes.** Technically correct, concise in summary, specific in detail, and tied to the pushed tag.
 
 ## When in doubt, stop
 
