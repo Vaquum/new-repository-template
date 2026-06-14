@@ -1,3 +1,7 @@
+# v0.13.2
+
+- Allow manual reruns of the bootstrap workflow from `main` to repair labels and the protected-main ruleset after file bootstrap has already merged, and bound the bootstrap job while it waits on PR checks.
+
 # v0.13.1
 
 - Consolidate the agent-facing guidelines into one canonical home each. Everything about reviewing a pull request now lives in `.github/copilot-instructions.md` (what GitHub's built-in Copilot review reads), and `CLAUDE.md` points to it for any review task instead of carrying its own copy. The generic, non-gate-enforced conventions move into `CLAUDE.md`: a new Conventions section (dependencies, logging, public surface, resources, LLM output, docs, release notes), a Fail-loud-fix-the-cause stance, and author-side PR discipline (read your own diff before requesting review; one logical change per commit). No code or gate changes.

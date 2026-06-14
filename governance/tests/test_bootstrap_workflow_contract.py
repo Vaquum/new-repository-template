@@ -24,6 +24,23 @@ def test_bootstrap_uses_pr_path_for_protected_main() -> None:
     assert 'git push\n' not in workflow
 
 
+def test_bootstrap_github_only_repair_runs_on_manual_dispatch() -> None:
+    workflow = BOOTSTRAP_WORKFLOW.read_text(encoding='utf-8')
+    repair_condition = (
+        "github.ref == 'refs/heads/main' && "
+        "(steps.bootstrap_pr.outputs.changed == 'true' "
+        "|| github.event_name == 'workflow_dispatch')"
+    )
+
+    assert repair_condition in workflow
+
+
+def test_bootstrap_job_has_timeout() -> None:
+    workflow = BOOTSTRAP_WORKFLOW.read_text(encoding='utf-8')
+
+    assert 'timeout-minutes: 30' in workflow
+
+
 def test_bootstrap_pr_is_a_valid_slice_shape() -> None:
     workflow = BOOTSTRAP_WORKFLOW.read_text(encoding='utf-8')
 
