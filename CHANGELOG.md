@@ -1,3 +1,7 @@
+# v0.10.4
+
+- Fix `disable_codeql` leaving the ruleset test fixtures stale on a private bootstrap. When the bootstrap mechanically removes CodeQL (no GitHub Advanced Security), it already strips the context from `CLAUDE.md`, the ruleset snapshot, and the workflow; it now also strips it from `governance/tests/fixtures/github/*.json`, so the ruleset-gate and privileged-audit contract tests no longer see false drift against a de-CodeQL'd snapshot. The three CodeQL-removal tests in `test_codeql_fallback` now skip when CodeQL is already absent (a re-run on an already-bootstrapped private repo), while the workflow-detection test still runs. Found by the same end-to-end smoke on a private throwaway repo.
+
 # v0.10.3
 
 - Fix the lint job crashing on a `slice_gate` import: PyYAML is now imported lazily, inside the one function that parses the issue template, instead of at module top — so importing `slice_gate` (which pytest does to collect `test_slice_gate`) no longer hard-requires yaml. Also pin `pyyaml>=6.0` in the `dev` extras so the toolchain venv has it explicitly rather than relying on a transitive dependency that de-scarring removed. Found by an end-to-end bootstrap smoke where the lint venv lacked yaml and `pr_checks_lint` crashed.

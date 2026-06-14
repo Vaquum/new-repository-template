@@ -9,12 +9,22 @@ import sys
 import types
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TOOLS_DIR = REPO_ROOT / 'governance'
 BOOTSTRAP_WORKFLOW = REPO_ROOT / '.github/workflows/bootstrap_repository.yml'
 
 _LAW_LINE = re.compile(r'^\d+\.\s')
 _ANNOTATION = re.compile(r'\*\((?P<a>.+)\)\*\s*$')
+
+# When the repo has already had CodeQL removed (e.g. a private bootstrapped
+# repo), disable_codeql is a no-op; the removal tests have nothing to assert.
+_CODEQL_PRESENT = 'PR Checks CodeQL (python)' in (REPO_ROOT / 'CLAUDE.md').read_text(encoding='utf-8')
+_skip_if_no_codeql = pytest.mark.skipif(
+    not _CODEQL_PRESENT,
+    reason='CodeQL already removed from this repo',
+)
 
 
 def _bootstrap() -> types.ModuleType:
@@ -47,6 +57,7 @@ def _copy_template(tmp_path: Path) -> Path:
     return repo
 
 
+@_skip_if_no_codeql
 def test_disable_codeql_removes_law_ruleset_and_workflow(tmp_path: Path) -> None:
     repo = _copy_template(tmp_path)
     changed = _bootstrap().disable_codeql(repo)
@@ -65,6 +76,7 @@ def test_disable_codeql_removes_law_ruleset_and_workflow(tmp_path: Path) -> None
     assert 'Eleven laws' not in laws
 
 
+@_skip_if_no_codeql
 def test_disable_codeql_renumbers_laws_sequentially(tmp_path: Path) -> None:
     repo = _copy_template(tmp_path)
     _bootstrap().disable_codeql(repo)
@@ -73,6 +85,7 @@ def test_disable_codeql_renumbers_laws_sequentially(tmp_path: Path) -> None:
     assert numbers == list(range(1, len(numbers) + 1)), numbers
 
 
+@_skip_if_no_codeql
 def test_disable_codeql_preserves_bijection(tmp_path: Path) -> None:
     repo = _copy_template(tmp_path)
     _bootstrap().disable_codeql(repo)
