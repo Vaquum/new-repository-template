@@ -55,45 +55,45 @@ jobs:
           echo "package_root=$package_root" >> "$GITHUB_OUTPUT"
 
       - name: Run ruff lint
-        run: .venv-lint/bin/python -m ruff check "${{ steps.package.outputs.package_root }}" tools tests scripts
+        run: .venv-lint/bin/python -m ruff check "${{ steps.package.outputs.package_root }}" governance tests
 
       - name: Module line-count budget gate
-        run: .venv-lint/bin/python scripts/check_module_budgets.py
+        run: .venv-lint/bin/python governance/check_module_budgets.py
 
       - name: Module docstring gate
-        run: .venv-lint/bin/python scripts/check_module_docstrings.py
+        run: .venv-lint/bin/python governance/check_module_docstrings.py
 
       - name: Docstring conventions gate
-        run: .venv-lint/bin/python scripts/check_docstrings.py
+        run: .venv-lint/bin/python governance/check_docstrings.py
 
       - name: File size balance gate
-        run: .venv-lint/bin/python scripts/check_file_size_balance.py
+        run: .venv-lint/bin/python governance/check_file_size_balance.py
 
       - name: Test/code SLOC ratio gate
-        run: .venv-lint/bin/python scripts/check_test_code_ratio.py
+        run: .venv-lint/bin/python governance/check_test_code_ratio.py
 
       - name: Dead-code (vulture)
         run: .venv-lint/bin/python -m vulture "${{ steps.package.outputs.package_root }}/" --min-confidence 80
 
       - name: No-swallowed-violations gate
-        run: .venv-lint/bin/python scripts/check_no_swallowed_violations.py
+        run: .venv-lint/bin/python governance/check_no_swallowed_violations.py
 
       - name: Test fallback gate
-        run: .venv-lint/bin/python scripts/check_test_fallbacks.py
+        run: .venv-lint/bin/python governance/check_test_fallbacks.py
 
       - name: Coverage floor gate
         run: |
           .venv-lint/bin/python -m coverage run --branch --source="${{ steps.package.outputs.package_root }}" \
-            -m pytest tests/ -q
+            -m pytest tests/ governance/tests/ -q
           .venv-lint/bin/python -m coverage json -o coverage.json
-          .venv-lint/bin/python scripts/check_coverage_floor.py
+          .venv-lint/bin/python governance/check_coverage_floor.py
 
       - name: Diff coverage gate
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |
           git fetch origin "$BASE_REF"
-          .venv-lint/bin/python scripts/check_diff_coverage.py --base-ref "origin/$BASE_REF"
+          .venv-lint/bin/python governance/check_diff_coverage.py --base-ref "origin/$BASE_REF"
 
       - name: Budget-raise ratchet gate
         env:
@@ -102,6 +102,6 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
         run: |
           git fetch origin "$BASE_REF" --depth=1
-          .venv-lint/bin/python scripts/check_budget_ratchet.py \
+          .venv-lint/bin/python governance/check_budget_ratchet.py \
             --base-ref "origin/$BASE_REF" \
             --pr-number "$PR_NUMBER"

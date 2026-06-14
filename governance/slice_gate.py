@@ -27,7 +27,7 @@ Surfaces globs).
 
 Usage:
 
-  python tools/slice_gate.py \
+  python governance/slice_gate.py \
     --pr-title "<pr title>" \
     --pr-body-file <path> \
     --pr-files-file <path>         # one path per line

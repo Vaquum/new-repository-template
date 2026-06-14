@@ -27,7 +27,7 @@ and the artifact agree on what the new version is.
 
 Usage:
 
-  python tools/version_gate.py \\
+  python governance/version_gate.py \\
     --pr-title "<cc-compliant title>" \\
     --base-pyproject <path>   # pyproject.toml at BASE
     --head-pyproject <path>   # pyproject.toml at HEAD

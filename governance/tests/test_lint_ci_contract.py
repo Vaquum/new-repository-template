@@ -12,7 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 LINT_WORKFLOW: Final[Path] = REPO_ROOT / '.github/workflows/pr_checks_lint.yml'
 RULESET_WORKFLOW: Final[Path] = REPO_ROOT / '.github/workflows/pr_checks_ruleset.yml'
 RULESET_SNAPSHOT: Final[Path] = REPO_ROOT / '.github/rulesets/main.json'
-BAD_FIXTURE: Final[Path] = REPO_ROOT / 'tests/fixtures/lint/bad_imports.py'
+BAD_FIXTURE: Final[Path] = REPO_ROOT / 'governance/tests/fixtures/lint/bad_imports.py'
 RUFF_VERSION: Final[str] = '0.15.11'
 EXPECTED_RUFF_POLICY: Final[dict[str, object]] = {
     'exclude': [
@@ -21,7 +21,7 @@ EXPECTED_RUFF_POLICY: Final[dict[str, object]] = {
         'build',
         'dist',
         'demo',
-        'tests/fixtures',
+        'governance/tests/fixtures',
     ],
     'select': [
         'E',
@@ -53,17 +53,16 @@ EXPECTED_RUFF_POLICY: Final[dict[str, object]] = {
             'PLR0912', 'PLR0913', 'PLR0915',
             'D200', 'D205', 'D415',
         ],
-        'tools/**/*.py': [
+        'governance/*.py': [
             'C901', 'PLR0912', 'PLR0913', 'PLR0915',
             'T201',
             'FIX001', 'FIX002', 'FIX003', 'FIX004',
             'ERA001', 'D200', 'D205', 'D415',
         ],
-        'scripts/**/*.py': [
-            'C901', 'PLR0912', 'PLR0913', 'PLR0915',
-            'T201',
-            'FIX001', 'FIX002', 'FIX003', 'FIX004',
-            'ERA001', 'D200', 'D205', 'D415',
+        'governance/tests/**/*.py': [
+            'S101', 'ANN', 'BLE001',
+            'PLR0912', 'PLR0913', 'PLR0915',
+            'D200', 'D205', 'D415',
         ],
     },
 }
@@ -107,17 +106,17 @@ def test_pr_checks_lint_runs_pinned_ruff_on_tools_and_tests_tools() -> None:
     assert f"'ruff=={RUFF_VERSION}'" in workflow
     assert 'id: package' in workflow
     assert 'package_root="$(python - <<' in workflow
-    assert '.venv-lint/bin/python -m ruff check "${{ steps.package.outputs.package_root }}" tools tests scripts' in workflow
+    assert '.venv-lint/bin/python -m ruff check "${{ steps.package.outputs.package_root }}" governance tests' in workflow
     assert '--source="${{ steps.package.outputs.package_root }}"' in workflow
     assert 'continue-on-error' not in workflow
     # Hard-mechanical gate surfaces from slice #11 — each invocation
     # must appear verbatim somewhere in the workflow.
-    assert 'scripts/check_module_budgets.py' in workflow
-    assert 'scripts/check_module_docstrings.py' in workflow
-    assert 'scripts/check_file_size_balance.py' in workflow
-    assert 'scripts/check_test_code_ratio.py' in workflow
-    assert 'scripts/check_coverage_floor.py' in workflow
-    assert 'scripts/check_budget_ratchet.py' in workflow
+    assert 'governance/check_module_budgets.py' in workflow
+    assert 'governance/check_module_docstrings.py' in workflow
+    assert 'governance/check_file_size_balance.py' in workflow
+    assert 'governance/check_test_code_ratio.py' in workflow
+    assert 'governance/check_coverage_floor.py' in workflow
+    assert 'governance/check_budget_ratchet.py' in workflow
     assert 'vulture' in workflow
     assert '"${{ steps.package.outputs.package_root }}/" --min-confidence 80' in workflow
     # No soft-fail pathway: no `|| true`, no continue-on-error on any step.
@@ -128,7 +127,7 @@ def test_pr_checks_ruleset_runs_test_lint_ci_contract() -> None:
     workflow = RULESET_WORKFLOW.read_text(encoding='utf-8')
 
     assert f"'ruff=={RUFF_VERSION}'" in workflow
-    assert 'tests/tools/test_lint_ci_contract.py' in workflow
+    assert 'governance/tests/test_lint_ci_contract.py' in workflow
 
 
 def test_pinned_ruff_fails_on_known_bad_fixture() -> None:
@@ -165,5 +164,5 @@ def test_pyproject_ruff_policy_contract() -> None:
 
     assert actual_policy == EXPECTED_RUFF_POLICY
 
-    result = _run_ruff('check', '--isolated', '--select', 'BLE001', 'tools', 'tests/tools')
+    result = _run_ruff('check', '--isolated', '--select', 'BLE001', 'governance', 'tests')
     assert result.returncode == 0, result.stdout + result.stderr

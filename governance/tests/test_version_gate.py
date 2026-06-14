@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from tools import version_gate
+from governance import version_gate
 
 
 def _pyproject(version: str) -> str:

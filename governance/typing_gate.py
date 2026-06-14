@@ -28,10 +28,10 @@ budget so the oracle cannot be weakened in the same PR that gates.
 
 Usage:
 
-  python tools/typing_gate.py                                # head-only checks
-  python tools/typing_gate.py --pyright-json <path>          # + pyright ratchet
-  python tools/typing_gate.py --base-budget <path>           # + base-vs-head ratchet
-  python tools/typing_gate.py --update-budget [--pyright-json <path>]
+  python governance/typing_gate.py                                # head-only checks
+  python governance/typing_gate.py --pyright-json <path>          # + pyright ratchet
+  python governance/typing_gate.py --base-budget <path>           # + base-vs-head ratchet
+  python governance/typing_gate.py --update-budget [--pyright-json <path>]
 
 Exit codes:
 

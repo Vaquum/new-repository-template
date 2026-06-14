@@ -10,7 +10,7 @@ import types
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-TOOLS_DIR = REPO_ROOT / 'tools'
+TOOLS_DIR = REPO_ROOT / 'governance'
 BOOTSTRAP_WORKFLOW = REPO_ROOT / '.github/workflows/bootstrap_repository.yml'
 
 _LAW_LINE = re.compile(r'^\d+\.\s')

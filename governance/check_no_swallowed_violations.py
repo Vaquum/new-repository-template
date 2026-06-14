@@ -126,7 +126,7 @@ def check_file(path: Path) -> list[tuple[int, str]]:
 
 
 def main() -> int:
-    targets = (_package_dir(), REPO_ROOT / 'tests')
+    targets = (_package_dir(), REPO_ROOT / 'tests', REPO_ROOT / 'governance' / 'tests')
     all_findings: list[tuple[Path, int, str]] = []
     for target in targets:
         if not target.exists():

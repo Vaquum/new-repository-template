@@ -9,7 +9,7 @@ RULESET_WORKFLOW = REPO_ROOT / '.github/workflows/pr_checks_ruleset.yml'
 TYPING_WORKFLOW = REPO_ROOT / '.github/workflows/pr_checks_typing.yml'
 VERSION_WORKFLOW = REPO_ROOT / '.github/workflows/pr_checks_version.yml'
 FAIL_LOUD_WORKFLOW = REPO_ROOT / '.github/workflows/pr_checks_fail_loud.yml'
-BOOTSTRAP_SCRIPT = REPO_ROOT / 'tools/bootstrap_repository.py'
+BOOTSTRAP_SCRIPT = REPO_ROOT / 'governance/bootstrap_repository.py'
 
 
 def test_bootstrap_uses_pr_path_for_protected_main() -> None:

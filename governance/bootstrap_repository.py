@@ -387,11 +387,13 @@ def _write_module_budgets(package_name: str) -> bool:
         for source_file in sorted(package_dir.rglob('*.py')):
             rel = source_file.relative_to(REPO_ROOT).as_posix()
             payload[rel] = max(10, _significant_lines(source_file) + 20)
-    scripts_dir = REPO_ROOT / 'scripts'
-    if scripts_dir.is_dir():
-        for script in sorted(scripts_dir.glob('*.py')):
+    governance_dir = REPO_ROOT / 'governance'
+    if governance_dir.is_dir():
+        if (governance_dir / '__init__.py').is_file():
+            payload['governance/__init__.py'] = 10
+        for script in sorted(governance_dir.glob('check_*.py')):
             rel = script.relative_to(REPO_ROOT).as_posix()
-            payload[rel] = 120 if script.name != '__init__.py' else 10
+            payload[rel] = 120
     return _write_text_if_changed(path, json.dumps(payload, indent=2) + '\n')
 
 

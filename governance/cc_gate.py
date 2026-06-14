@@ -38,7 +38,7 @@ Exit codes:
 
 Usage:
 
-  python tools/cc_gate.py \\
+  python governance/cc_gate.py \\
     --pr-title "<pr title>" \\
     --pr-body-file <path> \\
     --base-ref <rev> \\

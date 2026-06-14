@@ -25,4 +25,4 @@ jobs:
         run: python -m pip install --upgrade pip '.[dev]'
 
       - name: Run honesty gate suite
-        run: pytest tests/honesty/ -v --tb=short
+        run: pytest governance/tests/test_repository_law.py -v --tb=short

@@ -55,7 +55,7 @@ jobs:
           if [ -n "${{ inputs.package_name }}" ]; then
             args+=(--package-name "${{ inputs.package_name }}")
           fi
-          python tools/bootstrap_repository.py "${args[@]}"
+          python governance/bootstrap_repository.py "${args[@]}"
 
       - name: Open and merge bootstrap PR
         id: bootstrap_pr
@@ -168,7 +168,7 @@ jobs:
             echo "::error::REPO_BOOTSTRAP_TOKEN is not configured. File bootstrap is complete, but labels and the live protected-main ruleset were not applied."
             exit 1
           fi
-          python tools/bootstrap_repository.py \
+          python governance/bootstrap_repository.py \
             --repo-name "${{ github.event.repository.name }}" \
             --owner "${{ github.repository_owner }}" \
             --github-only

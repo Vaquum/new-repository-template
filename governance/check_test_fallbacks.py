@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-TEST_DIR = REPO_ROOT / 'tests'
+TEST_DIRS = (REPO_ROOT / 'tests', REPO_ROOT / 'governance' / 'tests')
 
 
 def find_try_statements(source: str) -> list[int]:
@@ -24,8 +24,10 @@ def find_try_statements(source: str) -> list[int]:
 
 def main() -> int:
     violations: list[tuple[Path, int]] = []
-    if TEST_DIR.is_dir():
-        for path in sorted(TEST_DIR.rglob('*.py')):
+    for test_dir in TEST_DIRS:
+        if not test_dir.is_dir():
+            continue
+        for path in sorted(test_dir.rglob('*.py')):
             if '__pycache__' in path.parts:
                 continue
             for lineno in find_try_statements(path.read_text(encoding='utf-8')):

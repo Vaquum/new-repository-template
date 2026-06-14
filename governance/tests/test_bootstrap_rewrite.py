@@ -27,7 +27,7 @@ def test_template_slug_survives_file_bootstrap(tmp_path: Path) -> None:
     )
     result = subprocess.run(
         [
-            sys.executable, 'tools/bootstrap_repository.py', '--files-only',
+            sys.executable, 'governance/bootstrap_repository.py', '--files-only',
             '--repo-name', 'my-new-app', '--owner', 'Vaquum',
         ],
         cwd=repo,

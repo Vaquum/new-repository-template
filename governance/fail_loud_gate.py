@@ -25,7 +25,7 @@ Categories enforced:
 
 Usage:
 
-  python tools/fail_loud_gate.py \\
+  python governance/fail_loud_gate.py \\
     --base-budget <path>         # .github/fail_loud_budget.json at BASE
     [--update-budget]            # regenerate the committed budget
     [--bootstrap]                # first-commit override, mirrors typing_gate

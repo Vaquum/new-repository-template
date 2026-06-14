@@ -1,7 +1,7 @@
 name: pr_checks_cc
 
 # Mechanical Conventional Commits gate. Three deterministic rules
-# enforced by tools/cc_gate.py. Every PR must:
+# enforced by governance/cc_gate.py. Every PR must:
 #
 #   1. Have a PR title that matches CC v1.0.0 format
 #      (<type>[(scope)][!]: <description>).
@@ -92,7 +92,7 @@ jobs:
         run: |
           set -euo pipefail
           PR_TITLE=$(cat pr_title.txt)
-          python tools/cc_gate.py \
+          python governance/cc_gate.py \
             --pr-title "$PR_TITLE" \
             --pr-body-file pr_body.txt \
             --base-ref "${{ steps.refs.outputs.base }}" \

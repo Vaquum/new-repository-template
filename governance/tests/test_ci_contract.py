@@ -13,7 +13,7 @@ def test_post_merge_changelog_workflow_removed() -> None:
 
 
 def test_update_changelog_script_removed() -> None:
-    assert not (REPO_ROOT / 'scripts/update_changelog.py').exists()
+    assert not (REPO_ROOT / 'governance/update_changelog.py').exists()
 
 
 def test_typing_gate_setup_failures_exit_2() -> None:
@@ -30,7 +30,7 @@ def test_typing_gate_setup_failures_exit_2() -> None:
         result = subprocess.run(
             [
                 'python3',
-                'tools/typing_gate.py',
+                'governance/typing_gate.py',
                 '--pyright-json',
                 '/tmp/missing-pyright.json',
                 '--bootstrap',

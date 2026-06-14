@@ -6,7 +6,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_issue_title_fetch_is_non_nullable_and_gate_has_no_none_guard() -> None:
-    source = (REPO_ROOT / 'tools/cc_gate.py').read_text(encoding='utf-8')
+    source = (REPO_ROOT / 'governance/cc_gate.py').read_text(encoding='utf-8')
     start = source.index('def fetch_issue_title(repo: str, number: int) -> str:')
     end = source.index('def find_closing_references(body: str) -> list[int]:')
     block = source[start:end]
@@ -20,7 +20,7 @@ def test_issue_title_fetch_is_non_nullable_and_gate_has_no_none_guard() -> None:
 
 def _load_cc_gate():
     import importlib.util
-    spec = importlib.util.spec_from_file_location('cc_gate', REPO_ROOT / 'tools/cc_gate.py')
+    spec = importlib.util.spec_from_file_location('cc_gate', REPO_ROOT / 'governance/cc_gate.py')
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

@@ -1,7 +1,7 @@
 name: pr_checks_slice
 
 # Mechanical PR <-> slice-issue gate. Eight deterministic rules
-# enforced by tools/slice_gate.py. Every PR must:
+# enforced by governance/slice_gate.py. Every PR must:
 #
 #   1.  Cite exactly one underlying issue via Closes/Fixes/Resolves #N.
 #   2.  The cited number must resolve in this repository.
@@ -108,7 +108,7 @@ jobs:
         run: |
           set -euo pipefail
           PR_TITLE=$(cat pr_title.txt)
-          python tools/slice_gate.py \
+          python governance/slice_gate.py \
             --pr-title "$PR_TITLE" \
             --pr-body-file pr_body.txt \
             --pr-files-file pr_files.txt \

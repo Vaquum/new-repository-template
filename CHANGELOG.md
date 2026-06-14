@@ -1,3 +1,7 @@
+# v0.10.1
+
+- Consolidate all repository-law tooling under `governance/`: the former `tools/` (the six `*_gate.py`, `bootstrap_repository.py`, `privileged_ruleset_audit.py`) and `scripts/` (the `check_*.py`) merge into `governance/`, and every gate test plus the honesty test and fixtures move to `governance/tests/`. `tests/` now holds only the app package tests. One place for all repo-template tooling. Depth is preserved (`governance/` is one level deep, `governance/tests/` two), so no `REPO_ROOT` math changed; workflows, `module_budgets.json`, the ruff per-file-ignores, the lint/honesty invocations, the bootstrap budget generator, law 6, and the slice template are all re-pointed. Full suite unchanged at 101 passing.
+
 # v0.10.0
 
 - Add a docstring-conventions gate (`scripts/check_docstrings.py`, run in `pr_checks_lint`) mechanizing the deterministic, domain-neutral rules from dev-docs Writing-Docstrings.md: forbidden title verbs (never Calculate/Generate/Make/Build), no `(default: ...)` in parameter descriptions, and `NOTE:` casing. Scans function/method docstrings in the package, resolves `package_root` from the single source, and fails closed. The domain-specific rules (Klines/Trades dataset phrasing, DataFrame column-name return patterns) are intentionally not enforced in an app-neutral template, and "title ends with a period" is already ruff D415.

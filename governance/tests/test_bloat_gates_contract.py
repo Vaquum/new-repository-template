@@ -12,7 +12,7 @@ from typing import Final
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 BUDGET_JSON: Final[Path] = REPO_ROOT / '.github/module_budgets.json'
 LINT_WORKFLOW: Final[Path] = REPO_ROOT / '.github/workflows/pr_checks_lint.yml'
-SCRIPTS_DIR: Final[Path] = REPO_ROOT / 'scripts'
+SCRIPTS_DIR: Final[Path] = REPO_ROOT / 'governance'
 PYPROJECT: Final[Path] = REPO_ROOT / 'pyproject.toml'
 
 GATE_SCRIPTS: Final[list[str]] = [
@@ -57,7 +57,7 @@ def test_module_budgets_is_valid_json() -> None:
 def test_module_budgets_covers_every_package_path() -> None:
     data = json.loads(BUDGET_JSON.read_text(encoding='utf-8'))
     package_paths = {p for p in data if p.startswith('new_repository_template/')}
-    script_paths = {p for p in data if p.startswith('scripts/')}
+    script_paths = {p for p in data if p.startswith('governance/')}
     # Every .py under the package root is declared in
     # module_budgets.json. Otherwise a new module could silently escape
     # the line-count budget gate.
@@ -118,10 +118,10 @@ def test_fail_banners_are_declared_in_each_script_source() -> None:
 def test_workflow_invokes_every_gate() -> None:
     workflow = LINT_WORKFLOW.read_text(encoding='utf-8')
     for script in GATE_SCRIPTS:
-        assert f'scripts/{script}' in workflow, f'{script} not invoked by workflow'
+        assert f'governance/{script}' in workflow, f'{script} not invoked by workflow'
     assert 'steps.package.outputs.package_root' in workflow
     assert 'vulture "${{ steps.package.outputs.package_root }}/"' in workflow
-    assert 'ruff check "${{ steps.package.outputs.package_root }}" tools tests scripts' in workflow
+    assert 'ruff check "${{ steps.package.outputs.package_root }}" governance tests' in workflow
 
 
 def test_no_soft_fail_pathway_in_workflow() -> None:
@@ -135,7 +135,7 @@ def test_no_soft_fail_pathway_in_workflow() -> None:
 def test_scripts_are_self_budgeted() -> None:
     data = json.loads(BUDGET_JSON.read_text(encoding='utf-8'))
     for name in GATE_SCRIPTS:
-        key = f'scripts/{name}'
+        key = f'governance/{name}'
         assert key in data, f'{key} missing from module_budgets.json'
         assert data[key] <= 120, f'{key} budget {data[key]} exceeds the 120-line self-limit'
 
@@ -172,7 +172,7 @@ def test_budget_ratchet_accepts_marker(tmp_path: Path) -> None:
         '[budget-raise: new_repository_template/foo.py: legitimate growth]\n',
         encoding='utf-8',
     )
-    scripts_dir = tmp_path / 'scripts'
+    scripts_dir = tmp_path / 'governance'
     scripts_dir.mkdir()
     (scripts_dir / '__init__.py').write_text('', encoding='utf-8')
     import shutil

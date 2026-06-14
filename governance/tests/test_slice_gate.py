@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tools import slice_gate
+from governance import slice_gate
 
 SIGNIFICANCE_BLOCK = (
     '> **Significance.** This is the exact slice contract.\n'
@@ -39,7 +39,7 @@ def _body(out_of_scope: str = '- (none)') -> str:
     return (
         f'{SIGNIFICANCE_BLOCK}\n\n'
         '## Surfaces\n'
-        '- `tools/**`\n'
+        '- `governance/**`\n'
         '- `.github/workflows/**`\n\n'
         '## Out of Scope\n'
         f'{out_of_scope}\n'
@@ -55,7 +55,7 @@ def test_gate_accepts_open_slice_issue_with_matching_scope(
     failures = slice_gate.gate(
         'feat: add law template',
         'Closes #9',
-        ['tools/version_gate.py', '.github/workflows/pr_checks_version.yml'],
+        ['governance/version_gate.py', '.github/workflows/pr_checks_version.yml'],
         _template(tmp_path),
         'Vaquum/new-repository-template',
     )
@@ -73,7 +73,7 @@ def test_gate_rejects_pr_number_used_as_slice_issue(
     failures = slice_gate.gate(
         'feat: add law template',
         'Closes #8',
-        ['tools/version_gate.py'],
+        ['governance/version_gate.py'],
         _template(tmp_path),
         'Vaquum/new-repository-template',
     )
@@ -96,7 +96,7 @@ def test_gate_requires_significance_blockquote(
     failures = slice_gate.gate(
         'feat: add law template',
         'Closes #9',
-        ['tools/version_gate.py'],
+        ['governance/version_gate.py'],
         _template(tmp_path),
         'Vaquum/new-repository-template',
     )
@@ -126,13 +126,13 @@ def test_gate_blocks_out_of_scope_even_when_surface_allows(
     monkeypatch.setattr(
         slice_gate,
         'fetch_issue',
-        lambda _repo, _number: _issue(_body('- `tools/experimental.py`')),
+        lambda _repo, _number: _issue(_body('- `governance/experimental.py`')),
     )
 
     failures = slice_gate.gate(
         'feat: add law template',
         'Closes #9',
-        ['tools/experimental.py'],
+        ['governance/experimental.py'],
         _template(tmp_path),
         'Vaquum/new-repository-template',
     )
@@ -143,7 +143,7 @@ def test_multiple_closing_references_fail_before_api_call(tmp_path: Path) -> Non
     failures = slice_gate.gate(
         'feat: add law template',
         'Closes #9\nFixes #10',
-        ['tools/version_gate.py'],
+        ['governance/version_gate.py'],
         _template(tmp_path),
         'Vaquum/new-repository-template',
     )

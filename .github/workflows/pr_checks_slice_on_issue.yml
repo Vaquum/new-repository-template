@@ -149,7 +149,7 @@ jobs:
             # Run the slice gate; capture output and exit code.
             PR_TITLE=$(cat pr_title.txt)
             set +e
-            GATE_OUT=$(python tools/slice_gate.py \
+            GATE_OUT=$(python governance/slice_gate.py \
               --pr-title "$PR_TITLE" \
               --pr-body-file pr_body.txt \
               --pr-files-file pr_files.txt \

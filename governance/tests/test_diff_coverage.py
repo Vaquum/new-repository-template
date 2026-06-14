@@ -7,7 +7,7 @@ import types
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCRIPTS_DIR = REPO_ROOT / 'scripts'
+SCRIPTS_DIR = REPO_ROOT / 'governance'
 
 
 def _load() -> types.ModuleType:

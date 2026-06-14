@@ -43,7 +43,7 @@ jobs:
             echo "::error::RULESET_AUDIT_TOKEN is required for the privileged post-merge ruleset audit (it must be able to read bypass_actors)."
             exit 1
           fi
-          .venv-ruleset-audit/bin/python tools/privileged_ruleset_audit.py \
+          .venv-ruleset-audit/bin/python governance/privileged_ruleset_audit.py \
             --ruleset-file .github/rulesets/main.json \
             --repo "${{ github.repository }}" \
             --ruleset-id "$RULESET_ID" \

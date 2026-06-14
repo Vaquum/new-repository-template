@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "new-repository-template"
-version = "0.10.0"
+version = "0.10.1"
 description = "Gate-enforced Python repository template."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -58,7 +58,7 @@ exclude = [
   "build",
   "dist",
   "demo",
-  "tests/fixtures",
+  "governance/tests/fixtures",
 ]
 
 [tool.ruff.format]
@@ -106,21 +106,20 @@ max-statements = 50
   "PLR0912", "PLR0913", "PLR0915",
   "D200", "D205", "D415",
 ]
-"tools/**/*.py" = [
+"governance/*.py" = [
   "C901", "PLR0912", "PLR0913", "PLR0915",
   "T201",
   "FIX001", "FIX002", "FIX003", "FIX004",
   "ERA001", "D200", "D205", "D415",
 ]
-"scripts/**/*.py" = [
-  "C901", "PLR0912", "PLR0913", "PLR0915",
-  "T201",
-  "FIX001", "FIX002", "FIX003", "FIX004",
-  "ERA001", "D200", "D205", "D415",
+"governance/tests/**/*.py" = [
+  "S101", "ANN", "BLE001",
+  "PLR0912", "PLR0913", "PLR0915",
+  "D200", "D205", "D415",
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["new_repository_template"]
+known-first-party = ["governance", "new_repository_template"]
 
 [tool.vulture]
 paths = ["new_repository_template"]

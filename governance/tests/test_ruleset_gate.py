@@ -5,9 +5,9 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-RULESET_GATE = REPO_ROOT / 'tools/ruleset_gate.py'
+RULESET_GATE = REPO_ROOT / 'governance/ruleset_gate.py'
 SNAPSHOT = REPO_ROOT / '.github/rulesets/main.json'
-FIXTURES = REPO_ROOT / 'tests/fixtures/github'
+FIXTURES = REPO_ROOT / 'governance/tests/fixtures/github'
 
 
 def run_gate(live_fixture: str) -> subprocess.CompletedProcess[str]:

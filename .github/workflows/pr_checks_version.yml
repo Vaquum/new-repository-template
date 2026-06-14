@@ -1,7 +1,7 @@
 name: pr_checks_version
 
 # Mechanical version + changelog gate. Six deterministic rules
-# enforced by tools/version_gate.py. Every PR must:
+# enforced by governance/version_gate.py. Every PR must:
 #
 #   1. Modify pyproject.toml (the base and head bytes differ).
 #   2. Bump [project].version strictly forward by semver.
@@ -120,7 +120,7 @@ jobs:
             exit 0
           fi
           PR_TITLE=$(cat pr_title.txt)
-          python tools/version_gate.py \
+          python governance/version_gate.py \
             --pr-title "$PR_TITLE" \
             --base-pyproject base_pyproject.toml \
             --head-pyproject head_pyproject.toml \

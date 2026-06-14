@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ast
 
-from tools import fail_loud_gate
+from governance import fail_loud_gate
 
 
 def _counts(source: str) -> dict[str, int]:

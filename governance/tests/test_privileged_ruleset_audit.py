@@ -9,11 +9,11 @@ import types
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-TOOLS_DIR = REPO_ROOT / 'tools'
+TOOLS_DIR = REPO_ROOT / 'governance'
 RULESET_WORKFLOW = REPO_ROOT / '.github/workflows/pr_checks_ruleset.yml'
 AUDIT_WORKFLOW = REPO_ROOT / '.github/workflows/audit_main_ruleset.yml'
 SNAPSHOT = REPO_ROOT / '.github/rulesets/main.json'
-FIXTURES = REPO_ROOT / 'tests/fixtures/github'
+FIXTURES = REPO_ROOT / 'governance/tests/fixtures/github'
 
 
 def _load_audit_module() -> types.ModuleType:
@@ -101,7 +101,7 @@ def test_audit_main_ruleset_workflow_contract() -> None:
     assert "if: github.ref == 'refs/heads/main'" in workflow
     assert 'pull_request:' not in workflow
     assert 'RULESET_AUDIT_TOKEN' in workflow
-    assert 'tools/privileged_ruleset_audit.py' in workflow
+    assert 'governance/privileged_ruleset_audit.py' in workflow
     assert '--ruleset-file .github/rulesets/main.json' in workflow
     assert '--repo "${{ github.repository }}"' in workflow
     # The template resolves the ruleset id from the RULESET_ID repository
@@ -117,5 +117,5 @@ def test_audit_main_ruleset_workflow_contract() -> None:
 def test_pr_checks_ruleset_runs_privileged_audit_contract() -> None:
     workflow = RULESET_WORKFLOW.read_text(encoding='utf-8')
 
-    assert 'tests/tools/test_privileged_ruleset_audit.py' in workflow
+    assert 'governance/tests/test_privileged_ruleset_audit.py' in workflow
     assert 'continue-on-error' not in workflow
