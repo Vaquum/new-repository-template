@@ -534,16 +534,27 @@ def _apply_file_bootstrap(
     owner: str | None,
     codeql: str = 'supported',
 ) -> None:
-    pyproject = _load_pyproject()
-    old_packages = _package_roots_from_config(pyproject)
-    old_packages.add(package_name)
-
+    # Idempotency. The bootstrap workflow triggers on every push to main,
+    # but the rename + budget rewrite must run exactly once: once the seed
+    # package is gone the repository is already specialized, and re-deriving
+    # the module budgets would revert the values later slices have tuned,
+    # opening a spurious bootstrap PR on every merge. Skip that work when
+    # already specialized -- but still reconcile CodeQL, which is itself
+    # idempotent and must be able to run if the repository lost CodeQL
+    # support (e.g. went private without Advanced Security) after the
+    # initial bootstrap.
     changed = 0
-    changed += _rename_seed_package_dirs(package_name, old_packages)
-    changed += _replace_identity_tokens(repo_slug, package_name, old_packages, owner)
-    changed += _rewrite_pyproject(repo_slug, package_name)
-    changed += _create_package_baseline(repo_slug, package_name)
-    changed += _write_budgets(package_name)
+    if any((REPO_ROOT / seed).is_dir() for seed in KNOWN_SEED_PACKAGES):
+        pyproject = _load_pyproject()
+        old_packages = _package_roots_from_config(pyproject)
+        old_packages.add(package_name)
+        changed += _rename_seed_package_dirs(package_name, old_packages)
+        changed += _replace_identity_tokens(repo_slug, package_name, old_packages, owner)
+        changed += _rewrite_pyproject(repo_slug, package_name)
+        changed += _create_package_baseline(repo_slug, package_name)
+        changed += _write_budgets(package_name)
+    else:
+        print('bootstrap: repository already specialized; skipping rename and budget rewrite.')
     if codeql == 'unsupported':
         changed += disable_codeql()
     print(f'bootstrap: file bootstrap complete ({changed} file groups changed)')

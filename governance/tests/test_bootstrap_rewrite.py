@@ -7,6 +7,8 @@ occurrence of the seed package name is rewritten.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import shutil
 import subprocess
 import sys
@@ -14,17 +16,23 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
+_IGNORE = shutil.ignore_patterns(
+    '.git', '.venv', '.venv-lint', '.venv-ruleset', '.venv-ruleset-audit',
+    '__pycache__', '.pytest_cache', '.ruff_cache',
+)
+
+
+def _tree_hashes(root: Path) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for path in sorted(root.rglob('*')):
+        if path.is_file() and '__pycache__' not in path.parts:
+            out[str(path.relative_to(root))] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return out
+
 
 def test_template_slug_survives_file_bootstrap(tmp_path: Path) -> None:
     repo = tmp_path / 'repo'
-    shutil.copytree(
-        REPO_ROOT,
-        repo,
-        ignore=shutil.ignore_patterns(
-            '.git', '.venv', '.venv-lint', '.venv-ruleset', '.venv-ruleset-audit',
-            '__pycache__', '.pytest_cache', '.ruff_cache',
-        ),
-    )
+    shutil.copytree(REPO_ROOT, repo, ignore=_IGNORE)
     result = subprocess.run(
         [
             sys.executable, 'governance/bootstrap_repository.py', '--files-only',
@@ -47,3 +55,33 @@ def test_template_slug_survives_file_bootstrap(tmp_path: Path) -> None:
     assert 'https://github.com/Vaquum/new-repository-template' in readme
     setup = (repo / 'SETUP.md').read_text(encoding='utf-8')
     assert '--template Vaquum/new-repository-template' in setup
+
+
+def test_file_bootstrap_is_idempotent(tmp_path: Path) -> None:
+    # The bootstrap workflow triggers on every push to main, so the rewrite
+    # must be a no-op once the repository is already specialized -- otherwise
+    # every later merge re-runs it and opens a spurious bootstrap PR.
+    repo = tmp_path / 'repo'
+    shutil.copytree(REPO_ROOT, repo, ignore=_IGNORE)
+    cmd = [
+        sys.executable, 'governance/bootstrap_repository.py', '--files-only',
+        '--repo-name', 'my-new-app', '--owner', 'Vaquum',
+    ]
+    first = subprocess.run(cmd, cwd=repo, check=False, capture_output=True, text=True)
+    assert first.returncode == 0, first.stderr + first.stdout
+    assert (repo / 'my_new_app').is_dir()
+
+    # Tune a module budget the way a real slice does -- the exact value the
+    # un-guarded re-run used to revert, opening a spurious bootstrap PR.
+    budget_path = repo / '.github' / 'module_budgets.json'
+    budgets = json.loads(budget_path.read_text(encoding='utf-8'))
+    budgets['my_new_app/__init__.py'] = 999
+    budget_path.write_text(json.dumps(budgets, indent=2) + '\n', encoding='utf-8')
+
+    before = _tree_hashes(repo)
+    second = subprocess.run(cmd, cwd=repo, check=False, capture_output=True, text=True)
+    assert second.returncode == 0, second.stderr + second.stdout
+    assert 'already specialized' in second.stdout
+    assert _tree_hashes(repo) == before, 'second bootstrap run must change nothing'
+    # The tuned budget survived: the re-run did not regenerate it.
+    assert json.loads(budget_path.read_text(encoding='utf-8'))['my_new_app/__init__.py'] == 999
