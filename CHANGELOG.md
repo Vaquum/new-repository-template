@@ -1,3 +1,7 @@
+# v0.10.0
+
+- Add a docstring-conventions gate (`scripts/check_docstrings.py`, run in `pr_checks_lint`) mechanizing the deterministic, domain-neutral rules from dev-docs Writing-Docstrings.md: forbidden title verbs (never Calculate/Generate/Make/Build), no `(default: ...)` in parameter descriptions, and `NOTE:` casing. Scans function/method docstrings in the package, resolves `package_root` from the single source, and fails closed. The domain-specific rules (Klines/Trades dataset phrasing, DataFrame column-name return patterns) are intentionally not enforced in an app-neutral template, and "title ends with a period" is already ruff D415.
+
 # v0.9.0
 
 - Add a test-fallback gate (`scripts/check_test_fallbacks.py`, run in `pr_checks_lint`): test files may not use `try`/`except` (the legitimate way to assert exception behavior is `pytest.raises`). Closes the test-hygiene gap where `fail_loud_gate` scans only the package and ruff ignores `BLE001` in tests.

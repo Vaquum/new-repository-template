@@ -63,6 +63,9 @@ jobs:
       - name: Module docstring gate
         run: .venv-lint/bin/python scripts/check_module_docstrings.py
 
+      - name: Docstring conventions gate
+        run: .venv-lint/bin/python scripts/check_docstrings.py
+
       - name: File size balance gate
         run: .venv-lint/bin/python scripts/check_file_size_balance.py
 

@@ -19,6 +19,7 @@ GATE_SCRIPTS: Final[list[str]] = [
     'check_module_budgets.py',
     'check_test_code_ratio.py',
     'check_module_docstrings.py',
+    'check_docstrings.py',
     'check_file_size_balance.py',
     'check_coverage_floor.py',
     'check_diff_coverage.py',
@@ -31,6 +32,7 @@ GATE_BANNERS: Final[dict[str, str]] = {
     'check_module_budgets.py': 'MODULE BUDGET GATE',
     'check_test_code_ratio.py': 'TEST/CODE RATIO GATE',
     'check_module_docstrings.py': 'MODULE DOCSTRING GATE',
+    'check_docstrings.py': 'DOCSTRING CONVENTIONS GATE',
     'check_file_size_balance.py': 'FILE SIZE BALANCE GATE',
     'check_coverage_floor.py': 'COVERAGE FLOOR GATE',
     'check_diff_coverage.py': 'DIFF COVERAGE GATE',
@@ -65,7 +67,7 @@ def test_module_budgets_covers_every_package_path() -> None:
         f'extra={sorted(package_paths - actual_paths)}, '
         f'missing={sorted(actual_paths - package_paths)}'
     )
-    assert len(script_paths) == 10, f'expected 10 scripts paths, got {len(script_paths)}'
+    assert len(script_paths) == 11, f'expected 11 scripts paths, got {len(script_paths)}'
 
 
 def _actual_package_paths() -> set[str]:
