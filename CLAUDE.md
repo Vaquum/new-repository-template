@@ -60,6 +60,8 @@ The opinion is the deliverable. Confirming before posting adds a round-trip and 
 
 ## Beyond the laws
 
+**Reviewing a PR right now?** Read the PR-review guideline in [`.github/copilot-instructions.md`](.github/copilot-instructions.md) first — how to read a diff beyond its own lines, what to hunt, the verdict ladder, and how to post. Every reviewer here (Copilot, agent, or human) works from that one brief.
+
 The gates check shape, scope, format, ratchets, and named test suites. They do not check whether the slice's capability actually works. The operator judges that at review time, against the following stance:
 
 **Radical simplicity.** The simplest code that meets the requirement wins. Complexity earns its place by naming the specific concern it addresses — not "robustness" or "future-proofing" in general.
