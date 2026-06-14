@@ -1,3 +1,7 @@
+# v0.10.3
+
+- Fix the lint job crashing on a `slice_gate` import: PyYAML is now imported lazily, inside the one function that parses the issue template, instead of at module top — so importing `slice_gate` (which pytest does to collect `test_slice_gate`) no longer hard-requires yaml. Also pin `pyyaml>=6.0` in the `dev` extras so the toolchain venv has it explicitly rather than relying on a transitive dependency that de-scarring removed. Found by an end-to-end bootstrap smoke where the lint venv lacked yaml and `pr_checks_lint` crashed.
+
 # v0.10.2
 
 - Attribution scan: scrub legitimate topical references before scanning so the gate stops false-flagging the repo's own `*.md` governance files (`CLAUDE.md`, `AGENTS.md`, `copilot-instructions.md`) and the required code-review feature, while still catching real attribution (trailers, "generated with", bare vendor names elsewhere).

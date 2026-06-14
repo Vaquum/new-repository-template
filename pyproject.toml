@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "new-repository-template"
-version = "0.10.2"
+version = "0.10.3"
 description = "Gate-enforced Python repository template."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -18,6 +18,7 @@ dev = [
   "pyright==1.1.408",
   "vulture>=2.14",
   "coverage[toml]>=7.6",
+  "pyyaml>=6.0",
 ]
 
 [tool.setuptools.packages.find]
