@@ -1,6 +1,6 @@
 # v0.11.3
 
-- Move every workflow off the Node 20 GitHub Actions that GitHub is retiring (forced to Node 24 on 2026-06-16, removed 2026-09-16): `actions/checkout@v4` → `@v5` and `actions/setup-python@v4`/`@v5` → `@v6` across all `.github/workflows`. These were the two actions GitHub flagged as Node-20; `setup-uv` and `upload-artifact` are already on Node 24 and unchanged. Surfaced by the deprecation warning on every bootstrapped repo's Actions run.
+- Move every workflow off the Node 20 GitHub Actions that GitHub is retiring (forced to Node 24 on 2026-06-16, removed 2026-09-16). Bumped to their Node-24 majors across all `.github/workflows`: `actions/checkout@v4` → `@v5`, `actions/setup-python@v4`/`@v5` → `@v6`, `actions/upload-artifact@v4` → `@v7`, `astral-sh/setup-uv@v4` → `@v8`, and `github/codeql-action/{init,autobuild,analyze}@v3` → `@v4`. Every action whose `action.yml` declared `runs.using: node20` is now on a Node-24 major; no Node-20 action remains. Surfaced by the deprecation warning on bootstrapped repos' Actions runs.
 
 # v0.11.2
 
