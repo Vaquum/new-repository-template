@@ -56,6 +56,7 @@ gh variable set LABEL_TEMPLATE_REPOSITORY --org <ORG> --body <OWNER/REPO>
 
 - **GitHub Actions is enabled** for new repositories in the org (some orgs disable it by default).
 - **Copilot code review is available**, and there is a human who can give the **one required approval**. After bootstrap, the ruleset requires 1 approving review and a Copilot review-on-push for every PR; the constitution names `zero-bang` as the approving authority. (The bootstrap PR itself merges before the ruleset is active, so it does not need these.)
+- **The approving account has write (push) access to the repository.** A required approval only counts when it comes from an account with write access — a review from a read-only account is ignored, and every PR stays blocked at "review required". Grant it per repository (`gh api -X PUT /repos/<ORG>/<NAME>/collaborators/zero-bang -f permission=push`) or, preferably, add the approver to an organization team that has write access to every repository created from the template, so new repositories are immediately mergeable.
 
 You do **not** set `RULESET_ID` — the bootstrap sets it automatically once it applies the ruleset.
 
@@ -114,4 +115,4 @@ If you cannot set organization secrets:
 | Bootstrap finishes but `RULESET_ID` is unset / no ruleset | token lacks Administration **RW** | re-issue the token with ruleset (Administration) write, re-run |
 | `audit_main_ruleset` fails: missing `bypass_actors` | `RULESET_AUDIT_TOKEN` lacks admin read | grant Administration **R** to that token |
 | Labels not copied | token can't read `LABEL_TEMPLATE_REPOSITORY` | grant the token read access to that repo, or set the variable to a readable one |
-| Every PR is stuck without the required review | no approver / Copilot review unavailable | ensure an approver exists and Copilot code review is enabled |
+| Every PR is stuck at "review required" | the approver lacks **write** access (a read-only review does not count), no approver exists, or Copilot review is unavailable | give the approver write/push access (collaborator or org team), and ensure Copilot code review is enabled |
