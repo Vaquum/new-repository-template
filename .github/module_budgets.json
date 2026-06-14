@@ -3,6 +3,7 @@
   "scripts/__init__.py": 10,
   "scripts/check_budget_ratchet.py": 120,
   "scripts/check_coverage_floor.py": 120,
+  "scripts/check_diff_coverage.py": 120,
   "scripts/check_file_size_balance.py": 120,
   "scripts/check_module_budgets.py": 120,
   "scripts/check_module_docstrings.py": 120,

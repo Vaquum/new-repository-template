@@ -1,3 +1,7 @@
+# v0.8.0
+
+- Add a diff-coverage gate (`scripts/check_diff_coverage.py`, run in `pr_checks_lint`): executable lines added to the package by a PR must be covered at >= 80% (a real per-diff floor, where the global 50/45 floor can be satisfied by old code). Resolves `package_root` from the single source and fails closed; parsing and evaluation are pure-function unit-tested.
+
 # v0.7.0
 
 - `cc_gate` (law 2) now also rejects AI/LLM attribution: the PR title and every non-merge commit message in range must not name an AI assistant or model (Claude, Codex, Copilot, Cursor, Gemini, ChatGPT, GPT-n, Anthropic, OpenAI, "generated with", `Co-Authored-By:` an assistant). Folded into the existing Conventional Commits gate, so no new required check or law. Mechanizes pr-prep's Phase-1b attribution scan.

@@ -82,6 +82,13 @@ jobs:
           .venv-lint/bin/python -m coverage json -o coverage.json
           .venv-lint/bin/python scripts/check_coverage_floor.py
 
+      - name: Diff coverage gate
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch origin "$BASE_REF"
+          .venv-lint/bin/python scripts/check_diff_coverage.py --base-ref "origin/$BASE_REF"
+
       - name: Budget-raise ratchet gate
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
