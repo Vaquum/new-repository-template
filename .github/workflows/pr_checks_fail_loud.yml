@@ -4,7 +4,7 @@ name: pr_checks_fail_loud
 # ratcheted against .github/fail_loud_budget.json. Every PR that
 # raises any category's total fails and is blocked from merge.
 #
-# Categories enforced (tools/fail_loud_gate.py for the exact AST):
+# Categories enforced (governance/fail_loud_gate.py for the exact AST):
 #
 #   1. bare_except           -- `except:` without a type
 #   2. empty_pass            -- `except X: pass`
@@ -86,10 +86,10 @@ jobs:
           set -euo pipefail
           case "${{ steps.base.outputs.mode }}" in
             compare)
-              python tools/fail_loud_gate.py --base-budget base_budget.json
+              python governance/fail_loud_gate.py --base-budget base_budget.json
               ;;
             bootstrap)
-              python tools/fail_loud_gate.py --bootstrap
+              python governance/fail_loud_gate.py --bootstrap
               ;;
             *)
               echo "::error::base step did not set mode; refusing to run gate"

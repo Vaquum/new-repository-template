@@ -1,6 +1,5 @@
 name: Slice
 description: Plan, deliver, and close one repository slice against mechanical proof.
-title: ""
 labels:
   - slice
   - planning
@@ -134,7 +133,7 @@ body:
         > Accepted:
         > - `pytest tests/package/test_health.py -q` returns exit code `0`.
         > - `python -m pyright --outputjson | jq '.summary.errorCount'` returns `0`.
-        > - `python scripts/check_module_budgets.py` returns exit code `0`.
+        > - `python governance/check_module_budgets.py` returns exit code `0`.
 
         Commands with output on the merge commit (one per line):
         -

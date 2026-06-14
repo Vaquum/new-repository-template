@@ -92,12 +92,12 @@ jobs:
         run: |
           case "${{ steps.base.outputs.mode }}" in
             compare)
-              python tools/typing_gate.py \
+              python governance/typing_gate.py \
                 --pyright-json pyright_output.json \
                 --base-budget base_budget.json
               ;;
             bootstrap)
-              python tools/typing_gate.py \
+              python governance/typing_gate.py \
                 --pyright-json pyright_output.json \
                 --bootstrap
               ;;
