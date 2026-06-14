@@ -1,3 +1,7 @@
+# v0.13.0
+
+- Add a dependency-vulnerability gate (`governance/check_dependency_vulnerabilities.py`, run in `pr_checks_lint`): the declared runtime dependencies in `[project.dependencies]` are audited with pip-audit, and any known CVE blocks merge unless covered by an active, time-boxed entry in `.github/vuln_exceptions.json` (id + reason + expiry; an expired exception no longer covers). The verdict logic is a pure, unit-tested function; the template ships with no runtime dependencies, so the gate is a vacuous pass until a derived repository declares some. Folded into the existing lint gate, so no new required check and the bijection is untouched.
+
 # v0.12.0
 
 - Extend the version gate (`pr_checks_version`) with two mechanizable CHANGELOG writing conventions, checked only on the new top section so older entries are never re-litigated: bullets must be imperative ("Add", not "Added") and must not leave an unfinished marker note or a stub bullet behind. Folded into the existing version gate, so no new required check and the laws<->ruleset bijection is untouched.
