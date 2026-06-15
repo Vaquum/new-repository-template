@@ -75,6 +75,13 @@ def test_disable_codeql_removes_law_ruleset_and_workflow(tmp_path: Path) -> None
     assert 'Ten laws. Nine are workflow gates' in laws
     assert 'Eleven laws' not in laws
 
+    # governance.yml is the contract anchor test_governance_config pins the
+    # ruleset to; if disable_codeql leaves CodeQL here, a private bootstrap PR
+    # fails that check. Guard the regression where the template's own CI (which
+    # always has CodeQL) cannot otherwise see it.
+    config = (repo / 'governance.yml').read_text(encoding='utf-8')
+    assert 'PR Checks CodeQL (python)' not in config
+
 
 @_skip_if_no_codeql
 def test_disable_codeql_renumbers_laws_sequentially(tmp_path: Path) -> None:
