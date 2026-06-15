@@ -2,7 +2,6 @@ name: Slice
 description: Plan, deliver, and close one repository slice against mechanical proof.
 labels:
   - slice
-  - planning
 
 body:
 

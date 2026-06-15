@@ -26,9 +26,8 @@ from functools import partial
 from pathlib import Path
 from typing import Final
 
-from _common import fail_setup
+from _common import REPO_ROOT, fail_setup
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
 HEAD_BUDGET_PATH = REPO_ROOT / '.github' / 'coverage_budget.json'
 FIELDS: Final[tuple[str, ...]] = ('line', 'branch')
 

@@ -11,8 +11,8 @@ _(Fill in at least a short description of the intent of the change.)_
 - [ ] I ran the project's test suite locally without errors (where applicable)
 - [ ] I updated any relevant documentation (if behavior/API/config/user/etc changed)
 - [ ] I added and/or updated docstrings for any changed public functions/classes (the docstring-conventions gate enforces the mechanizable rules)
-- [ ] I updated CHANGELOG.md (unless only docs or other non-code aspect was changed)
-- [ ] I updated pyproject.toml (unless only docs or other non-code aspect was changed)
+- [ ] I added a `CHANGELOG.md` entry under a new `# v<X.Y.Z>` header (every PR — the version gate requires it)
+- [ ] I bumped `[project].version` in `pyproject.toml` (every PR — the version gate requires it)
 - [ ] I added and/or updated tests (if behavior changed or new code paths added)
 - [ ] I validated changes manually
 - [ ] I validated changes with LLM
