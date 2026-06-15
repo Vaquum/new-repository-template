@@ -51,7 +51,8 @@ import tomllib
 from pathlib import Path
 from typing import Final
 
-REPO_ROOT: Final[Path] = Path(__file__).resolve().parent.parent
+from _common import REPO_ROOT
+
 BUDGET_PATH: Final[Path] = REPO_ROOT / '.github' / 'typing_budget.json'
 PYPROJECT_PATH: Final[Path] = REPO_ROOT / 'pyproject.toml'
 

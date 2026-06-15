@@ -204,63 +204,6 @@ def _replace_identity_tokens(
     return changed
 
 
-def _remove_table(text: str, table_name: str) -> str:
-    escaped = re.escape(table_name)
-    return re.sub(rf'\n?\[{escaped}\]\n.*?(?=\n\[|\Z)', '\n', text, flags=re.DOTALL)
-
-
-def _remove_private_integration_extra(text: str) -> str:
-    lines = text.splitlines()
-    out: list[str] = []
-    skip = False
-    bracket_depth = 0
-    for line in lines:
-        stripped = line.strip()
-        if stripped.startswith('# Private sibling packages'):
-            skip = True
-            bracket_depth = 0
-            continue
-        if skip:
-            bracket_depth += line.count('[')
-            bracket_depth -= line.count(']')
-            if stripped == '' and bracket_depth <= 0:
-                skip = False
-            elif bracket_depth <= 0 and stripped == ']':
-                skip = False
-            continue
-        if stripped.startswith('integration = ['):
-            skip = True
-            bracket_depth = line.count('[') - line.count(']')
-            if bracket_depth <= 0:
-                skip = False
-            continue
-        out.append(line)
-    return '\n'.join(out).rstrip() + '\n'
-
-
-def _remove_package_per_file_ignores(text: str, package_name: str) -> str:
-    lines = text.splitlines()
-    out: list[str] = []
-    idx = 0
-    while idx < len(lines):
-        line = lines[idx]
-        stripped = line.strip()
-        if stripped.startswith(f'"{package_name}/') and ' = ' in stripped:
-            if stripped.endswith(']'):
-                idx += 1
-                continue
-            idx += 1
-            while idx < len(lines):
-                if lines[idx].strip() == ']':
-                    idx += 1
-                    break
-                idx += 1
-            continue
-        out.append(line)
-        idx += 1
-    return '\n'.join(out).rstrip() + '\n'
-
-
 def _replace_line(text: str, pattern: str, replacement: str) -> str:
     return re.sub(pattern, replacement, text, flags=re.MULTILINE)
 
@@ -268,10 +211,6 @@ def _replace_line(text: str, pattern: str, replacement: str) -> str:
 def _rewrite_pyproject(repo_slug: str, package_name: str) -> bool:
     path = REPO_ROOT / 'pyproject.toml'
     text = path.read_text(encoding='utf-8')
-    text = _remove_private_integration_extra(text)
-    text = _remove_table(text, 'tool.uv')
-    text = _remove_table(text, 'project.scripts')
-    text = _remove_package_per_file_ignores(text, package_name)
     text = _replace_line(text, r'^name = ".*"$', f'name = "{repo_slug}"')
     text = _replace_line(
         text,

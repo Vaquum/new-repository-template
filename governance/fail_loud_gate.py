@@ -46,7 +46,8 @@ import sys
 from pathlib import Path
 from typing import Final
 
-REPO_ROOT: Final[Path] = Path(__file__).resolve().parent.parent
+from _common import REPO_ROOT
+
 BUDGET_PATH: Final[Path] = REPO_ROOT / '.github' / 'fail_loud_budget.json'
 
 CATEGORIES: Final[tuple[str, ...]] = (

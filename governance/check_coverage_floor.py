@@ -20,12 +20,10 @@ import json
 import math
 import sys
 from functools import partial
-from pathlib import Path
 from typing import Final
 
-from _common import fail_setup
+from _common import REPO_ROOT, fail_setup
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
 COVERAGE_JSON = REPO_ROOT / 'coverage.json'
 BUDGET_PATH = REPO_ROOT / '.github' / 'coverage_budget.json'
 

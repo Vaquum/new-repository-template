@@ -12,9 +12,8 @@ from functools import partial
 from pathlib import Path
 from typing import Final
 
-from _common import fail_setup
+from _common import REPO_ROOT, fail_setup
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
 HEAD_BUDGET_PATH = REPO_ROOT / '.github' / 'module_budgets.json'
 
 RAISE_MARKER_RE: Final[re.Pattern[str]] = re.compile(
@@ -33,7 +32,6 @@ def _parse_budget(text: str) -> dict[str, int]:
         data = json.loads(text)
     except json.JSONDecodeError as exc:
         _fail_setup(f'cannot parse budget JSON: {exc}')
-        raise  # unreachable
     if not isinstance(data, dict):
         _fail_setup('budget JSON is not an object')
     parsed: dict[str, int] = {}

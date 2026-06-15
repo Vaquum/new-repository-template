@@ -18,9 +18,8 @@ import tomllib
 from functools import partial
 from pathlib import Path
 
-from _common import fail_setup
+from _common import REPO_ROOT, fail_setup
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
 PYPROJECT = REPO_ROOT / 'pyproject.toml'
 EXCEPTIONS = REPO_ROOT / '.github' / 'vuln_exceptions.json'
 
