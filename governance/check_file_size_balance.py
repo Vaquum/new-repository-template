@@ -2,14 +2,12 @@
 """File size balance gate: largest <= MAX_RATIO x median."""
 from __future__ import annotations
 
-import json
 import statistics
 import sys
 from pathlib import Path
 from typing import Final
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-TYPING_BUDGET = REPO_ROOT / '.github' / 'typing_budget.json'
+from _common import REPO_ROOT, resolve_package_dir
 
 # 16.00 allows a repository to carry a few framework-boundary modules
 # whose signatures must remain physically together while still blocking
@@ -20,25 +18,6 @@ MAX_RATIO: Final[float] = 16.00
 MIN_FILES_FOR_GATE: Final[int] = 3
 
 
-def _package_dir() -> Path:
-    # Single source of truth: typing_budget.json's package_root. Fail
-    # closed if it cannot be resolved -- a gate that cannot find its scan
-    # target blocks the merge instead of passing over an empty tree, so a
-    # half-finished package rename cannot silently disable it.
-    if not TYPING_BUDGET.is_file():
-        print('FILE SIZE BALANCE GATE -- FAIL', file=sys.stderr)
-        print(f'  missing {TYPING_BUDGET.relative_to(REPO_ROOT)}', file=sys.stderr)
-        sys.exit(2)
-    data = json.loads(TYPING_BUDGET.read_text(encoding='utf-8'))
-    root = data.get('package_root') if isinstance(data, dict) else None
-    path = REPO_ROOT / root if isinstance(root, str) and root else None
-    if path is None or not path.is_dir():
-        print('FILE SIZE BALANCE GATE -- FAIL', file=sys.stderr)
-        print(f'  package_root {root!r} is not a directory under the repo root', file=sys.stderr)
-        sys.exit(2)
-    return path
-
-
 def count_lines(path: Path) -> int:
     # Total physical line count, blank lines included (file-size balance
     # cares about actual file size on disk, not logical SLOC).
@@ -46,7 +25,7 @@ def count_lines(path: Path) -> int:
 
 
 def main() -> int:
-    source_dir = _package_dir()
+    source_dir = resolve_package_dir('FILE SIZE BALANCE GATE')
     sized: list[tuple[Path, int]] = [
         (p, count_lines(p)) for p in sorted(source_dir.rglob('*.py'))
     ]

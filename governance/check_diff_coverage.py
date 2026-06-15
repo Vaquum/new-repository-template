@@ -5,12 +5,11 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
-from pathlib import Path
 from typing import Final
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+from _common import REPO_ROOT, resolve_package_dir
+
 COVERAGE_JSON = REPO_ROOT / 'coverage.json'
-TYPING_BUDGET = REPO_ROOT / '.github' / 'typing_budget.json'
 
 # Floor for CHANGED package lines specifically -- higher than the global
 # coverage floor, because new code must arrive tested. Raise toward 100 as
@@ -73,13 +72,7 @@ def evaluate(
 
 
 def _package_root() -> str:
-    if not TYPING_BUDGET.is_file():
-        _fail(f'missing {TYPING_BUDGET.relative_to(REPO_ROOT)}', code=2)
-    data = json.loads(TYPING_BUDGET.read_text(encoding='utf-8'))
-    root = data.get('package_root') if isinstance(data, dict) else None
-    if not isinstance(root, str) or not root or not (REPO_ROOT / root).is_dir():
-        _fail(f'package_root {root!r} is not a directory under the repo root', code=2)
-    return str(root)
+    return resolve_package_dir('DIFF COVERAGE GATE').relative_to(REPO_ROOT).as_posix()
 
 
 def main() -> int:
