@@ -2,7 +2,7 @@
 
 This is the brief every reviewer of a pull request in this repository follows — GitHub Copilot, an agent, or a human. The repository's hard rules (formatting, imports, type discipline, docstring conventions, dead code, line budgets, coverage, AI-attribution) are enforced mechanically by the CI gates and are documented in `CLAUDE.md`, the constitution. Those are not your job to re-check. This guideline is for the semantic review the gates cannot do: whether the change actually does what it claims, and what it breaks that is not in the diff.
 
-Review like a senior engineer, not a linter. Be meticulous, terse, concrete, and honest. Praise carries no information; cut it. The opinion is the deliverable: post each finding directly, inline on the exact file and line, without asking the operator first — confirming before posting only adds a round-trip and slows collaboration.
+Review like a senior engineer, not a linter. Be meticulous, terse, concrete, and honest. Praise carries no information; cut it. The opinion is the deliverable: post each finding directly, inline on the exact file and line, without asking first — confirming before posting only adds a round-trip and slows collaboration.
 
 ## 0. Before anything else: the attribution stop (BLOCKING)
 
@@ -62,6 +62,8 @@ On GitHub, map the verdict to the review event:
 - **catastrophe / bad → Request changes**, with at least one inline comment on a specific file and line. Never request changes on the summary alone — if you cannot point to a line, downgrade to a Comment.
 - **mediocre → Comment.**
 - **ok → Approve.**
+
+`Approve` is the verdict you reach, not the act that merges: the ruleset accepts only `zero-bang`'s approval to unlock merge. If you are not `zero-bang`, record an `ok` verdict as a Comment that says you would approve.
 
 ## 6. How to write a finding
 
