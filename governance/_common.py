@@ -75,3 +75,27 @@ def significant_lines(path: Path) -> int:
         if stripped and not stripped.startswith('#'):
             count += 1
     return count
+
+
+def _is_path_excluded(rel: Path, excludes: list[str]) -> bool:
+    # Path-part match, not substring: an exclude entry matches only if its
+    # parts appear as a contiguous slice of rel's parts, so 'dist' does not
+    # spuriously match 'new_repository_template/distance.py'.
+    parts = rel.parts
+    for ex in excludes:
+        ex_parts = Path(ex).parts
+        if not ex_parts:
+            continue
+        width = len(ex_parts)
+        for i in range(max(0, len(parts) - width + 1)):
+            if parts[i:i + width] == ex_parts:
+                return True
+    return False
+
+
+def find_python_files(root: Path, excludes: list[str]) -> list[Path]:
+    """Every `*.py` under root whose path is not excluded, sorted."""
+    return [
+        path for path in sorted(root.rglob('*.py'))
+        if not _is_path_excluded(path.relative_to(REPO_ROOT), excludes)
+    ]

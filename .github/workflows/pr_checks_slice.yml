@@ -1,27 +1,9 @@
 name: pr_checks_slice
 
-# Mechanical PR <-> slice-issue gate. Eight deterministic rules
-# enforced by governance/slice_gate.py. Every PR must:
-#
-#   1.  Cite exactly one underlying issue via Closes/Fixes/Resolves #N.
-#   2.  The cited number must resolve in this repository.
-#   2a. The cited number must resolve to an issue (not another PR).
-#   3.  The cited issue must be OPEN.
-#   4.  The cited issue must have the 'slice' label (i.e. filed using
-#       the slice template at .github/ISSUE_TEMPLATE/slice.yml).
-#   5.  The PR title must byte-equal the issue title.
-#   6.  The issue body must contain every full multi-line Significance
-#       blockquote from the slice template, byte-for-byte. Blockquotes
-#       are extracted from the template at gate runtime so the
-#       validator and the template cannot drift apart.
-#   7.  Every file touched by the PR diff must be matched by a glob
-#       in the cited issue's ## Surfaces section.
-#   8.  No file touched by the PR diff may match a glob in the cited
-#       issue's ## Out of Scope section. This is the deny-list
-#       complement to rule 7.
-#
-# If any rule is false the gate fails and merge is blocked. There is
-# no graceful skip, no optional mode, and no bypass flag.
+# Mechanical PR <-> slice-issue gate. The deterministic rules are defined
+# once, in governance/slice_gate.py's module docstring (the single source);
+# this workflow only runs it. If any rule is false the gate fails and merge
+# is blocked. There is no graceful skip, no optional mode, and no bypass flag.
 
 on:
   pull_request:

@@ -14,7 +14,6 @@ _(Fill in at least a short description of the intent of the change.)_
 - [ ] I added a `CHANGELOG.md` entry under a new `# v<X.Y.Z>` header (every PR — the version gate requires it)
 - [ ] I bumped `[project].version` in `pyproject.toml` (every PR — the version gate requires it)
 - [ ] I added and/or updated tests (if behavior changed or new code paths added)
-- [ ] I validated changes manually
-- [ ] I validated changes with LLM
+- [ ] I validated that the change returns what it promised — not merely that it ran
 - [ ] I removed any extraneous examples/comments
 - [ ] I linked issue to auto-close on merge (e.g., “Fixes #123”) when applicable

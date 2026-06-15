@@ -35,7 +35,10 @@ def check_docstring(text: str) -> list[str]:
     title = text.strip().split('\n', 1)[0].strip()
     first_word = title.split(' ', 1)[0].lower() if title else ''
     if first_word in FORBIDDEN_TITLE_VERBS:
-        issues.append(f"title verb {first_word!r} is forbidden; use 'Compute' (or 'Create')")
+        issues.append(
+            f"title verb {first_word!r} is forbidden; open with a precise verb "
+            f"(e.g. 'Compute', 'Return', 'Parse', 'Validate') that says what the function does"
+        )
     if DEFAULT_IN_DESC_RE.search(text):
         issues.append("description states a default value '(default: ...)'; drop it")
     for match in NOTE_RE.finditer(text):

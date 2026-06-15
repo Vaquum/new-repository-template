@@ -1,19 +1,10 @@
 name: pr_checks_cc
 
-# Mechanical Conventional Commits gate. Three deterministic rules
-# enforced by governance/cc_gate.py. Every PR must:
-#
-#   1. Have a PR title that matches CC v1.0.0 format
-#      (<type>[(scope)][!]: <description>).
-#   2. Have every non-merge commit in the PR range match the same format.
-#   3. Have the title of its linked slice issue (if exactly one
-#      closing reference is present) match the same format.
-#
-# Allowed CC types: feat | fix | docs | style | refactor | perf |
-# test | build | ci | chore | revert. Case-sensitive, lowercase.
-#
-# If any subject fails the CC regex, the gate fails and merge is
-# blocked. No graceful skip, no optional mode, no bypass flag.
+# Mechanical Conventional Commits gate. The deterministic rules (PR title,
+# commit messages, linked-issue title, allowed types, and the AI/LLM
+# attribution scan) are defined once, in governance/cc_gate.py's module
+# docstring (the single source); this workflow only runs it. No graceful
+# skip, no optional mode, no bypass flag.
 
 on:
   pull_request:
