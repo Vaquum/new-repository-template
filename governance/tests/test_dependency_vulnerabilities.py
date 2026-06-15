@@ -3,14 +3,10 @@ from __future__ import annotations
 
 import datetime
 import importlib
-import sys
-from pathlib import Path
 
 import pytest
 
-TOOLS = Path(__file__).resolve().parents[1]
-if str(TOOLS) not in sys.path:
-    sys.path.insert(0, str(TOOLS))
+# governance/ is on sys.path via governance/tests/conftest.py.
 gate = importlib.import_module('check_dependency_vulnerabilities')
 
 _TODAY = datetime.date(2026, 6, 14)

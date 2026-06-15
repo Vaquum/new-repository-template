@@ -5,14 +5,12 @@ import importlib
 import json
 import re
 import shutil
-import sys
 import types
 from pathlib import Path
 
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-TOOLS_DIR = REPO_ROOT / 'governance'
 BOOTSTRAP_WORKFLOW = REPO_ROOT / '.github/workflows/bootstrap_repository.yml'
 
 _LAW_LINE = re.compile(r'^\d+\.\s')
@@ -28,8 +26,7 @@ _skip_if_no_codeql = pytest.mark.skipif(
 
 
 def _bootstrap() -> types.ModuleType:
-    if str(TOOLS_DIR) not in sys.path:
-        sys.path.insert(0, str(TOOLS_DIR))
+    # governance/ is on sys.path via governance/tests/conftest.py.
     return importlib.import_module('bootstrap_repository')
 
 

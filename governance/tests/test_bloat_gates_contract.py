@@ -12,7 +12,7 @@ from typing import Final
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 BUDGET_JSON: Final[Path] = REPO_ROOT / '.github/module_budgets.json'
 LINT_WORKFLOW: Final[Path] = REPO_ROOT / '.github/workflows/pr_checks_lint.yml'
-SCRIPTS_DIR: Final[Path] = REPO_ROOT / 'governance'
+GOVERNANCE_DIR: Final[Path] = REPO_ROOT / 'governance'
 PYPROJECT: Final[Path] = REPO_ROOT / 'pyproject.toml'
 
 GATE_SCRIPTS: Final[list[str]] = [
@@ -47,7 +47,7 @@ GATE_BANNERS: Final[dict[str, str]] = {
 
 
 def _run(script: str, *args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
-    cmd = [sys.executable, str(SCRIPTS_DIR / script), *args]
+    cmd = [sys.executable, str(GOVERNANCE_DIR / script), *args]
     return subprocess.run(cmd, check=False, capture_output=True, text=True, cwd=cwd or REPO_ROOT)
 
 
@@ -85,7 +85,7 @@ def _actual_package_paths() -> set[str]:
 
 def test_all_gate_scripts_exist_and_are_executable() -> None:
     for name in GATE_SCRIPTS:
-        path = SCRIPTS_DIR / name
+        path = GOVERNANCE_DIR / name
         assert path.is_file(), f'{path} missing'
         assert path.stat().st_mode & 0o111, f'{path} not executable'
 
@@ -113,7 +113,7 @@ def test_pass_banners_printed_on_success() -> None:
 
 def test_fail_banners_are_declared_in_each_script_source() -> None:
     for name in GATE_SCRIPTS:
-        source = (SCRIPTS_DIR / name).read_text(encoding='utf-8')
+        source = (GOVERNANCE_DIR / name).read_text(encoding='utf-8')
         banner = GATE_BANNERS[name]
         assert f'{banner} -- FAIL' in source, f'{name} missing FAIL banner literal'
         assert f'{banner} -- PASS' in source, f'{name} missing PASS banner literal'
@@ -180,8 +180,8 @@ def test_budget_ratchet_accepts_marker(tmp_path: Path) -> None:
     scripts_dir.mkdir()
     (scripts_dir / '__init__.py').write_text('', encoding='utf-8')
     import shutil
-    shutil.copy2(SCRIPTS_DIR / '_common.py', scripts_dir / '_common.py')
-    shutil.copy2(SCRIPTS_DIR / 'check_budget_ratchet.py', scripts_dir / 'check_budget_ratchet.py')
+    shutil.copy2(GOVERNANCE_DIR / '_common.py', scripts_dir / '_common.py')
+    shutil.copy2(GOVERNANCE_DIR / 'check_budget_ratchet.py', scripts_dir / 'check_budget_ratchet.py')
     result = subprocess.run(
         [sys.executable, str(scripts_dir / 'check_budget_ratchet.py'),
          '--base-file', str(base_file), '--pr-body-file', str(body_file)],

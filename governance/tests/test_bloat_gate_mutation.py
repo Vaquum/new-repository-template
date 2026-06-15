@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Final
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
-SCRIPTS_DIR: Final[Path] = REPO_ROOT / 'governance'
+GOVERNANCE_DIR: Final[Path] = REPO_ROOT / 'governance'
 
 
 def _clone_script_into(root: Path, name: str) -> Path:
@@ -19,9 +19,9 @@ def _clone_script_into(root: Path, name: str) -> Path:
     (dest_dir / '__init__.py').write_text('', encoding='utf-8')
     # Gates import the shared helper by bare name, so a cloned gate needs
     # _common.py beside it to run in isolation.
-    shutil.copy2(SCRIPTS_DIR / '_common.py', dest_dir / '_common.py')
+    shutil.copy2(GOVERNANCE_DIR / '_common.py', dest_dir / '_common.py')
     dest = dest_dir / name
-    shutil.copy2(SCRIPTS_DIR / name, dest)
+    shutil.copy2(GOVERNANCE_DIR / name, dest)
     return dest
 
 
