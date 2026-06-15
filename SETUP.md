@@ -14,6 +14,8 @@ The reason the secrets must be **organization** secrets (not repository secrets)
 
 ## 0 · Prerequisites — once per organization
 
+The secret, variable, and authority names below are declared once in [`governance.yml`](governance.yml), the repo's central governance config; the contract tests pin the workflows, ruleset, and this runbook to it. Use these exact names — don't rename them independently.
+
 ### Secret: `REPO_BOOTSTRAP_TOKEN` (required)
 
 Used by `bootstrap_repository.yml` to push the bootstrap branch, create the `slice` label and the bootstrap issue, open and merge the bootstrap PR **through the gates**, copy labels, apply the ruleset, and set the `RULESET_ID` variable.
@@ -55,7 +57,7 @@ gh variable set LABEL_TEMPLATE_REPOSITORY --org <ORG> --body <OWNER/REPO>
 ### Platform settings to confirm
 
 - **GitHub Actions is enabled** for new repositories in the org (some orgs disable it by default).
-- **Copilot code review is available**, and there is a human who can give the **one required approval**. After bootstrap, the ruleset requires 1 approving review and a Copilot review-on-push for every PR; the constitution names `zero-bang` as the approving authority. (The bootstrap PR itself merges before the ruleset is active, so it does not need these.)
+- **Copilot code review is available**, and there is a human who can give the **one required approval**. After bootstrap, the ruleset enforces two independent gates on every PR: (a) one approving review from a write-access human — the constitution names `zero-bang` as the approving authority — and (b) an automatic Copilot review on every push. These are separate; the Copilot review is not the human approval. (The bootstrap PR itself merges before the ruleset is active, so it needs neither.)
 - **The approving account has write (push) access to the repository.** A required approval only counts when it comes from an account with write access — a review from a read-only account is ignored, and every PR stays blocked at "review required". Grant it per repository (`gh api -X PUT /repos/<ORG>/<NAME>/collaborators/zero-bang -f permission=push`) or, preferably, add the approver to an organization team that has write access to every repository created from the template, so new repositories are immediately mergeable.
 
 You do **not** set `RULESET_ID` — the bootstrap sets it automatically once it applies the ruleset.

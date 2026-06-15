@@ -1,3 +1,7 @@
+# v0.14.2
+
+- Tighten and align the agent-facing docs from a five-reviewer cohesion pass. Make `governance.yml` discoverable: surface it in `SETUP.md` §0, add it as the required third edit in the docs/Developer "add a gate" recipe, and give it a header comment stating it is a contract anchor (the tests pin the workflows, ruleset, pyproject, and CLAUDE.md to it), not a runtime source. Make the PR-review brief self-sufficient on approval (only `zero-bang`'s Approve unlocks merge) and drop an undefined "operator" reference. In `CLAUDE.md`, merge the duplicated fail-loud stance into one bullet, reframe the Conventions intro so it no longer restates "Beyond the laws", and fix a typo. Correct `README.md` step 1 (add `RULESET_AUDIT_TOKEN`, demote the optional label variable, point at `SETUP.md`) and disambiguate the two independent approval gates in `SETUP.md`. Docs only.
+
 # v0.14.1
 
 - Fix the private-repo bootstrap, broken when `governance.yml` was introduced: `disable_codeql` now also strips the `PR Checks CodeQL (python)` required check from `governance.yml`, alongside the laws, the ruleset snapshot, the workflow, and the fixtures. Without this the config contract test (`test_governance_config`, run in `pr_checks_lint`) saw the ruleset drop CodeQL while `governance.yml` kept it, and every private-without-GHAS bootstrap PR failed to merge. Add a `governance.yml` assertion to `test_codeql_fallback` so the template's own CI catches this class of regression, which it otherwise cannot (the public template always has CodeQL).

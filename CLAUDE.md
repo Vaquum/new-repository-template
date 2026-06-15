@@ -60,11 +60,9 @@ The gates check shape, scope, format, ratchets, and named test suites. They do n
 
 **Radical simplicity.** The simplest code that meets the requirement wins. Complexity earns its place by naming the specific concern it addresses — not "robustness" or "future-proofing" in general.
 
-**No defensive fog.** Agents are primed to produce defensible-looking code: `try/except` that swallows everything, fallbacks for cases that don't happen, docstrings that restate the signature, comments that narrate the line, parameters that might be useful someday. None of it belongs here. The fail-loud gate (`pr_checks_fail_loud`) catches the AST-detectable forms mechanically; the rest is operator-caught at review.
+**No defensive fog; fail loud.** Agents are primed to produce defensible-looking code: `try/except` that swallows, fallbacks for cases that don't happen, docstrings that restate the signature, comments that narrate the line, parameters that might be useful someday. None of it belongs. When something is wrong, find the root cause and fail loudly and early — never paper over missing state with a workaround, a fallback, or a swallowed error. The fail-loud gate (`pr_checks_fail_loud`) catches the AST-detectable forms; the rest is operator-caught at review.
 
-**Fail loud, fix the cause.** When something is wrong, find the root cause — never paper over it with a workaround, a fallback, or a swallowed error. When required state is missing, fail loudly and early rather than limping on with a guess.
-
-**No sitting in the dark.** Do not block callable outputs or script outputs in anyway to save context. Or do not hide sub-agent logs to save your context. Always stay fully aware of what the running thing is doing. 
+**No sitting in the dark.** Never suppress callable output, script output, or sub-agent logs to save context — stay fully aware of what the running process is doing.
 
 **No long-running commands.** Do not repeatedly run long-running commands. If something needs to be run repeatedly, immediately profile it, and report back to operator the profile results. The operator is expert in performance hacking, you are not. 
 
@@ -80,7 +78,7 @@ The gates check shape, scope, format, ratchets, and named test suites. They do n
 
 ## Conventions
 
-The gates don't mechanically enforce these; hold them anyway.
+Concrete house style the gates don't check — not judgment calls, just the defaults to follow:
 
 - **Dependencies.** Prefer the standard library or an existing project dependency. A new external dependency must be required by the task, not a convenience.
 - **Logging.** Use `logging.getLogger(__name__)` in library code. (`print` in the package is already gate-blocked.)
