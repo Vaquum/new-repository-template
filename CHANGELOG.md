@@ -1,3 +1,7 @@
+# v0.14.6
+
+- Tidy the test layer: the per-file `sys.path` inserts in eight gate tests are redundant now that `governance/tests/conftest.py` puts `governance/` on the path, so remove them along with the stale `SCRIPTS_DIR`/`TOOLS_DIR`/`TOOLS` constants named after the pre-v0.10.1 `scripts/`/`tools/` directories. The two contract tests that locate gate files keep the constant, renamed to the accurate `GOVERNANCE_DIR`. Every gate test now imports by bare name through the single shared path. No behavior change; full suite green.
+
 # v0.14.5
 
 - Consolidate `REPO_ROOT` to the single `_common` definition across every gate (no more local redefinitions or `.parent.parent` spellings), and clear residual cruft surfaced by a cohesion review: remove the bootstrap's dead pyproject-rewrite helpers (the integration-extra, `tool.uv`, `project.scripts`, and package-ignore strippers that no longer match the template's `pyproject.toml`); drop the unused `pytest-asyncio` dev dependency and the undeclared `planning` issue label; align the PR-template checklist with law 5 (every PR bumps the version and `CHANGELOG.md`, with no docs exception); scope law 6's line-budget wording to the modules that are actually budgeted; and delete a dead unreachable `raise`. No behavior change; full suite green and the bootstrap rename/de-codeql simulations stay consistent.

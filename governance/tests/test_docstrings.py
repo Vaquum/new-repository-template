@@ -2,17 +2,11 @@
 from __future__ import annotations
 
 import importlib
-import sys
 import types
-from pathlib import Path
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-SCRIPTS_DIR = REPO_ROOT / 'governance'
 
 
 def _load() -> types.ModuleType:
-    if str(SCRIPTS_DIR) not in sys.path:
-        sys.path.insert(0, str(SCRIPTS_DIR))
+    # governance/ is on sys.path via governance/tests/conftest.py.
     return importlib.import_module('check_docstrings')
 
 

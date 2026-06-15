@@ -2,18 +2,13 @@
 from __future__ import annotations
 
 import importlib
-import sys
 import types
-from pathlib import Path
 
 import pytest
 
-TOOLS_DIR = Path(__file__).resolve().parents[1]
-
 
 def _mod(name: str) -> types.ModuleType:
-    if str(TOOLS_DIR) not in sys.path:
-        sys.path.insert(0, str(TOOLS_DIR))
+    # governance/ is on sys.path via governance/tests/conftest.py.
     return importlib.import_module(name)
 
 

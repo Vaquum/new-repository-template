@@ -26,9 +26,7 @@ def _seed_packages() -> frozenset[str]:
     # appears EXCEPT its own KNOWN_SEED_PACKAGES constant, so a literal here
     # would be rewritten to the new package name in a specialized repo and
     # the guard would misfire. The constant is the one rewrite-proof source.
-    tools_dir = str(REPO_ROOT / 'governance')
-    if tools_dir not in sys.path:
-        sys.path.insert(0, tools_dir)
+    # governance/ is on sys.path via governance/tests/conftest.py.
     return importlib.import_module('bootstrap_repository').KNOWN_SEED_PACKAGES
 
 

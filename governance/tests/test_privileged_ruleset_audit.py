@@ -4,12 +4,10 @@ import contextlib
 import importlib
 import io
 import json
-import sys
 import types
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-TOOLS_DIR = REPO_ROOT / 'governance'
 RULESET_WORKFLOW = REPO_ROOT / '.github/workflows/pr_checks_ruleset.yml'
 AUDIT_WORKFLOW = REPO_ROOT / '.github/workflows/audit_main_ruleset.yml'
 SNAPSHOT = REPO_ROOT / '.github/rulesets/main.json'
@@ -17,8 +15,7 @@ FIXTURES = REPO_ROOT / 'governance/tests/fixtures/github'
 
 
 def _load_audit_module() -> types.ModuleType:
-    if str(TOOLS_DIR) not in sys.path:
-        sys.path.insert(0, str(TOOLS_DIR))
+    # governance/ is on sys.path via governance/tests/conftest.py.
     return importlib.import_module('privileged_ruleset_audit')
 
 
