@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
-"""Docstring conventions gate: the mechanizable rules from Writing-Docstrings.md.
+"""Docstring conventions gate: the mechanizable, domain-neutral rules.
 
-Enforces, on every function/method docstring in the package, the three rules
-that are deterministic and domain-neutral:
+Enforces, on every function/method docstring in the package, three
+deterministic rules:
 
-  - Rule 1 (NEVER half): the title verb is not Calculate/Generate/Make/Build.
-  - Rule 3: parameter descriptions do not state a default value.
-  - Rule 5: a NOTE marker is written 'NOTE:', never 'Note:'/'note:'.
+  - the title verb is not Calculate/Generate/Make/Build;
+  - parameter descriptions do not state a default value;
+  - a NOTE marker is written 'NOTE:', never 'Note:'/'note:'.
 
-Domain-specific rules (the Klines/Trades dataset phrasing, exact-column return
-patterns) are intentionally not enforced here -- they assume a DataFrame
-domain this app-neutral template does not have. 'Title ends with a period' is
-already ruff D415.
+Conventions that depend on a specific data domain are deliberately out of
+scope for an app-neutral template; 'title ends with a period' is already
+ruff D415.
 """
 from __future__ import annotations
 

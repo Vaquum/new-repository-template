@@ -9,11 +9,12 @@ from typing import Final
 
 from _common import REPO_ROOT, resolve_package_dir
 
-# 16.00 allows a repository to carry a few framework-boundary modules
-# whose signatures must remain physically together while still blocking
-# an accidental "one huge file" architecture. Tighten this value when a
-# package has enough modules that the largest-file exception no longer
-# reflects a real boundary.
+# A deliberately lenient bootstrap default: 16x lets a young package carry a
+# framework-boundary module or two that must stay physically together, while
+# still blocking an accidental "one huge file" architecture. The gate is
+# dormant below MIN_FILES_FOR_GATE files, so it only bites once a package has
+# real structure; tighten the ratio as it grows and the largest-file
+# exception stops reflecting a real boundary.
 MAX_RATIO: Final[float] = 16.00
 MIN_FILES_FOR_GATE: Final[int] = 3
 

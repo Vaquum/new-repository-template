@@ -55,27 +55,13 @@ import sys
 from pathlib import Path
 from typing import Final
 
+from _common import CC_RE, CLOSING_KEYWORD_RE
+
 # Allowed types per the widely-followed set (Angular convention + CC v1.0.0).
 CC_TYPES: Final[frozenset[str]] = frozenset({
     'feat', 'fix', 'docs', 'style', 'refactor', 'perf',
     'test', 'build', 'ci', 'chore', 'revert',
 })
-
-# The CC regex. Captures type, scope (without parens), breaking marker.
-CC_RE: Final[re.Pattern[str]] = re.compile(
-    r'^(?P<type>[a-z]+)'
-    r'(?:\((?P<scope>[a-z0-9._/\-]+)\))?'
-    r'(?P<breaking>!)?'
-    r': (?P<description>.+)$'
-)
-
-# Same closing-keyword regex as slice_gate.py; kept local so cc_gate
-# does not depend on slice_gate (they gate independent concerns and
-# should be independently invocable).
-CLOSING_KEYWORD_RE: Final[re.Pattern[str]] = re.compile(
-    r'\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)\b',
-    re.IGNORECASE,
-)
 
 # AI/LLM attribution scan. Commit metadata in this org never names an
 # AI/LLM assistant, so the PR title and every non-merge commit message

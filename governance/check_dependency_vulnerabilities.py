@@ -15,18 +15,17 @@ import subprocess
 import sys
 import tempfile
 import tomllib
+from functools import partial
 from pathlib import Path
-from typing import NoReturn
+
+from _common import fail_setup
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PYPROJECT = REPO_ROOT / 'pyproject.toml'
 EXCEPTIONS = REPO_ROOT / '.github' / 'vuln_exceptions.json'
 
-
-def _fail_setup(message: str) -> NoReturn:
-    print('DEPENDENCY VULNERABILITY GATE -- FAIL', file=sys.stderr)
-    print(f'  {message}', file=sys.stderr)
-    sys.exit(2)
+# Bind this gate's banner to the shared setup-failure reporter.
+_fail_setup = partial(fail_setup, 'DEPENDENCY VULNERABILITY GATE')
 
 
 def _runtime_dependencies() -> list[str]:

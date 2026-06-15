@@ -10,7 +10,7 @@ _(Fill in at least a short description of the intent of the change.)_
 - [ ] I left no unnecessary files in the changes
 - [ ] I ran the project's test suite locally without errors (where applicable)
 - [ ] I updated any relevant documentation (if behavior/API/config/user/etc changed)
-- [ ] I added and/or updated docstrings as per [Writing Docstrings](https://github.com/Vaquum/Limen/blob/main/docs/Developer/Writing-Docstrings.md) (for any changed public functions/classes)
+- [ ] I added and/or updated docstrings for any changed public functions/classes (the docstring-conventions gate enforces the mechanizable rules)
 - [ ] I updated CHANGELOG.md (unless only docs or other non-code aspect was changed)
 - [ ] I updated pyproject.toml (unless only docs or other non-code aspect was changed)
 - [ ] I added and/or updated tests (if behavior changed or new code paths added)

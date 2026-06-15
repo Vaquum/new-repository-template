@@ -7,7 +7,7 @@ import subprocess
 import sys
 from typing import Final
 
-from _common import REPO_ROOT, resolve_package_dir
+from _common import REPO_ROOT, fail_setup, resolve_package_dir
 
 COVERAGE_JSON = REPO_ROOT / 'coverage.json'
 
@@ -15,12 +15,7 @@ COVERAGE_JSON = REPO_ROOT / 'coverage.json'
 # coverage floor, because new code must arrive tested. Raise toward 100 as
 # the package matures.
 DIFF_FLOOR_PCT: Final[float] = 80.0
-
-
-def _fail(message: str, *, code: int) -> None:
-    print('DIFF COVERAGE GATE -- FAIL', file=sys.stderr)
-    print(f'  {message}', file=sys.stderr)
-    sys.exit(code)
+BANNER = 'DIFF COVERAGE GATE'
 
 
 def parse_added_lines(diff_text: str) -> dict[str, set[int]]:
@@ -77,17 +72,17 @@ def _package_root() -> str:
 
 def main() -> int:
     if len(sys.argv) != 3 or sys.argv[1] != '--base-ref':
-        _fail('usage: check_diff_coverage.py --base-ref <ref>', code=2)
+        fail_setup(BANNER, 'usage: check_diff_coverage.py --base-ref <ref>')
     base_ref = sys.argv[2]
     package_root = _package_root()
     if not COVERAGE_JSON.is_file():
-        _fail(f'no coverage.json at {COVERAGE_JSON}', code=2)
+        fail_setup(BANNER, f'no coverage.json at {COVERAGE_JSON}')
     result = subprocess.run(
         ['git', 'diff', '-U0', f'{base_ref}...HEAD', '--', package_root],
         check=False, capture_output=True, text=True,
     )
     if result.returncode != 0:
-        _fail(f'git diff failed: {result.stderr.strip()}', code=2)
+        fail_setup(BANNER, f'git diff failed: {result.stderr.strip()}')
     added = parse_added_lines(result.stdout)
     files = json.loads(COVERAGE_JSON.read_text(encoding='utf-8')).get('files', {})
     total, covered, uncovered = evaluate(added, files)

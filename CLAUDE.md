@@ -22,7 +22,7 @@ Eleven laws. Ten are workflow gates on every PR; the eleventh is branch protecti
 
 5. **Every PR bumps the version and leaves a CHANGELOG trail.** `[project].version` advances strictly forward by `MAJOR.MINOR.PATCH`. `CHANGELOG.md`'s first `# v<X.Y.Z>` header equals the new version and carries at least one content line, written imperatively ("Add", not "Added") and free of leftover placeholders. Bump level meets the Conventional Commits type minimum: `type!` → major, `feat` → minor, else patch. *(pr_checks_version)*
 
-6. **The lint gate passes.** Ruff 0.15.11 across the package, `governance/`, and `tests/`; no dead code (vulture); every module within its line budget; changed lines arrive covered; declared runtime dependencies carry no known vulnerability (pip-audit, with time-boxed `.github/vuln_exceptions.json` entries); and the coverage floor in `.github/coverage_budget.json` holds and ratchets upward — it tracks real coverage and cannot be lowered by the PR it gates without a `[coverage-lower: <field>: <reason>]` marker. *(pr_checks_lint)*
+6. **The lint gate passes.** Ruff 0.15.11 across the package, `governance/`, and `tests/`; no dead code (vulture); every module within its line budget and carrying a docstring; the docstring conventions, file-size balance, and test/code ratio all hold; no test uses `try`/`except` and no honesty-violation is swallowed; changed lines arrive covered; declared runtime dependencies carry no known vulnerability (pip-audit, with time-boxed `.github/vuln_exceptions.json` entries); and the coverage floor in `.github/coverage_budget.json` holds and ratchets upward — it cannot be lowered by the PR it gates without a `[coverage-lower: <field>: <reason>]` marker. *(pr_checks_lint)*
 
 7. **`pytest tests/package -q --maxfail=1` passes.** *(pr_checks_tests)*
 
@@ -40,7 +40,7 @@ Beyond the gates, `audit_main_ruleset` re-checks the live ruleset on every push 
 
 Branch off `main`. Push to a remote branch of the same name. **Open the PR the moment the change is ready for CI to run on it — not when it feels finished.** The gates run on GitHub while you keep working locally. Don't wait for CI in the foreground.
 
-**`zero-bang` is the approving authority.** Request their review the moment the PR is open. Once every requested change is addressed, re-request `zero-bang`'s review.
+**`zero-bang` is the approving authority — the operator.** ("The operator" throughout this document is that human reviewer: the one who judges the work at review time and whose approval unlocks merge.) Request their review the moment the PR is open. Once every requested change is addressed, re-request `zero-bang`'s review.
 
 Each push re-runs every gate. Prefer new commits to amends — amends don't give you anything and they muddle the PR history. Keep one logical change per commit; don't batch unrelated changes together. Before you request review, read your own full diff in GitHub — catch what you'd flag in someone else's PR.
 
