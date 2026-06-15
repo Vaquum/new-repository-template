@@ -52,12 +52,7 @@ import sys
 from pathlib import Path
 from typing import Final
 
-# GitHub's own regex for closing keywords.
-# https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue
-CLOSING_KEYWORD_RE: Final[re.Pattern[str]] = re.compile(
-    r'\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)\b',
-    re.IGNORECASE,
-)
+from _common import CLOSING_KEYWORD_RE
 
 SURFACES_SECTION_RE: Final[re.Pattern[str]] = re.compile(
     r'##\s+Surfaces\s*\n(.*?)(?=\n##\s|\Z)',

@@ -180,6 +180,7 @@ def test_budget_ratchet_accepts_marker(tmp_path: Path) -> None:
     scripts_dir.mkdir()
     (scripts_dir / '__init__.py').write_text('', encoding='utf-8')
     import shutil
+    shutil.copy2(SCRIPTS_DIR / '_common.py', scripts_dir / '_common.py')
     shutil.copy2(SCRIPTS_DIR / 'check_budget_ratchet.py', scripts_dir / 'check_budget_ratchet.py')
     result = subprocess.run(
         [sys.executable, str(scripts_dir / 'check_budget_ratchet.py'),

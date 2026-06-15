@@ -19,8 +19,11 @@ from __future__ import annotations
 import json
 import math
 import sys
+from functools import partial
 from pathlib import Path
-from typing import Final, NoReturn
+from typing import Final
+
+from _common import fail_setup
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 COVERAGE_JSON = REPO_ROOT / 'coverage.json'
@@ -34,10 +37,8 @@ MIN_BRANCHES_FOR_TRACK: Final[int] = 20
 TRACK_SLACK: Final[int] = 2
 
 
-def _fail_setup(message: str) -> NoReturn:
-    print('COVERAGE FLOOR GATE -- FAIL', file=sys.stderr)
-    print(f'  {message}', file=sys.stderr)
-    sys.exit(2)
+# Bind this gate's banner to the shared setup-failure reporter.
+_fail_setup = partial(fail_setup, 'COVERAGE FLOOR GATE')
 
 
 def _num(totals: dict[str, object], key: str) -> float:

@@ -54,6 +54,8 @@ import tomllib
 from pathlib import Path
 from typing import Final
 
+from _common import CC_RE
+
 # Strict `MAJOR.MINOR.PATCH` only. We explicitly reject prerelease
 # and build-metadata forms because this gate compares as integer
 # triples; accepting `1.3.1-alpha` but silently ignoring the `-alpha`
@@ -63,12 +65,6 @@ SEMVER_RE: Final[re.Pattern[str]] = re.compile(
     r'^(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)$'
 )
 
-CC_RE: Final[re.Pattern[str]] = re.compile(
-    r'^(?P<type>[a-z]+)'
-    r'(?:\((?P<scope>[a-z0-9._/\-]+)\))?'
-    r'(?P<breaking>!)?'
-    r': (?P<description>.+)$'
-)
 
 LEVEL_ORDER: Final[dict[str, int]] = {
     'none': 0,

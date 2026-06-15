@@ -19,6 +19,11 @@ from pathlib import Path
 
 from _common import REPO_ROOT, resolve_package_dir
 
+# The exception names that must never be caught: a swallowed honesty
+# violation is a silent lie about correctness. This is the per-repository
+# extension point -- keep `HonestyViolation` as the base and add the names
+# your package actually raises (or trim those it does not). The gate fires
+# on a fresh repo only once such an exception exists and is caught.
 HONESTY_EXCEPTIONS = frozenset({
     'HonestyViolation',
     'LookAheadViolation',

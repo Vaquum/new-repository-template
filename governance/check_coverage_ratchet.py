@@ -22,8 +22,11 @@ import os
 import re
 import subprocess
 import sys
+from functools import partial
 from pathlib import Path
-from typing import Final, NoReturn
+from typing import Final
+
+from _common import fail_setup
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 HEAD_BUDGET_PATH = REPO_ROOT / '.github' / 'coverage_budget.json'
@@ -35,10 +38,8 @@ LOWER_MARKER_RE: Final[re.Pattern[str]] = re.compile(
 )
 
 
-def _fail_setup(message: str) -> NoReturn:
-    print('COVERAGE RATCHET GATE -- FAIL', file=sys.stderr)
-    print(f'  {message}', file=sys.stderr)
-    sys.exit(2)
+# Bind this gate's banner to the shared setup-failure reporter.
+_fail_setup = partial(fail_setup, 'COVERAGE RATCHET GATE')
 
 
 def _parse_floor(text: str) -> dict[str, int]:
