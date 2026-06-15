@@ -41,6 +41,18 @@ def test_bootstrap_job_has_timeout() -> None:
     assert 'timeout-minutes: 30' in workflow
 
 
+def test_bootstrap_serializes_concurrent_runs() -> None:
+    workflow = BOOTSTRAP_WORKFLOW.read_text(encoding='utf-8')
+
+    assert 'concurrency:' in workflow
+    assert 'group: ${{ github.workflow }}' in workflow
+    # A bootstrap run may be mid rename-and-merge; cancelling it would leave a
+    # half-applied specialization. Queued runs must wait, then no-op. Anything
+    # other than an explicit false would re-open the two-parallel-renames race.
+    assert 'cancel-in-progress: false' in workflow
+    assert 'cancel-in-progress: true' not in workflow
+
+
 def test_bootstrap_pr_is_a_valid_slice_shape() -> None:
     workflow = BOOTSTRAP_WORKFLOW.read_text(encoding='utf-8')
 

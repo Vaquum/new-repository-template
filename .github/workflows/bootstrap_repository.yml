@@ -10,6 +10,17 @@ on:
         required: false
         type: string
 
+# Serialize every bootstrap run into a single lane. Unlike the pr_checks
+# workflows (which cancel superseded runs because only the latest PR push
+# matters), an in-progress bootstrap is never cancelled: it may be partway
+# through the rename-and-merge that specializes the repo, and interrupting it
+# would leave a half-applied state. A run queued behind it finds the repo
+# already specialized and no-ops. This stops the repo-creation push and the
+# workflow_dispatch trigger from racing into two parallel rename PRs.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
   issues: write
