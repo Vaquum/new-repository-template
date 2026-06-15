@@ -16,6 +16,10 @@ import urllib.parse
 from pathlib import Path
 from typing import Final
 
+# The bootstrap is the rename engine: it deliberately imports nothing from the
+# governance/_common helper module (it keeps its own REPO_ROOT and
+# _significant_lines below) so it stays a self-contained script that can run on
+# a repository mid-specialization without depending on sibling gate modules.
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 BOOTSTRAP_SCRIPT: Final[Path] = Path(__file__).resolve()
 RULESET_PATH: Final[Path] = REPO_ROOT / '.github' / 'rulesets' / 'main.json'

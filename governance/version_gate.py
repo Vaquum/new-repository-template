@@ -279,6 +279,16 @@ def gate(
             f'the new header must be the first version heading in the file.'
         )
 
+    # Rule 5: bump level meets the minimum required by the CC type.
+    if actual != 'none':
+        required = required_bump_level(pr_title)
+        if LEVEL_ORDER[actual] < LEVEL_ORDER[required]:
+            failures.append(
+                f'PR title {pr_title!r} requires at least a {required} version '
+                f'bump; the actual bump is {actual} ({base_version} -> '
+                f'{head_version}).'
+            )
+
     # Rule 6: the top version section must carry at least one line of
     # actual content (not just a header followed by blanks or another
     # version header). Prevents the "header-only trail" bypass.
@@ -289,16 +299,6 @@ def gate(
             f'Every version bump must be accompanied by at least one '
             f'non-empty changelog line describing what changed.'
         )
-
-    # Rule 5: bump level meets the minimum required by the CC type.
-    if actual != 'none':
-        required = required_bump_level(pr_title)
-        if LEVEL_ORDER[actual] < LEVEL_ORDER[required]:
-            failures.append(
-                f'PR title {pr_title!r} requires at least a {required} version '
-                f'bump; the actual bump is {actual} ({base_version} -> '
-                f'{head_version}).'
-            )
 
     # Rule 7: the new top section follows the writing conventions --
     # imperative mood and no leftover placeholders. Only the top section

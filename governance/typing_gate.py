@@ -51,7 +51,7 @@ import tomllib
 from pathlib import Path
 from typing import Final
 
-from _common import REPO_ROOT
+from _common import REPO_ROOT, find_python_files
 
 BUDGET_PATH: Final[Path] = REPO_ROOT / '.github' / 'typing_budget.json'
 PYPROJECT_PATH: Final[Path] = REPO_ROOT / 'pyproject.toml'
@@ -65,33 +65,6 @@ def _setup_failure(message: str) -> None:
 # -------------------------------------------------------------------
 # File walking
 # -------------------------------------------------------------------
-
-def _is_excluded(relative_path: Path, excludes: list[str]) -> bool:
-    """Path-part match, not substring. An exclude entry matches only if
-    its parts appear as a contiguous slice of the path's parts. This
-    prevents an entry like 'dist' from spuriously matching a file such
-    as 'new_repository_template/distance.py'."""
-    parts = relative_path.parts
-    for ex in excludes:
-        ex_parts = Path(ex).parts
-        if not ex_parts:
-            continue
-        w = len(ex_parts)
-        for i in range(0, max(0, len(parts) - w + 1)):
-            if parts[i:i + w] == ex_parts:
-                return True
-    return False
-
-
-def find_python_files(root: Path, excludes: list[str]) -> list[Path]:
-    files: list[Path] = []
-    for p in sorted(root.rglob('*.py')):
-        rel = p.relative_to(REPO_ROOT)
-        if _is_excluded(rel, excludes):
-            continue
-        files.append(p)
-    return files
-
 
 def count_pattern(files: list[Path], pattern: str) -> int:
     """Count non-overlapping matches of `pattern` across `files`. Any

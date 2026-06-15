@@ -46,7 +46,7 @@ import sys
 from pathlib import Path
 from typing import Final
 
-from _common import REPO_ROOT
+from _common import REPO_ROOT, find_python_files
 
 BUDGET_PATH: Final[Path] = REPO_ROOT / '.github' / 'fail_loud_budget.json'
 
@@ -64,31 +64,6 @@ CATEGORIES: Final[tuple[str, ...]] = (
 # --------------------------------------------------------------------
 # File discovery + violation counting
 # --------------------------------------------------------------------
-
-def _is_excluded(rel: Path, excludes: list[str]) -> bool:
-    """Path-part match (not substring): excludes entry matches only
-    if its parts appear as a contiguous slice of rel's parts."""
-    parts = rel.parts
-    for ex in excludes:
-        ex_parts = Path(ex).parts
-        if not ex_parts:
-            continue
-        w = len(ex_parts)
-        for i in range(0, max(0, len(parts) - w + 1)):
-            if parts[i:i + w] == ex_parts:
-                return True
-    return False
-
-
-def find_python_files(root: Path, excludes: list[str]) -> list[Path]:
-    files: list[Path] = []
-    for p in sorted(root.rglob('*.py')):
-        rel = p.relative_to(REPO_ROOT)
-        if _is_excluded(rel, excludes):
-            continue
-        files.append(p)
-    return files
-
 
 def _collect_contextlib_names(tree: ast.AST) -> tuple[set[str], set[str]]:
     """Return (module_aliases, direct_names) where:

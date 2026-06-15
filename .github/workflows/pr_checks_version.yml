@@ -1,23 +1,9 @@
 name: pr_checks_version
 
-# Mechanical version + changelog gate. Six deterministic rules
-# enforced by governance/version_gate.py. Every PR must:
-#
-#   1. Modify pyproject.toml (the base and head bytes differ).
-#   2. Bump [project].version strictly forward by semver.
-#   3. Modify CHANGELOG.md (the base and head bytes differ).
-#   4. Put `# v<new_version>` as the first `# v...` header in
-#      CHANGELOG.md (ahead of the previous version's header).
-#   5. The bump level (patch / minor / major) meets the minimum
-#      implied by the PR title's Conventional Commits type:
-#        type!           -> major
-#        feat            -> minor
-#        anything else   -> patch
-#   6. The top `# v<new_version>` section contains at least one
-#      non-empty changelog line before the next version header.
-#
-# "Whatever is changed must leave a trail and the version must
-# change." No graceful skip, no bypass flag.
+# Mechanical version + changelog gate. The deterministic rules are defined
+# once, in governance/version_gate.py's module docstring (the single source);
+# this workflow only runs it. "Whatever is changed must leave a trail and the
+# version must change." No graceful skip, no bypass flag.
 
 on:
   pull_request:

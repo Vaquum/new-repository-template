@@ -1,3 +1,7 @@
+# v0.14.7
+
+- Finish the cohesion pass. Trim the per-gate rule lists out of the `pr_checks_cc`, `pr_checks_version`, and `pr_checks_slice` workflow headers so each gate's module docstring is the single source (the header copies had drifted — "Three"/"Six" against the real four/seven rules). Move the duplicated `find_python_files`/`_is_excluded` file-walk helpers into `_common` (`typing_gate` and `fail_loud_gate` import them now). Explain in `bootstrap_repository.py` why it deliberately keeps standalone copies of `REPO_ROOT` and `significant_lines` rather than importing `_common`. Scope law 6's line-budget wording to the `check_*` gates (the larger gate modules are held to shape by file-size balance instead). Reorder `version_gate`'s checks so execution matches the documented rule order. Make the docstring gate's forbidden-verb hint verb-agnostic, and fold the PR-template validation checkboxes into one expectation-focused item. No behavior change; full suite green.
+
 # v0.14.6
 
 - Tidy the test layer: the per-file `sys.path` inserts in eight gate tests are redundant now that `governance/tests/conftest.py` puts `governance/` on the path, so remove them along with the stale `SCRIPTS_DIR`/`TOOLS_DIR`/`TOOLS` constants named after the pre-v0.10.1 `scripts/`/`tools/` directories. The two contract tests that locate gate files keep the constant, renamed to the accurate `GOVERNANCE_DIR`. Every gate test now imports by bare name through the single shared path. No behavior change; full suite green.
