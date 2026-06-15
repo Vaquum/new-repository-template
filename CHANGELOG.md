@@ -1,3 +1,7 @@
+# v0.14.9
+
+- Tighten the author-side PR workflow in `CLAUDE.md`. Open the PR first — before running the gates locally and never as a draft — so CI starts immediately and local verification never stalls without an open PR. When addressing review comments, handle every thread (blocking or not) with a named commit or a reply, then resolve it; merge already requires that server-side (`required_review_thread_resolution`), so the doc now matches the mechanism. Docs only.
+
 # v0.14.8
 
 - Serialize bootstrap runs with a workflow-scoped `concurrency` group (`cancel-in-progress: false`) so the repo-creation push and the `workflow_dispatch` trigger can no longer race into two parallel rename-and-merge PRs. The first run holds the lane through its rename and merge; a run queued behind it finds the repo already specialized and no-ops, exactly as the idempotency guard intends. The group deliberately differs from the `pr_checks_*` workflows, which cancel superseded runs — an interrupted bootstrap would leave a half-applied specialization, so its in-progress run is never cancelled. A new contract assertion in `test_bootstrap_workflow_contract.py` pins the group and the `false` value so the race cannot silently return.
