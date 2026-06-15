@@ -16,40 +16,18 @@ already ruff D415.
 from __future__ import annotations
 
 import ast
-import json
 import re
 import sys
 from pathlib import Path
 from typing import Final
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-TYPING_BUDGET = REPO_ROOT / '.github' / 'typing_budget.json'
+from _common import REPO_ROOT, resolve_package_dir
 
 FORBIDDEN_TITLE_VERBS: Final[frozenset[str]] = frozenset({
     'calculate', 'generate', 'make', 'build',
 })
 DEFAULT_IN_DESC_RE: Final[re.Pattern[str]] = re.compile(r'\(default:', re.IGNORECASE)
 NOTE_RE: Final[re.Pattern[str]] = re.compile(r'\bnote:', re.IGNORECASE)
-
-
-def _fail_setup(message: str) -> None:
-    print('DOCSTRING CONVENTIONS GATE -- FAIL', file=sys.stderr)
-    print(f'  {message}', file=sys.stderr)
-    sys.exit(2)
-
-
-def _package_dir() -> Path:
-    # Single source of truth: typing_budget.json's package_root. Fail closed
-    # if it cannot be resolved.
-    if not TYPING_BUDGET.is_file():
-        _fail_setup(f'missing {TYPING_BUDGET.relative_to(REPO_ROOT)}')
-    data = json.loads(TYPING_BUDGET.read_text(encoding='utf-8'))
-    root = data.get('package_root') if isinstance(data, dict) else None
-    path = REPO_ROOT / root if isinstance(root, str) and root else None
-    if path is None or not path.is_dir():
-        _fail_setup(f'package_root {root!r} is not a directory under the repo root')
-        raise AssertionError  # unreachable; _fail_setup sys.exits
-    return path
 
 
 def check_docstring(text: str) -> list[str]:
@@ -84,7 +62,7 @@ def find_violations(source: str) -> list[tuple[int, str, str]]:
 
 
 def main() -> int:
-    source_dir = _package_dir()
+    source_dir = resolve_package_dir('DOCSTRING CONVENTIONS GATE')
     violations: list[tuple[Path, int, str, str]] = []
     for path in sorted(source_dir.rglob('*.py')):
         for lineno, name, msg in find_violations(path.read_text(encoding='utf-8')):
