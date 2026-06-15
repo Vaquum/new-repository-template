@@ -1,3 +1,7 @@
+# v0.14.1
+
+- Fix the private-repo bootstrap, broken when `governance.yml` was introduced: `disable_codeql` now also strips the `PR Checks CodeQL (python)` required check from `governance.yml`, alongside the laws, the ruleset snapshot, the workflow, and the fixtures. Without this the config contract test (`test_governance_config`, run in `pr_checks_lint`) saw the ruleset drop CodeQL while `governance.yml` kept it, and every private-without-GHAS bootstrap PR failed to merge. Add a `governance.yml` assertion to `test_codeql_fallback` so the template's own CI catches this class of regression, which it otherwise cannot (the public template always has CodeQL).
+
 # v0.14.0
 
 - Add `governance.yml` as the root central governance config and enforce its first settings against the live workflows, ruleset snapshot, setup docs, review authority, and tool pins through contract tests.

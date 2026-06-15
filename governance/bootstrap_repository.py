@@ -491,12 +491,25 @@ def _drop_codeql_context(ruleset: dict[str, object]) -> bool:
     return False
 
 
+def _drop_codeql_from_config(text: str) -> str:
+    # Remove the CodeQL required-status-check from governance.yml's list,
+    # preserving the rest of the file's formatting. governance.yml is the
+    # contract anchor the config tests pin the ruleset to, so it must lose
+    # CodeQL alongside the ruleset, the laws, and the workflow.
+    pattern = re.compile(r'^\s*-\s*["\']?' + re.escape(CODEQL_CONTEXT) + r'["\']?\s*$')
+    return ''.join(
+        line for line in text.splitlines(keepends=True) if not pattern.match(line)
+    )
+
+
 def disable_codeql(repo_root: Path = REPO_ROOT) -> int:
-    """Drop CodeQL from the laws, the ruleset snapshot, and the workflows.
+    """Drop CodeQL from the laws, the ruleset snapshot, the workflows,
+    the ruleset test fixtures, and the governance config.
 
     Used at bootstrap when the target repository cannot run CodeQL (private
     without GitHub Advanced Security). Removing the law and the required
-    status check together keeps the pr_checks_honesty bijection satisfied.
+    status check together keeps the pr_checks_honesty bijection satisfied;
+    stripping it from governance.yml keeps the config contract test passing.
     """
     changed = 0
     laws_path = repo_root / 'CLAUDE.md'
@@ -525,6 +538,14 @@ def disable_codeql(repo_root: Path = REPO_ROOT) -> int:
                 changed += _write_text_if_changed(
                     fixture, json.dumps(data, indent=2) + '\n'
                 )
+    # governance.yml is the contract anchor the config tests pin the ruleset
+    # to; it must lose CodeQL too, or test_governance_config fails the private
+    # bootstrap PR (the ruleset drops CodeQL while the config still lists it).
+    config_path = repo_root / 'governance.yml'
+    if config_path.is_file():
+        changed += _write_text_if_changed(
+            config_path, _drop_codeql_from_config(config_path.read_text(encoding='utf-8'))
+        )
     return changed
 
 
