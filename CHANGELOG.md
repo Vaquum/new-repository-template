@@ -1,6 +1,6 @@
 # v0.14.10
 
-- Add `VAQUUM_AGENT_RULEBOOK.md` as the posted Vaquum-wide agent instruction rulebook, pinned by a checksum regression test so later edits cannot silently drift from the canonical artifact. Docs only.
+- Add `VAQUUM_AGENT_RULEBOOK.md` as the posted Vaquum-wide agent instruction rulebook, pinned by a checksum regression test so later edits cannot silently drift from the canonical artifact. No runtime behavior change.
 
 # v0.14.9
 
