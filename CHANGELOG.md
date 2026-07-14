@@ -1,3 +1,7 @@
+# v0.14.10
+
+- Add `VAQUUM_AGENT_RULEBOOK.md` as the posted Vaquum-wide agent instruction rulebook, pinned by a checksum regression test so later edits cannot silently drift from the canonical artifact. Docs only.
+
 # v0.14.9
 
 - Tighten the author-side PR workflow in `CLAUDE.md`. Open the PR first — before running the gates locally and never as a draft — so CI starts immediately and local verification never stalls without an open PR. When addressing review comments, handle every thread (blocking or not) with a named commit or a reply, then resolve it; merge already requires that server-side (`required_review_thread_resolution`), so the doc now matches the mechanism. Docs only.
