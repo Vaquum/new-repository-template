@@ -3,7 +3,6 @@
 from hashlib import sha256
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RULEBOOK = REPO_ROOT / 'VAQUUM_AGENT_RULEBOOK.md'
 EXPECTED_SHA256 = 'ade2c1ae42cfb92f50fdfc93720dcb62ad3a7442c8a511bf6da3bcf7c606dd58'
