@@ -1,6 +1,10 @@
-# v0.14.10
+# v0.14.11
 
 - Add `VAQUUM_AGENT_RULEBOOK.md` as the posted Vaquum-wide agent instruction rulebook, pinned by a checksum regression test so later edits cannot silently drift from the canonical artifact. No runtime behavior change.
+
+# v0.14.10
+
+- Sync `.github/rulesets/main.json` with the live Protect-Main ruleset by recording the disabled `dismissal_restriction` pull-request parameter, restoring the ruleset drift gate without changing runtime behavior.
 
 # v0.14.9
 
