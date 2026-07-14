@@ -1,3 +1,7 @@
+# v0.14.10
+
+- Sync `.github/rulesets/main.json` with the live Protect-Main ruleset by recording the disabled `dismissal_restriction` pull-request parameter, restoring the ruleset drift gate without changing runtime behavior.
+
 # v0.14.9
 
 - Tighten the author-side PR workflow in `CLAUDE.md`. Open the PR first — before running the gates locally and never as a draft — so CI starts immediately and local verification never stalls without an open PR. When addressing review comments, handle every thread (blocking or not) with a named commit or a reply, then resolve it; merge already requires that server-side (`required_review_thread_resolution`), so the doc now matches the mechanism. Docs only.
