@@ -284,19 +284,23 @@ body:
       required: false
 
   - type: textarea
-    id: closeout
+    id: done_means
     attributes:
-      label: Closeout
+      label: Done Means
       value: |
-        > **Significance.** A slice closes on a SHA, not on a self-assessed
-        > checkbox. Fill these three fields at closeout. An issue-closer
-        > bot verifies:
-        >   1. the merge SHA is reachable from the protected base ref;
-        >   2. every workflow run listed has conclusion `SUCCESS` on that SHA;
-        >   3. every command in the *Target State* section returns the stated
-        >      output when executed against the merge commit.
-        > There is no "slice complete" checkbox anywhere in this template —
-        > there are only these three fields with verifiable values.
+        > **Significance.** Done Means closes on verifiable evidence, not on a
+        > self-assessed claim. Check each item only when the linked evidence
+        > exists. Every checkbox in this section must be checked or marked
+        > `OVERRULED: <reason>` before the delivering PR can merge (slice-gate
+        > rule 10). The evidence fields below are written automatically by
+        > `slice_closeout_guard` when a merged PR closes this issue; a close
+        > with no merged PR and no evidence is reverted.
+
+        - [ ] Capability complete
+        - [ ] Tests complete
+        - [ ] Regression gate complete
+        - [ ] Required gates green
+        - [ ] Required docs updated
 
         Merge SHA:
         Merged PR number:
