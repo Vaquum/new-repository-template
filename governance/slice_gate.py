@@ -83,18 +83,36 @@ OUT_OF_SCOPE_SECTION_RE: Final[re.Pattern[str]] = re.compile(
     re.DOTALL,
 )
 
-# Last-match parsing (finditer()[-1]) mirrors slice_closeout_guard: a body
-# quoting an earlier Done Means heading cannot shadow the real section.
+# Every match is collected and rule 10 requires exactly one section, so
+# an appended duplicate (e.g. an all-checked copy after the real one)
+# cannot shadow the section that actually carries the boxes. The
+# slice_closeout_guard workflow enforces the same exactly-one contract.
 DONE_MEANS_SECTION_RE: Final[re.Pattern[str]] = re.compile(
     r'^##+ Done Means\b.*?^##+ Author Checks\b',
     re.MULTILINE | re.DOTALL,
 )
 
+# GFM renders -, *, and + bullets (with any indent) as task-list
+# checkboxes; matching only ``- [`` would make rule 10 blind to the
+# other forms.
 CHECKBOX_RE: Final[re.Pattern[str]] = re.compile(
-    r'^\s*- \[(?P<mark>[ xX])\]\s*(?P<text>.*)$'
+    r'^\s*[-*+] +\[(?P<mark>[ xX])\]\s*(?P<text>.*)$'
 )
 
-OVERRULED_RE: Final[re.Pattern[str]] = re.compile(r'OVERRULED:\s*\S')
+# Word-bounded so ``NOTOVERRULED:`` does not count, and the literal
+# template placeholder ``OVERRULED: <reason>`` is rejected -- an
+# overrule needs a real reason, not the copy-pasted example.
+OVERRULED_RE: Final[re.Pattern[str]] = re.compile(r'\bOVERRULED:\s*(?!<reason>)\S')
+
+# GitHub also honors closing keywords followed by a qualified
+# ``owner/repo#N`` reference or an issue URL. The gate cannot fold
+# those into the closing set rules 1 and 9 validate, so their presence
+# hard-fails instead of silently widening what a merge will close.
+QUALIFIED_CLOSING_RE: Final[re.Pattern[str]] = re.compile(
+    r'\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+'
+    r'(?:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+#\d+|https?://\S+/issues/\d+)',
+    re.IGNORECASE,
+)
 
 # The slice issue plus, on the last open slice, its parent PRD (rule 9).
 MAX_CLOSING_REFERENCES: Final[int] = 2
@@ -371,6 +389,24 @@ def _format_issue_set(numbers: set[int]) -> str:
     return '{' + ', '.join(f'#{n}' for n in sorted(numbers)) + '}'
 
 
+def _qualified_reference_failures(pr_body: str) -> list[str]:
+    """Rule 1's form bound: a closing keyword followed by a qualified
+    ``owner/repo#N`` reference or an issue URL is honored by GitHub on
+    merge but invisible to the bare ``#N`` parser, so the closing set
+    the gate validates would not be the closing set GitHub acts on.
+    Such forms fail loud instead of passing unseen."""
+    hits = [m.group(0) for m in QUALIFIED_CLOSING_RE.finditer(pr_body)]
+    if hits:
+        return [
+            f'PR body contains {len(hits)} qualified or URL closing '
+            f'reference(s) ({", ".join(repr(h) for h in hits)}). GitHub '
+            f'honors these on merge but the gate cannot fold them into '
+            f'the validated closing set; use the bare `Closes #N` form '
+            f'(rule 1).'
+        ]
+    return []
+
+
 def _closing_reference_failures(refs: list[int]) -> list[str]:
     """Rule 1's count bounds: zero references, or more than the slice
     plus its parent PRD, fail before any API call."""
@@ -608,13 +644,22 @@ def _done_means_failures(issue_number: int, issue_body: str) -> list[str]:
     or explicitly overruled. The post-merge evidence fields (Merge SHA,
     Merged PR number, the run-id list) are not checkboxes, so their
     pre-merge exemption is structural: only checkbox lines are
-    inspected. Silence never passes; an overrule needs a reason."""
+    inspected. Exactly one Done Means section is required -- an
+    appended duplicate could otherwise shadow the real boxes. Silence
+    never passes; an overrule needs a reason."""
     sections = list(DONE_MEANS_SECTION_RE.finditer(issue_body))
     if not sections:
         return [
             f'issue #{issue_number} body has no parseable Done Means '
             f'section (## Done Means ... ## Author Checks); rule 10 '
             f'cannot verify checkbox completion.'
+        ]
+    if len(sections) > 1:
+        return [
+            f'issue #{issue_number} body has {len(sections)} Done Means '
+            f'sections (## Done Means ... ## Author Checks); exactly one '
+            f'is required so checkbox completion and closeout evidence '
+            f'are unambiguous (rule 10).'
         ]
     dangling: list[str] = []
     for line in sections[-1].group(0).splitlines():
@@ -644,6 +689,10 @@ def gate(
 ) -> list[str]:
     """Run all PR <-> issue checks. Return a list of failure messages
     (empty list means PASS)."""
+    form_failures = _qualified_reference_failures(pr_body)
+    if form_failures:
+        return form_failures
+
     refs = find_closing_references(pr_body)
 
     count_failures = _closing_reference_failures(refs)

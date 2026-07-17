@@ -265,6 +265,32 @@ def test_rule_9_accepts_correct_closing_sets(
     ) == []
 
 
+def test_rule_1_rejects_qualified_and_url_closing_references(tmp_path: Path) -> None:
+    failures = slice_gate.gate(
+        'feat: add law template',
+        'Closes #9\nCloses Vaquum/new-repository-template#12',
+        ['governance/version_gate.py'],
+        _template(tmp_path),
+        'Vaquum/new-repository-template',
+    )
+    assert failures == [
+        'PR body contains 1 qualified or URL closing reference(s) '
+        "('Closes Vaquum/new-repository-template#12'). GitHub honors these on merge "
+        'but the gate cannot fold them into the validated closing set; use the bare '
+        '`Closes #N` form (rule 1).'
+    ]
+
+    url_failures = slice_gate.gate(
+        'feat: add law template',
+        'Closes #9\nFixes https://github.com/Vaquum/new-repository-template/issues/12',
+        ['governance/version_gate.py'],
+        _template(tmp_path),
+        'Vaquum/new-repository-template',
+    )
+    assert len(url_failures) == 1
+    assert 'qualified or URL closing reference' in url_failures[0]
+
+
 def test_rule_9_rejects_two_slice_labelled_references(
     tmp_path: Path,
     monkeypatch,
@@ -361,6 +387,88 @@ def test_rule_10_accepts_checked_and_overruled(
         'Vaquum/new-repository-template',
     )
     assert failures == []
+
+
+def test_rule_10_rejects_duplicate_done_means_sections(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    body = _body(done_means=(
+        '## Done Means\n'
+        '- [ ] Tests complete\n\n'
+        'Merge SHA:\n\n'
+    )) + '\n## Done Means\n- [x] shadow\n\n## Author Checks\n- [x] ok\n'
+    monkeypatch.setattr(slice_gate, 'fetch_issue', lambda _repo, _number: _issue(body))
+    _patch_graph(monkeypatch)
+
+    failures = slice_gate.gate(
+        'feat: add law template',
+        'Closes #9',
+        ['governance/version_gate.py'],
+        _template(tmp_path),
+        'Vaquum/new-repository-template',
+    )
+    assert failures == [
+        'issue #9 body has 2 Done Means sections (## Done Means ... ## Author Checks); '
+        'exactly one is required so checkbox completion and closeout evidence are '
+        'unambiguous (rule 10).'
+    ]
+
+
+def test_rule_10_sees_all_gfm_checkbox_forms(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    body = _body(done_means=(
+        '## Done Means\n'
+        '* [ ] Star box\n'
+        '+ [ ] Plus box\n'
+        '-  [ ] Wide box\n\n'
+        'Merge SHA:\n\n'
+    ))
+    monkeypatch.setattr(slice_gate, 'fetch_issue', lambda _repo, _number: _issue(body))
+    _patch_graph(monkeypatch)
+
+    failures = slice_gate.gate(
+        'feat: add law template',
+        'Closes #9',
+        ['governance/version_gate.py'],
+        _template(tmp_path),
+        'Vaquum/new-repository-template',
+    )
+    assert failures == [
+        'issue #9 Done Means has 3 checkbox(es) neither checked nor overruled: '
+        "'Star box'; 'Plus box'; 'Wide box'. Every box must be `- [x]` or carry "
+        '`OVERRULED: <reason>` before merge (rule 10).'
+    ]
+
+
+def test_rule_10_rejects_placeholder_and_unbounded_overrules(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    body = _body(done_means=(
+        '## Done Means\n'
+        '- [ ] Docs updated OVERRULED: <reason>\n'
+        '- [ ] Tests complete NOTOVERRULED: not a real overrule\n\n'
+        'Merge SHA:\n\n'
+    ))
+    monkeypatch.setattr(slice_gate, 'fetch_issue', lambda _repo, _number: _issue(body))
+    _patch_graph(monkeypatch)
+
+    failures = slice_gate.gate(
+        'feat: add law template',
+        'Closes #9',
+        ['governance/version_gate.py'],
+        _template(tmp_path),
+        'Vaquum/new-repository-template',
+    )
+    assert failures == [
+        'issue #9 Done Means has 2 checkbox(es) neither checked nor overruled: '
+        "'Docs updated OVERRULED: <reason>'; 'Tests complete NOTOVERRULED: not a real "
+        "overrule'. Every box must be `- [x]` or carry `OVERRULED: <reason>` before "
+        'merge (rule 10).'
+    ]
 
 
 def test_rule_10_requires_done_means_section(

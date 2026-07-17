@@ -85,11 +85,11 @@ jobs:
               body,
               re.MULTILINE | re.DOTALL,
           ))
-          if not matches:
-              print('slice_closeout_guard: no parseable Done Means closeout section', file=sys.stderr)
+          if len(matches) != 1:
+              print(f'slice_closeout_guard: expected exactly one Done Means section, found {len(matches)}', file=sys.stderr)
               sys.exit(1)
-          start, end = matches[-1].span()
-          lines = matches[-1].group(0).split('\n')
+          start, end = matches[0].span()
+          lines = matches[0].group(0).split('\n')
 
           out = []
           found_sha = found_pr = found_runs = False
@@ -124,33 +124,60 @@ jobs:
         id: closeout
         if: steps.closing_pr.outputs.pr_number == ''
         env:
+          GH_TOKEN: ${{ github.token }}
           ISSUE_BODY: ${{ github.event.issue.body }}
         run: |
-          python - <<'EOF' >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          python - <<'EOF'
           import os
           import re
+          from pathlib import Path
 
           matches = list(re.finditer(
               r'^##+ Done Means\b.*?^##+ Author Checks\b',
               os.environ['ISSUE_BODY'],
               re.MULTILINE | re.DOTALL,
           ))
-          if matches:
-              section = matches[-1].group(0)
-              unchecked = '- [ ]' in section
-              sha_missing = re.search(r'^Merge SHA:[ \t]*[0-9a-fA-F]{7,40}\b', section, re.MULTILINE) is None
+          claimed = ''
+          if len(matches) != 1:
+              if not matches:
+                  missing = 'no parseable Done Means closeout section'
+              else:
+                  missing = f'{len(matches)} Done Means closeout sections (expected exactly one)'
+          else:
+              section = matches[0].group(0)
+              dangling = False
+              for line in section.splitlines():
+                  box = re.match(r'^\s*[-*+] +\[ \]\s*(.*)$', line)
+                  if box and not re.search(r'\bOVERRULED:\s*(?!<reason>)\S', box.group(1)):
+                      dangling = True
+              sha_match = re.search(r'^Merge SHA:[ \t]*([0-9a-fA-F]{7,40})\b', section, re.MULTILINE)
+              if sha_match:
+                  claimed = sha_match.group(1)
               missing = ' and '.join(
                   name
-                  for name, dangling in (
-                      ('unchecked Done Means boxes', unchecked),
-                      ('empty Merge SHA', sha_missing),
+                  for name, hit in (
+                      ('unchecked Done Means boxes', dangling),
+                      ('empty Merge SHA', sha_match is None),
                   )
-                  if dangling
+                  if hit
               )
-          else:
-              missing = 'no parseable Done Means closeout section'
-          print(f"missing={missing}")
+          Path('missing.txt').write_text(missing, encoding='utf-8')
+          Path('claimed_sha.txt').write_text(claimed, encoding='utf-8')
           EOF
+          MISSING=$(cat missing.txt)
+          CLAIMED=$(cat claimed_sha.txt)
+          # A hand-typed Merge SHA must actually be merged history: the
+          # compare API says the claimed commit is an ancestor of main
+          # (behind) or main itself (identical); anything else -- ahead,
+          # diverged, or unresolvable -- is not evidence.
+          if [ -z "$MISSING" ] && [ -n "$CLAIMED" ]; then
+            STATUS=$(gh api "repos/$GITHUB_REPOSITORY/compare/main...$CLAIMED" --jq .status 2>/dev/null || echo unresolvable)
+            if [ "$STATUS" != "identical" ] && [ "$STATUS" != "behind" ]; then
+              MISSING="a Merge SHA ($CLAIMED) that is not reachable from main"
+            fi
+          fi
+          echo "missing=$MISSING" >> "$GITHUB_OUTPUT"
       - if: steps.closeout.outputs.missing != ''
         env:
           GH_TOKEN: ${{ github.token }}

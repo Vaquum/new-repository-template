@@ -23,6 +23,11 @@ def test_slice_closeout_guard_workflow_contract() -> None:
     # Evidence quality: only successful check runs may become closeout
     # evidence — a failed required check must fail the writer loud.
     assert "select(.conclusion == \"success\")" in workflow
+    # An appended duplicate Done Means section must not receive (or
+    # shadow) evidence, and a hand-typed Merge SHA on a no-PR close
+    # must be reachable from main to count.
+    assert 'expected exactly one Done Means section' in workflow
+    assert 'compare/main...$CLAIMED' in workflow
     assert r"r'^##+ Done Means\b.*?^##+ Author Checks\b'" in workflow
     # Fill: a merged closing PR gets the evidence fields written in place.
     assert "if: steps.closing_pr.outputs.pr_number != ''" in workflow
