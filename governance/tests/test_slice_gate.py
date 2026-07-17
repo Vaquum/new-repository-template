@@ -177,6 +177,22 @@ def test_gate_blocks_out_of_scope_even_when_surface_allows(
     assert any('listed in issue #9 Out of Scope' in item for item in failures)
 
 
+def test_no_closing_reference_fails_with_closing_set_message(tmp_path: Path) -> None:
+    failures = slice_gate.gate(
+        'feat: add law template',
+        'A body with no closing reference at all.',
+        ['governance/version_gate.py'],
+        _template(tmp_path),
+        'Vaquum/new-repository-template',
+    )
+    assert failures == [
+        'PR body has no closing reference. The closing set must be exactly the slice '
+        'issue (`Closes #N`, or Fixes/Resolves, with N an OPEN slice-labelled issue), '
+        'plus its parent PRD only when the slice is the parent\'s last open slice '
+        'sub-issue (rule 9).'
+    ]
+
+
 def test_multiple_closing_references_fail_before_api_call(tmp_path: Path) -> None:
     failures = slice_gate.gate(
         'feat: add law template',

@@ -412,11 +412,11 @@ def _closing_reference_failures(refs: list[int]) -> list[str]:
     plus its parent PRD, fail before any API call."""
     if not refs:
         return [
-            'PR body has no closing reference. The PR must include '
-            'exactly one line matching `Closes #N` (or Fixes/Resolves) '
-            'where N is an OPEN slice-labelled issue, plus one for the '
-            'parent PRD when the slice is its last open slice sub-issue '
-            '(rule 9).'
+            'PR body has no closing reference. The closing set must be '
+            'exactly the slice issue (`Closes #N`, or Fixes/Resolves, '
+            'with N an OPEN slice-labelled issue), plus its parent PRD '
+            'only when the slice is the parent\'s last open slice '
+            'sub-issue (rule 9).'
         ]
     if len(refs) > MAX_CLOSING_REFERENCES:
         return [
