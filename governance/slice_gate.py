@@ -713,11 +713,16 @@ def gate(
     # every byte-equal substring check.
     issue_body = str(issue.get('body') or '').replace('\r\n', '\n')
 
-    failures: list[str] = []
-    failures.extend(_issue_metadata_failures(issue_number, issue, pr_title))
+    metadata_failures = _issue_metadata_failures(issue_number, issue, pr_title)
+    failures: list[str] = list(metadata_failures)
     failures.extend(_blockquote_failures(issue_number, issue_body, template_path))
     failures.extend(_scope_failures(issue_number, issue_body, pr_files))
-    failures.extend(_prd_closure_failures(repo, issue_number, refs, issues))
+    # Rule 9's graph lookups are meaningful only for an OPEN,
+    # slice-labelled, correctly-titled citation; when rules 3-5 already
+    # failed, skipping them keeps a plain rule violation from turning
+    # into an exit-2 API failure that would obscure it.
+    if not metadata_failures:
+        failures.extend(_prd_closure_failures(repo, issue_number, refs, issues))
     failures.extend(_done_means_failures(issue_number, issue_body))
     return failures
 

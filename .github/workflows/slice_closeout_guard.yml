@@ -154,11 +154,15 @@ jobs:
               sha_match = re.search(r'^Merge SHA:[ \t]*([0-9a-fA-F]{7,40})\b', section, re.MULTILINE)
               if sha_match:
                   claimed = sha_match.group(1)
+              pr_match = re.search(r'^Merged PR number:[ \t]*#\d+\b', section, re.MULTILINE)
+              run_match = re.search(r'^\s*- \S.* : \d+\s*$', section, re.MULTILINE)
               missing = ' and '.join(
                   name
                   for name, hit in (
                       ('unchecked Done Means boxes', dangling),
                       ('empty Merge SHA', sha_match is None),
+                      ('empty Merged PR number', pr_match is None),
+                      ('empty required-run list', run_match is None),
                   )
                   if hit
               )
@@ -186,12 +190,14 @@ jobs:
         run: |
           gh issue reopen "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY"
           gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "slice_closeout_guard: reopened — closed with $MISSING and no merged closing PR. A slice is done when its closeout evidence is recorded, not when its PR merges. Nothing dangles."
-      - name: Reopen on writer failure
-        if: failure() && steps.writer.outcome == 'failure'
+      - name: Reopen on guard failure
+        # failure() with no step qualifier: whether the closing-PR
+        # resolution, the writer, or the detect path died, the close
+        # may not stand on an unverified body.
+        if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
-          PR_NUMBER: ${{ steps.closing_pr.outputs.pr_number }}
         run: |
           gh issue reopen "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY"
-          gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "slice_closeout_guard: reopened — the closeout writer failed to record evidence for merged PR #$PR_NUMBER (see the failed run log). A close may not rest without evidence. Nothing dangles."
+          gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "slice_closeout_guard: reopened — the guard failed before closeout evidence could be verified or written (see the failed run log). A close may not rest without evidence. Nothing dangles."

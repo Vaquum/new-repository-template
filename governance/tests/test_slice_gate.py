@@ -471,6 +471,31 @@ def test_rule_10_rejects_placeholder_and_unbounded_overrules(
     ]
 
 
+def test_rule_9_is_skipped_when_issue_metadata_fails(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    issue = _issue(_body())
+    issue['state'] = 'closed'
+    monkeypatch.setattr(slice_gate, 'fetch_issue', lambda _repo, _number: issue)
+    monkeypatch.setattr(
+        slice_gate,
+        'fetch_parent_issue_number',
+        lambda _repo, _number: pytest.fail('rule 9 must not run graph lookups here'),
+    )
+
+    failures = slice_gate.gate(
+        'feat: add law template',
+        'Closes #9',
+        ['governance/version_gate.py'],
+        _template(tmp_path),
+        'Vaquum/new-repository-template',
+    )
+    assert failures == [
+        "issue #9 state is 'closed'; must be OPEN for a PR to close it."
+    ]
+
+
 def test_rule_10_requires_done_means_section(
     tmp_path: Path,
     monkeypatch,
