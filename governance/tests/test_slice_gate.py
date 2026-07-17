@@ -265,6 +265,54 @@ def test_rule_9_accepts_correct_closing_sets(
     ) == []
 
 
+def test_rule_9_rejects_two_slice_labelled_references(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    issues = {
+        9: _issue(_body()),
+        12: _issue(_body()),
+    }
+    monkeypatch.setattr(slice_gate, 'fetch_issue', lambda _repo, number: issues[number])
+
+    failures = slice_gate.gate(
+        'feat: add law template',
+        'Closes #9\nCloses #12',
+        ['governance/version_gate.py'],
+        _template(tmp_path),
+        'Vaquum/new-repository-template',
+    )
+    assert failures == [
+        'closing references (#9, #12) contain 2 slice-labelled issues; exactly one must '
+        'be the slice, and the other reference may only be its parent PRD (rule 9).'
+    ]
+
+
+def test_rule_9_rejects_closed_parent_prd(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    prd = _issue(_body(), labels=['planning'])
+    prd['state'] = 'closed'
+    issues = {
+        9: _issue(_body()),
+        12: prd,
+    }
+    monkeypatch.setattr(slice_gate, 'fetch_issue', lambda _repo, number: issues[number])
+    _patch_graph(monkeypatch, parent=12, open_slices=[9])
+
+    failures = slice_gate.gate(
+        'feat: add law template',
+        'Closes #9\nCloses #12',
+        ['governance/version_gate.py'],
+        _template(tmp_path),
+        'Vaquum/new-repository-template',
+    )
+    assert failures == [
+        "parent PRD #12 state is 'closed'; must be OPEN for the PR to close it (rule 9)."
+    ]
+
+
 def test_rule_10_rejects_unchecked_checkbox(
     tmp_path: Path,
     monkeypatch,
