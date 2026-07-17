@@ -1,3 +1,11 @@
+# v0.15.0
+
+- Add slice-gate rule 9 (PRD closure): the PR's closing set must be exactly {slice} while the parent PRD has other open slice sub-issues, exactly {slice, parent PRD} when the cited slice is the parent's last open one (resolved from the native sub-issues graph), and exactly {slice} for a parentless slice. Rule 1 now admits the second reference only under that contract, so a PRD can no longer stay silently open after its last slice merges.
+- Add slice-gate rule 10 (Done Means completion): every checkbox in the cited issue's `## Done Means` section must be `- [x]` or carry `OVERRULED: <reason>` before merge; the machine-written evidence fields are not checkboxes and stay exempt pre-merge. Adopted from the downstream-proven form in Vaquum/Limen, which scopes the scan to the Done Means section rather than the whole body.
+- Replace the slice template's Closeout section with Done Means: five evidence-backed checkboxes ahead of the Merge SHA / Merged PR number / required-run-id fields, and a Significance note that names the delivered workflow instead of promising an "issue-closer bot".
+- Deliver `slice_closeout_guard.yml`, the promised closeout bot, fill-then-verify: a slice closed by a merged PR gets its evidence fields written from the branch rules and the head commit's check runs (failing loud when either cannot be resolved); a close with no merged PR and no evidence — or a writer failure — reopens the issue with a comment naming what is missing.
+- Harden the gate's parsing for real-world issue bodies: section regexes accept `###` headings (issue-form rendering), issue bodies are CRLF-normalised before byte-equal checks, closing references are deduplicated, and gate setup failures now exit 2 instead of 1 so they cannot be mistaken for rule violations. Law 1 in `CLAUDE.md` restates the closing-set semantics.
+
 # v0.14.10
 
 - Sync `.github/rulesets/main.json` with the live Protect-Main ruleset by recording the disabled `dismissal_restriction` pull-request parameter, restoring the ruleset drift gate without changing runtime behavior.
