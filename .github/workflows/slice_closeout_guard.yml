@@ -54,7 +54,7 @@ jobs:
             --jq '[.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context] | .[]' \
             > required_contexts.txt
           gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs" \
-            --paginate --jq '.check_runs[] | "\(.name)\t\(.id)"' \
+            --paginate --jq '.check_runs[] | select(.conclusion == "success") | "\(.name)\t\(.id)"' \
             > check_runs.txt
           gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUMBER" --jq '.body // ""' > issue_body.txt
           python - <<'EOF'
@@ -76,7 +76,7 @@ jobs:
               check_runs[name] = run_id
           missing = [c for c in required if c not in check_runs]
           if missing:
-              print(f"slice_closeout_guard: required check runs missing on the closing PR head commit: {', '.join(missing)}", file=sys.stderr)
+              print(f"slice_closeout_guard: required contexts without a successful check run on the closing PR head commit: {', '.join(missing)}", file=sys.stderr)
               sys.exit(1)
           runs = [f'- {c} : {check_runs[c]}' for c in required]
 

@@ -20,6 +20,9 @@ def test_slice_closeout_guard_workflow_contract() -> None:
     assert "if: contains(github.event.issue.labels.*.name, 'slice')" in workflow
     assert 'issues: write' in workflow
     assert 'closedByPullRequestsReferences' in workflow
+    # Evidence quality: only successful check runs may become closeout
+    # evidence — a failed required check must fail the writer loud.
+    assert "select(.conclusion == \"success\")" in workflow
     assert r"r'^##+ Done Means\b.*?^##+ Author Checks\b'" in workflow
     # Fill: a merged closing PR gets the evidence fields written in place.
     assert "if: steps.closing_pr.outputs.pr_number != ''" in workflow
