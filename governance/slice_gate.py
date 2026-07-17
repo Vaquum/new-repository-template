@@ -3,7 +3,10 @@
 
 This gate blocks a PR that:
 
-  1.  Does not cite exactly one underlying issue via Closes/Fixes/Resolves #N.
+  1.  Does not cite its slice issue via Closes/Fixes/Resolves #N. The
+      closing set must contain exactly one slice-labelled issue; a
+      second reference is permitted only for the slice's parent PRD
+      under rule 9.
   2.  Cites a number that does not resolve in the repo.
   2a. Cites a number that resolves to a pull request rather than an issue
       (GitHub's issues endpoint also returns PRs).
@@ -17,6 +20,18 @@ This gate blocks a PR that:
       cited issue's ``Surfaces`` section.
   8.  Has a diff that touches any file matched by a glob in the cited
       issue's ``Out of Scope`` section.
+  9.  Has a closing set that violates PRD closure: while the cited
+      slice's parent PRD (native sub-issue parent) has other open
+      slice sub-issues, the set must be exactly {slice}; when the
+      cited slice is the parent's last open slice sub-issue, exactly
+      {slice, parent PRD}; a slice with no parent PRD requires exactly
+      {slice}.
+  10. Cites a slice with a Done Means checkbox neither checked
+      (``- [x]``) nor overruled (``OVERRULED: <reason>``). The
+      post-merge evidence fields (Merge SHA, Merged PR number, the
+      run-id list) are not checkboxes and are exempt pre-merge; they
+      are written by ``slice_closeout_guard`` when a merged PR closes
+      the issue.
 
 Rules 6 and 7 together bind the template and the issue: the template's
 Significance notes cannot drift away from what the validator demands
@@ -50,19 +65,47 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Final
+from typing import Final, NoReturn
 
 from _common import CLOSING_KEYWORD_RE
 
+# ``##+`` on both the heading and the terminator: issue-form-created
+# bodies render field labels as ``###``, and a terminator that only
+# recognises ``##`` would silently run the section to end-of-body,
+# whitelisting every later bullet for rule 7.
 SURFACES_SECTION_RE: Final[re.Pattern[str]] = re.compile(
-    r'##\s+Surfaces\s*\n(.*?)(?=\n##\s|\Z)',
+    r'##+\s+Surfaces\s*\n(.*?)(?=\n##+\s|\Z)',
     re.DOTALL,
 )
 
 OUT_OF_SCOPE_SECTION_RE: Final[re.Pattern[str]] = re.compile(
-    r'##\s+Out of Scope\s*\n(.*?)(?=\n##\s|\Z)',
+    r'##+\s+Out of Scope\s*\n(.*?)(?=\n##+\s|\Z)',
     re.DOTALL,
 )
+
+# Last-match parsing (finditer()[-1]) mirrors slice_closeout_guard: a body
+# quoting an earlier Done Means heading cannot shadow the real section.
+DONE_MEANS_SECTION_RE: Final[re.Pattern[str]] = re.compile(
+    r'^##+ Done Means\b.*?^##+ Author Checks\b',
+    re.MULTILINE | re.DOTALL,
+)
+
+CHECKBOX_RE: Final[re.Pattern[str]] = re.compile(
+    r'^\s*- \[(?P<mark>[ xX])\]\s*(?P<text>.*)$'
+)
+
+OVERRULED_RE: Final[re.Pattern[str]] = re.compile(r'OVERRULED:\s*\S')
+
+# The slice issue plus, on the last open slice, its parent PRD (rule 9).
+MAX_CLOSING_REFERENCES: Final[int] = 2
+
+
+def _fail_setup(message: str, cause: BaseException | None = None) -> NoReturn:
+    """Report a setup failure and exit 2: the gate could not run, which
+    is distinct from a rule violation (exit 1). ``raise SystemExit(str)``
+    would exit 1 and blur the two."""
+    print(message, file=sys.stderr)
+    raise SystemExit(2) from cause
 
 
 def extract_significance_blockquotes(template_path: Path) -> list[str]:
@@ -78,24 +121,24 @@ def extract_significance_blockquotes(template_path: Path) -> list[str]:
     try:
         import yaml  # type: ignore[import-untyped]
     except ImportError as exc:
-        raise SystemExit('slice_gate: PyYAML is required (pip install pyyaml)') from exc
+        _fail_setup('slice_gate: PyYAML is required (pip install pyyaml)', exc)
     try:
         with template_path.open(encoding='utf-8') as fh:
             template = yaml.safe_load(fh)
     except (OSError, yaml.YAMLError) as exc:
-        raise SystemExit(
-            f'slice_gate: cannot parse template {template_path}: {exc}'
-        ) from exc
+        _fail_setup(
+            f'slice_gate: cannot parse template {template_path}: {exc}', exc
+        )
 
     if not isinstance(template, dict):
-        raise SystemExit(
+        _fail_setup(
             f'slice_gate: template {template_path} is not a YAML mapping'
         )
 
     blocks: list[str] = []
     body_items = template.get('body', [])
     if not isinstance(body_items, list):
-        raise SystemExit(
+        _fail_setup(
             f'slice_gate: template {template_path} has no body list'
         )
 
@@ -115,7 +158,7 @@ def extract_significance_blockquotes(template_path: Path) -> list[str]:
             blocks.append(block)
 
     if not blocks:
-        raise SystemExit(
+        _fail_setup(
             f'slice_gate: template {template_path} contains no '
             f'Significance blockquotes; cannot run rule 6'
         )
@@ -193,9 +236,13 @@ def read_lines(path: Path) -> list[str]:
 
 
 def find_closing_references(body: str) -> list[int]:
-    """Return the list of issue numbers referenced by closing keywords
-    in the PR body. Empty list if none; multi-element if several."""
-    return [int(m.group(1)) for m in CLOSING_KEYWORD_RE.finditer(body)]
+    """Return the deduplicated list of issue numbers referenced by
+    closing keywords in the PR body, in order of first appearance.
+    Deduplication matches GitHub's own closing behavior: repeating
+    ``Closes #N`` resolves to one closed issue, not two."""
+    return list(dict.fromkeys(
+        int(m.group(1)) for m in CLOSING_KEYWORD_RE.finditer(body)
+    ))
 
 
 def fetch_issue(repo: str, number: int) -> dict[str, object] | None:
@@ -240,54 +287,168 @@ def fetch_issue(repo: str, number: int) -> dict[str, object] | None:
     raise SystemExit(2)
 
 
-def gate(
-    pr_title: str,
-    pr_body: str,
-    pr_files: list[str],
-    template_path: Path,
-    repo: str,
-) -> list[str]:
-    """Run all PR <-> issue checks. Return a list of failure messages
-    (empty list means PASS)."""
-    failures: list[str] = []
+def fetch_parent_issue_number(repo: str, number: int) -> int | None:
+    """Resolve the native sub-issue parent of an issue via the GraphQL
+    ``parent`` field (the REST issue object does not expose the
+    relationship). Returns None when the issue has no parent. Any gh
+    failure raises SystemExit(2)."""
+    owner, name = repo.split('/', 1)
+    query = (
+        'query($owner: String!, $name: String!, $number: Int!) { '
+        'repository(owner: $owner, name: $name) { '
+        'issue(number: $number) { parent { number } } } }'
+    )
+    try:
+        result = subprocess.run(
+            [
+                'gh', 'api', 'graphql',
+                '-f', f'query={query}',
+                '-F', f'owner={owner}',
+                '-F', f'name={name}',
+                '-F', f'number={number}',
+                '--jq', '.data.repository.issue.parent.number',
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError as exc:
+        print(f'slice_gate: gh not found: {exc}', file=sys.stderr)
+        raise SystemExit(2) from exc
 
-    # Rule 1: exactly one closing reference.
-    refs = find_closing_references(pr_body)
+    if result.returncode != 0:
+        print(
+            f'slice_gate: gh api graphql parent lookup for #{number} '
+            f'failed (exit {result.returncode}): {result.stderr.strip()}',
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+
+    stdout = result.stdout.strip()
+    return int(stdout) if stdout and stdout != 'null' else None
+
+
+def fetch_open_slice_sub_issue_numbers(repo: str, parent_number: int) -> list[int]:
+    """List the parent PRD's OPEN sub-issue numbers that carry the
+    ``slice`` label, via the paginated native sub-issues API. Any gh
+    failure raises SystemExit(2)."""
+    try:
+        result = subprocess.run(
+            [
+                'gh', 'api',
+                f'repos/{repo}/issues/{parent_number}/sub_issues',
+                '--paginate',
+                '--jq', '.[] | select(.state == "open") '
+                        '| select(any(.labels[]; .name == "slice")) '
+                        '| .number',
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError as exc:
+        print(f'slice_gate: gh not found: {exc}', file=sys.stderr)
+        raise SystemExit(2) from exc
+
+    if result.returncode != 0:
+        print(
+            f'slice_gate: gh api repos/{repo}/issues/{parent_number}/'
+            f'sub_issues failed (exit {result.returncode}): '
+            f'{result.stderr.strip()}',
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+
+    return [int(line) for line in result.stdout.split()]
+
+
+def _issue_labels(issue: dict[str, object]) -> list[str]:
+    raw_labels = issue.get('labels', [])
+    return [str(x) for x in raw_labels] if isinstance(raw_labels, list) else []
+
+
+def _format_issue_set(numbers: set[int]) -> str:
+    return '{' + ', '.join(f'#{n}' for n in sorted(numbers)) + '}'
+
+
+def _closing_reference_failures(refs: list[int]) -> list[str]:
+    """Rule 1's count bounds: zero references, or more than the slice
+    plus its parent PRD, fail before any API call."""
     if not refs:
         return [
             'PR body has no closing reference. The PR must include '
             'exactly one line matching `Closes #N` (or Fixes/Resolves) '
-            'where N is an OPEN slice-labelled issue.'
+            'where N is an OPEN slice-labelled issue, plus one for the '
+            'parent PRD when the slice is its last open slice sub-issue '
+            '(rule 9).'
         ]
-    if len(refs) > 1:
+    if len(refs) > MAX_CLOSING_REFERENCES:
         return [
             f'PR body has {len(refs)} closing references '
-            f'({", ".join(f"#{n}" for n in refs)}). The PR must close '
-            f'exactly one slice issue.'
+            f'({", ".join(f"#{n}" for n in refs)}). The closing set must '
+            f'be exactly the slice issue, plus its parent PRD only when '
+            f'the slice is the parent\'s last open slice sub-issue '
+            f'(rule 9).'
         ]
-    issue_number = refs[0]
+    return []
 
-    # Rule 2: issue exists.
-    issue = fetch_issue(repo, issue_number)
-    if issue is None:
-        return [
-            f'issue #{issue_number} does not exist in {repo}. The '
-            f'closing reference must point at a real OPEN slice issue.'
-        ]
 
-    # Rule 2a: the cited number must be an ISSUE, not another PR.
-    # GitHub's /repos/:owner/:repo/issues/:num endpoint also returns
-    # pull requests; a PR could in principle carry a 'slice' label
-    # and a matching body. Reject that before the other rules run.
-    if issue.get('is_pull_request'):
-        return [
-            f'#{issue_number} is a pull request, not an issue. The '
-            f'closing reference must point at an OPEN slice issue '
-            f'filed via the slice template at '
-            f'`.github/ISSUE_TEMPLATE/slice.yml`, not another PR.'
-        ]
+def _fetch_cited_issues(
+    repo: str,
+    refs: list[int],
+) -> tuple[dict[int, dict[str, object]], list[str]]:
+    """Rules 2 and 2a per cited number: every reference must resolve to
+    a real issue, not a pull request."""
+    issues: dict[int, dict[str, object]] = {}
+    for number in refs:
+        issue_data = fetch_issue(repo, number)
+        if issue_data is None:
+            return {}, [
+                f'issue #{number} does not exist in {repo}. Every '
+                f'closing reference must point at a real OPEN issue.'
+            ]
+        if issue_data.get('is_pull_request'):
+            return {}, [
+                f'#{number} is a pull request, not an issue. The '
+                f'closing reference must point at an OPEN slice issue '
+                f'filed via the slice template at '
+                f'`.github/ISSUE_TEMPLATE/slice.yml`, not another PR.'
+            ]
+        issues[number] = issue_data
+    return issues, []
 
-    # Rule 3: state OPEN.
+
+def _identify_cited_slice(
+    refs: list[int],
+    issues: dict[int, dict[str, object]],
+) -> tuple[int | None, list[str]]:
+    """Identify the cited slice: with one reference it is that issue
+    (rule 4 reports a missing slice label); with two, exactly one must
+    carry the slice label and the other may only be the parent PRD
+    (rule 9 validates the pairing)."""
+    slice_refs = [n for n in refs if 'slice' in _issue_labels(issues[n])]
+    if len(refs) == 1:
+        return refs[0], []
+    if len(slice_refs) == 1:
+        return slice_refs[0], []
+    return None, [
+        f'closing references '
+        f'({", ".join(f"#{n}" for n in refs)}) contain '
+        f'{len(slice_refs)} slice-labelled issues; exactly one must '
+        f'be the slice, and the other reference may only be its '
+        f'parent PRD (rule 9).'
+    ]
+
+
+def _issue_metadata_failures(
+    issue_number: int,
+    issue: dict[str, object],
+    pr_title: str,
+) -> list[str]:
+    """Rules 3, 4, and 5: the cited slice is OPEN, slice-labelled, and
+    titled byte-identically to the PR."""
+    failures: list[str] = []
+
     state = str(issue.get('state', ''))
     if state.lower() != 'open':
         failures.append(
@@ -295,9 +456,7 @@ def gate(
             f'for a PR to close it.'
         )
 
-    # Rule 4: labels include 'slice'.
-    raw_labels = issue.get('labels', [])
-    labels = [str(x) for x in raw_labels] if isinstance(raw_labels, list) else []
+    labels = _issue_labels(issue)
     if 'slice' not in labels:
         failures.append(
             f'issue #{issue_number} is missing the "slice" label '
@@ -305,7 +464,6 @@ def gate(
             f'slice template at `.github/ISSUE_TEMPLATE/slice.yml`.'
         )
 
-    # Rule 5: titles byte-equal.
     issue_title = str(issue.get('title', ''))
     if issue_title != pr_title:
         failures.append(
@@ -314,27 +472,47 @@ def gate(
             f'be byte-identical.'
         )
 
-    # Rule 6: issue body retains every full Significance blockquote from
-    # the slice template. Blockquotes are extracted from the template at
-    # runtime so the validator and the template cannot drift apart -- if
-    # a Significance paragraph changes in the template, the new paragraph
-    # must appear verbatim in every new slice issue's body.
-    issue_body = str(issue.get('body') or '')
+    return failures
+
+
+def _blockquote_failures(
+    issue_number: int,
+    issue_body: str,
+    template_path: Path,
+) -> list[str]:
+    """Rule 6: issue body retains every full Significance blockquote
+    from the slice template. Blockquotes are extracted from the template
+    at runtime so the validator and the template cannot drift apart --
+    if a Significance paragraph changes in the template, the new
+    paragraph must appear verbatim in every new slice issue's body."""
     required_blockquotes = extract_significance_blockquotes(template_path)
     missing_blocks = [b for b in required_blockquotes if b not in issue_body]
-    if missing_blocks:
-        # Produce a compact failure message: only the first line of each
-        # missing blockquote (the heading line) + missing count.
-        first_lines = [b.splitlines()[0] for b in missing_blocks]
-        failures.append(
-            f'issue #{issue_number} body is missing {len(missing_blocks)} '
-            f'of {len(required_blockquotes)} full Significance blockquotes '
-            f'from the slice template (byte-equal check). Each blockquote '
-            f'must appear verbatim in the filed issue. Missing blockquote '
-            f'headers: ' + '; '.join(f'{s!r}' for s in first_lines)
-        )
+    if not missing_blocks:
+        return []
+    # Produce a compact failure message: only the first line of each
+    # missing blockquote (the heading line) + missing count.
+    first_lines = [b.splitlines()[0] for b in missing_blocks]
+    return [
+        f'issue #{issue_number} body is missing {len(missing_blocks)} '
+        f'of {len(required_blockquotes)} full Significance blockquotes '
+        f'from the slice template (byte-equal check). Each blockquote '
+        f'must appear verbatim in the filed issue. Missing blockquote '
+        f'headers: ' + '; '.join(f'{s!r}' for s in first_lines)
+    ]
 
-    # Rule 7: PR diff scope is within the issue's Surfaces list.
+
+def _scope_failures(
+    issue_number: int,
+    issue_body: str,
+    pr_files: list[str],
+) -> list[str]:
+    """Rules 7 and 8: the PR diff stays within the issue's Surfaces
+    allow-list and touches nothing in its Out of Scope deny-list. A
+    file that matches BOTH a Surfaces glob and an Out of Scope glob
+    fails rule 8 -- the issue's Out of Scope is the finer-grained
+    block."""
+    failures: list[str] = []
+
     allowed_globs = extract_surfaces_globs(issue_body)
     if not allowed_globs:
         failures.append(
@@ -358,10 +536,6 @@ def gate(
                   f'remove the change from this PR.'
             )
 
-    # Rule 8: PR diff must not touch Out of Scope paths. This is the
-    # deny-list complement to rule 7. A file that matches BOTH a
-    # Surfaces glob and an Out of Scope glob fails this rule -- the
-    # template's Out of Scope is the finer-grained block.
     denied_globs = extract_out_of_scope_globs(issue_body)
     if denied_globs:
         hits = [
@@ -378,6 +552,124 @@ def gate(
                   f'to move the path out of the Out of Scope section.'
             )
 
+    return failures
+
+
+def _prd_closure_failures(
+    repo: str,
+    issue_number: int,
+    refs: list[int],
+    issues: dict[int, dict[str, object]],
+) -> list[str]:
+    """Rule 9: the closing set must match the PRD-closure contract. The
+    parent PRD is the slice's native sub-issue parent; siblings are the
+    parent's other OPEN slice-labelled sub-issues."""
+    parent_number = fetch_parent_issue_number(repo, issue_number)
+    if parent_number is None:
+        expected = {issue_number}
+        reason = f'slice #{issue_number} has no parent PRD'
+    else:
+        open_siblings = [
+            n for n in fetch_open_slice_sub_issue_numbers(repo, parent_number)
+            if n != issue_number
+        ]
+        if open_siblings:
+            expected = {issue_number}
+            reason = (
+                f'parent PRD #{parent_number} still has other open slice '
+                f'sub-issues '
+                f'({", ".join(f"#{n}" for n in sorted(open_siblings))})'
+            )
+        else:
+            expected = {issue_number, parent_number}
+            reason = (
+                f'slice #{issue_number} is parent PRD #{parent_number}\'s '
+                f'last open slice sub-issue'
+            )
+    closing_set = set(refs)
+    if closing_set != expected:
+        return [
+            f'closing set {_format_issue_set(closing_set)} must be '
+            f'exactly {_format_issue_set(expected)} because {reason} '
+            f'(rule 9).'
+        ]
+    if parent_number is not None and parent_number in closing_set:
+        parent_state = str(issues[parent_number].get('state', ''))
+        if parent_state.lower() != 'open':
+            return [
+                f'parent PRD #{parent_number} state is {parent_state!r}; '
+                f'must be OPEN for the PR to close it (rule 9).'
+            ]
+    return []
+
+
+def _done_means_failures(issue_number: int, issue_body: str) -> list[str]:
+    """Rule 10: every Done Means checkbox in the cited slice is checked
+    or explicitly overruled. The post-merge evidence fields (Merge SHA,
+    Merged PR number, the run-id list) are not checkboxes, so their
+    pre-merge exemption is structural: only checkbox lines are
+    inspected. Silence never passes; an overrule needs a reason."""
+    sections = list(DONE_MEANS_SECTION_RE.finditer(issue_body))
+    if not sections:
+        return [
+            f'issue #{issue_number} body has no parseable Done Means '
+            f'section (## Done Means ... ## Author Checks); rule 10 '
+            f'cannot verify checkbox completion.'
+        ]
+    dangling: list[str] = []
+    for line in sections[-1].group(0).splitlines():
+        box = CHECKBOX_RE.match(line)
+        if box is None or box.group('mark') != ' ':
+            continue
+        if OVERRULED_RE.search(box.group('text')):
+            continue
+        dangling.append(box.group('text').strip() or line.strip())
+    if dangling:
+        return [
+            f'issue #{issue_number} Done Means has {len(dangling)} '
+            f'checkbox(es) neither checked nor overruled: '
+            + '; '.join(repr(t) for t in dangling)
+            + '. Every box must be `- [x]` or carry '
+              '`OVERRULED: <reason>` before merge (rule 10).'
+        ]
+    return []
+
+
+def gate(
+    pr_title: str,
+    pr_body: str,
+    pr_files: list[str],
+    template_path: Path,
+    repo: str,
+) -> list[str]:
+    """Run all PR <-> issue checks. Return a list of failure messages
+    (empty list means PASS)."""
+    refs = find_closing_references(pr_body)
+
+    count_failures = _closing_reference_failures(refs)
+    if count_failures:
+        return count_failures
+
+    issues, fetch_failures = _fetch_cited_issues(repo, refs)
+    if fetch_failures:
+        return fetch_failures
+
+    issue_number, pairing_failures = _identify_cited_slice(refs, issues)
+    if issue_number is None:
+        return pairing_failures
+    issue = issues[issue_number]
+
+    # CRLF is normalised before the body-content rules: a body saved
+    # through the web editor arrives with \r\n and would otherwise fail
+    # every byte-equal substring check.
+    issue_body = str(issue.get('body') or '').replace('\r\n', '\n')
+
+    failures: list[str] = []
+    failures.extend(_issue_metadata_failures(issue_number, issue, pr_title))
+    failures.extend(_blockquote_failures(issue_number, issue_body, template_path))
+    failures.extend(_scope_failures(issue_number, issue_body, pr_files))
+    failures.extend(_prd_closure_failures(repo, issue_number, refs, issues))
+    failures.extend(_done_means_failures(issue_number, issue_body))
     return failures
 
 

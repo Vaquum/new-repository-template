@@ -2,12 +2,26 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from governance import slice_gate
 
 SIGNIFICANCE_BLOCK = (
     '> **Significance.** This is the exact slice contract.\n'
     '> It must be preserved byte-for-byte.'
 )
+
+DONE_MEANS_COMPLETE = (
+    '## Done Means\n'
+    '- [x] Capability complete\n'
+    '- [x] Tests complete\n\n'
+    'Merge SHA:\n'
+    'Merged PR number:\n'
+    'Required CI runs (workflow name : run id):\n'
+    '-\n\n'
+)
+
+AUTHOR_CHECKS = '## Author Checks\n- [x] Sections intact.\n'
 
 
 def _template(tmp_path: Path) -> Path:
@@ -25,24 +39,44 @@ def _template(tmp_path: Path) -> Path:
     return path
 
 
-def _issue(body: str) -> dict[str, object]:
+def _issue(body: str, labels: list[str] | None = None) -> dict[str, object]:
     return {
         'title': 'feat: add law template',
         'state': 'open',
-        'labels': ['slice'],
+        'labels': ['slice'] if labels is None else labels,
         'body': body,
         'is_pull_request': False,
     }
 
 
-def _body(out_of_scope: str = '- (none)') -> str:
+def _body(
+    out_of_scope: str = '- (none)',
+    done_means: str = DONE_MEANS_COMPLETE,
+) -> str:
     return (
         f'{SIGNIFICANCE_BLOCK}\n\n'
         '## Surfaces\n'
         '- `governance/**`\n'
         '- `.github/workflows/**`\n\n'
         '## Out of Scope\n'
-        f'{out_of_scope}\n'
+        f'{out_of_scope}\n\n'
+        f'{done_means}'
+        f'{AUTHOR_CHECKS}'
+    )
+
+
+def _patch_graph(
+    monkeypatch: pytest.MonkeyPatch,
+    parent: int | None = None,
+    open_slices: list[int] | None = None,
+) -> None:
+    monkeypatch.setattr(
+        slice_gate, 'fetch_parent_issue_number', lambda _repo, _number: parent
+    )
+    monkeypatch.setattr(
+        slice_gate,
+        'fetch_open_slice_sub_issue_numbers',
+        lambda _repo, _number: list(open_slices or []),
     )
 
 
@@ -51,6 +85,7 @@ def test_gate_accepts_open_slice_issue_with_matching_scope(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(slice_gate, 'fetch_issue', lambda _repo, _number: _issue(_body()))
+    _patch_graph(monkeypatch)
 
     failures = slice_gate.gate(
         'feat: add law template',
@@ -92,6 +127,7 @@ def test_gate_requires_significance_blockquote(
         SIGNIFICANCE_BLOCK,
         '> **Significance.** Different words.',
     )))
+    _patch_graph(monkeypatch)
 
     failures = slice_gate.gate(
         'feat: add law template',
@@ -108,6 +144,7 @@ def test_gate_blocks_files_outside_surfaces(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(slice_gate, 'fetch_issue', lambda _repo, _number: _issue(_body()))
+    _patch_graph(monkeypatch)
 
     failures = slice_gate.gate(
         'feat: add law template',
@@ -128,6 +165,7 @@ def test_gate_blocks_out_of_scope_even_when_surface_allows(
         'fetch_issue',
         lambda _repo, _number: _issue(_body('- `governance/experimental.py`')),
     )
+    _patch_graph(monkeypatch)
 
     failures = slice_gate.gate(
         'feat: add law template',
@@ -142,11 +180,160 @@ def test_gate_blocks_out_of_scope_even_when_surface_allows(
 def test_multiple_closing_references_fail_before_api_call(tmp_path: Path) -> None:
     failures = slice_gate.gate(
         'feat: add law template',
-        'Closes #9\nFixes #10',
+        'Closes #9\nFixes #10\nResolves #11',
         ['governance/version_gate.py'],
         _template(tmp_path),
         'Vaquum/new-repository-template',
     )
     assert failures == [
-        'PR body has 2 closing references (#9, #10). The PR must close exactly one slice issue.'
+        'PR body has 3 closing references (#9, #10, #11). The closing set must be exactly '
+        'the slice issue, plus its parent PRD only when the slice is the parent\'s last '
+        'open slice sub-issue (rule 9).'
+    ]
+
+
+def test_rule_9_rejects_prd_close_with_open_siblings(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    issues = {
+        9: _issue(_body()),
+        12: _issue(_body(), labels=['planning']),
+    }
+    monkeypatch.setattr(slice_gate, 'fetch_issue', lambda _repo, number: issues[number])
+    _patch_graph(monkeypatch, parent=12, open_slices=[9, 10])
+
+    failures = slice_gate.gate(
+        'feat: add law template',
+        'Closes #9\nCloses #12',
+        ['governance/version_gate.py'],
+        _template(tmp_path),
+        'Vaquum/new-repository-template',
+    )
+    assert failures == [
+        'closing set {#9, #12} must be exactly {#9} because parent PRD #12 still has '
+        'other open slice sub-issues (#10) (rule 9).'
+    ]
+
+
+def test_rule_9_requires_prd_close_on_last_slice(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(slice_gate, 'fetch_issue', lambda _repo, _number: _issue(_body()))
+    _patch_graph(monkeypatch, parent=12, open_slices=[9])
+
+    failures = slice_gate.gate(
+        'feat: add law template',
+        'Closes #9',
+        ['governance/version_gate.py'],
+        _template(tmp_path),
+        'Vaquum/new-repository-template',
+    )
+    assert failures == [
+        'closing set {#9} must be exactly {#9, #12} because slice #9 is parent PRD '
+        '#12\'s last open slice sub-issue (rule 9).'
+    ]
+
+
+def test_rule_9_accepts_correct_closing_sets(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    issues = {
+        9: _issue(_body()),
+        12: _issue(_body(), labels=['planning']),
+    }
+    monkeypatch.setattr(slice_gate, 'fetch_issue', lambda _repo, number: issues[number])
+
+    _patch_graph(monkeypatch, parent=12, open_slices=[9, 10])
+    assert slice_gate.gate(
+        'feat: add law template',
+        'Closes #9',
+        ['governance/version_gate.py'],
+        _template(tmp_path),
+        'Vaquum/new-repository-template',
+    ) == []
+
+    _patch_graph(monkeypatch, parent=12, open_slices=[9])
+    assert slice_gate.gate(
+        'feat: add law template',
+        'Closes #9\nCloses #12',
+        ['governance/version_gate.py'],
+        _template(tmp_path),
+        'Vaquum/new-repository-template',
+    ) == []
+
+
+def test_rule_10_rejects_unchecked_checkbox(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    body = _body(done_means=(
+        '## Done Means\n'
+        '- [x] Capability complete\n'
+        '- [ ] Tests complete\n\n'
+        'Merge SHA:\n\n'
+    ))
+    monkeypatch.setattr(slice_gate, 'fetch_issue', lambda _repo, _number: _issue(body))
+    _patch_graph(monkeypatch)
+
+    failures = slice_gate.gate(
+        'feat: add law template',
+        'Closes #9',
+        ['governance/version_gate.py'],
+        _template(tmp_path),
+        'Vaquum/new-repository-template',
+    )
+    assert failures == [
+        'issue #9 Done Means has 1 checkbox(es) neither checked nor overruled: '
+        '\'Tests complete\'. Every box must be `- [x]` or carry '
+        '`OVERRULED: <reason>` before merge (rule 10).'
+    ]
+
+
+def test_rule_10_accepts_checked_and_overruled(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    body = _body(done_means=(
+        '## Done Means\n'
+        '- [x] Capability complete\n'
+        '- [ ] Docs updated OVERRULED: docs land in the follow-up slice\n\n'
+        'Merge SHA:\n\n'
+    ))
+    monkeypatch.setattr(slice_gate, 'fetch_issue', lambda _repo, _number: _issue(body))
+    _patch_graph(monkeypatch)
+
+    failures = slice_gate.gate(
+        'feat: add law template',
+        'Closes #9',
+        ['governance/version_gate.py'],
+        _template(tmp_path),
+        'Vaquum/new-repository-template',
+    )
+    assert failures == []
+
+
+def test_rule_10_requires_done_means_section(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        slice_gate,
+        'fetch_issue',
+        lambda _repo, _number: _issue(_body(done_means='')),
+    )
+    _patch_graph(monkeypatch)
+
+    failures = slice_gate.gate(
+        'feat: add law template',
+        'Closes #9',
+        ['governance/version_gate.py'],
+        _template(tmp_path),
+        'Vaquum/new-repository-template',
+    )
+    assert failures == [
+        'issue #9 body has no parseable Done Means section (## Done Means ... '
+        '## Author Checks); rule 10 cannot verify checkbox completion.'
     ]
