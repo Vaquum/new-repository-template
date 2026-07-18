@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  isPathInside,
   normalizeForMdx,
   rewriteOutsideCode,
   validateSections,
@@ -91,6 +92,13 @@ test('rewrites prose links without mutating code examples', () => {
       '`[Docs](docs/README.md)`',
     ].join('\n')
   );
+});
+
+test('keeps repository link resolution inside the repository root', () => {
+  assert.equal(isPathInside('/repo', '/repo'), true);
+  assert.equal(isPathInside('/repo', '/repo/docs/README.md'), true);
+  assert.equal(isPathInside('/repo', '/repo-neighbor/README.md'), false);
+  assert.equal(isPathInside('/repo', '/outside/README.md'), false);
 });
 
 test('derives Markdown lint sources from the route map', () => {

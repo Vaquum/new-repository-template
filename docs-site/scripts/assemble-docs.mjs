@@ -24,6 +24,16 @@ function normalizePath(value) {
   return value.split(path.sep).join('/');
 }
 
+export function isPathInside(root, candidate) {
+  const relative = path.relative(root, candidate);
+  return (
+    relative === ''
+    || (!relative.startsWith(`..${path.sep}`)
+      && relative !== '..'
+      && !path.isAbsolute(relative))
+  );
+}
+
 function requireString(object, key, context) {
   const value = object[key];
   if (typeof value !== 'string' || value.length === 0) {
@@ -133,7 +143,7 @@ function resolveDocLink(fromSource, target) {
   }
   if (!targetDoc) {
     const repoFsPath = path.resolve(repoRoot, resolvedSource);
-    if (!fsSync.existsSync(repoFsPath)) {
+    if (!isPathInside(repoRoot, repoFsPath) || !fsSync.existsSync(repoFsPath)) {
       return target;
     }
     const repoUrlBase = fsSync.statSync(repoFsPath).isDirectory()
