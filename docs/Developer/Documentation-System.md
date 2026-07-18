@@ -214,9 +214,9 @@ content and metadata; it does not fork the shared component rules.
 | `--vaquum-ink-deep` | `#121212` | `#F8F8F8` | headings and strongest text |
 | `--vaquum-ink` | `#231F20` | `#F3F3F3` | body and link text |
 | `--vaquum-ink-soft` | `#444444` | `#D3D3D3` | secondary text |
-| `--vaquum-ink-mute` | `#808080` | `#808080` | tertiary labels |
+| `--vaquum-ink-mute` | `#707070` | `#808080` | tertiary labels |
 | `--vaquum-rule` | `#D3D3D3` | `#444444` | dividers and borders |
-| `--vaquum-accent` | `#DC65A6` | `#EAA3C8` | active and hover state |
+| `--vaquum-accent` | `#B33F7D` | `#EAA3C8` | active and hover state |
 | `--vaquum-coral` | `#F16068` | `#F16068` | code strings |
 | `--vaquum-lime` | `#DDD941` | `#DDD941` | success |
 | `--vaquum-cyan` | `#C4E8F4` | `#C4E8F4` | information and constants |

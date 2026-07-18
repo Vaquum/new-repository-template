@@ -76,20 +76,24 @@ async function writeJson(filePath, value) {
 }
 
 function buildFrontMatter(doc) {
-  const lines = ['---', `slug: ${doc.slug}`];
+  const lines = ['---', `slug: ${JSON.stringify(doc.slug)}`];
   if (doc.title) {
-    lines.push(`title: ${doc.title}`);
+    lines.push(`title: ${JSON.stringify(doc.title)}`);
   }
   if (typeof doc.sidebarPosition === 'number') {
     lines.push(`sidebar_position: ${doc.sidebarPosition}`);
   }
   if (doc.sidebarLabel) {
-    lines.push(`sidebar_label: ${doc.sidebarLabel}`);
+    lines.push(`sidebar_label: ${JSON.stringify(doc.sidebarLabel)}`);
   }
   if (doc.dest === 'index.md') {
     lines.push('pagination_next: null', 'pagination_prev: null');
   }
-  lines.push(`custom_edit_url: ${repoEditBaseUrl}/${doc.source}`, '---', '');
+  lines.push(
+    `custom_edit_url: ${JSON.stringify(`${repoEditBaseUrl}/${doc.source}`)}`,
+    '---',
+    ''
+  );
   return lines.join('\n');
 }
 
@@ -174,6 +178,10 @@ function normalizeForMdx(content) {
       .replace(/<br>/g, '<br />')
       .replace(/<hr>/g, '<hr />')
       .replace(/<img([^>]*?)(?<!\/)>/g, '<img$1 />')
+      .replace(
+        /\{(DISPLAY_NAME|ONE_SENTENCE_DESCRIPTION|REPOSITORY_NAME|REPOSITORY_OWNER)\}/g,
+        '&#123;$1&#125;'
+      )
   );
 }
 

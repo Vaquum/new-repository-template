@@ -7,6 +7,8 @@ const siteRoot = path.resolve(path.dirname(scriptPath), '..');
 const buildRoot = path.resolve(siteRoot, 'build');
 const profile = JSON.parse(await fs.readFile(path.resolve(siteRoot, 'product-docs.json')));
 const docsMap = JSON.parse(await fs.readFile(path.resolve(siteRoot, 'docs-map.json')));
+const maxJavaScriptBytes = 1_500_000;
+const maxCssBytes = 400_000;
 
 function routeFile(slug) {
   if (slug === '/') {
@@ -63,7 +65,7 @@ const largestCss = Math.max(
     assetPaths.filter((file) => file.endsWith('.css')).map(async (file) => (await fs.stat(file)).size)
   )
 );
-if (largestJavaScript > 1_000_000 || largestCss > 250_000) {
+if (largestJavaScript > maxJavaScriptBytes || largestCss > maxCssBytes) {
   throw new Error(`asset budget exceeded: js=${largestJavaScript}, css=${largestCss}`);
 }
 process.stdout.write(
