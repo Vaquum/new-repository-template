@@ -7,13 +7,19 @@ const repoRoot = path.resolve(path.dirname(scriptPath), '..', '..');
 const docsMap = JSON.parse(
   await fs.readFile(path.resolve(repoRoot, 'docs-site', 'docs-map.json'), 'utf8')
 );
-const links = new Set();
 
-for (const document of docsMap.documents) {
-  const text = await fs.readFile(path.resolve(repoRoot, document.source), 'utf8');
-  for (const match of text.matchAll(/\[[^\]]*]\((https?:\/\/[^)\s]+)\)/g)) {
-    links.add(match[1]);
+export function extractExternalLinks(text) {
+  const links = new Set();
+  const patterns = [
+    /\[[^\]]*]\((https?:\/\/[^)\s]+)\)/g,
+    /(?:href|src)=["'](https?:\/\/[^"']+)["']/g,
+  ];
+  for (const pattern of patterns) {
+    for (const match of text.matchAll(pattern)) {
+      links.add(match[1]);
+    }
   }
+  return links;
 }
 
 async function checkLink(url) {
@@ -39,7 +45,20 @@ async function checkLink(url) {
   }
 }
 
-for (const url of [...links].sort()) {
-  await checkLink(url);
+async function main() {
+  const links = new Set();
+  for (const document of docsMap.documents) {
+    const text = await fs.readFile(path.resolve(repoRoot, document.source), 'utf8');
+    for (const url of extractExternalLinks(text)) {
+      links.add(url);
+    }
+  }
+  for (const url of [...links].sort()) {
+    await checkLink(url);
+  }
+  process.stdout.write(`External links healthy: ${links.size}\n`);
 }
-process.stdout.write(`External links healthy: ${links.size}\n`);
+
+if (process.argv[1] === scriptPath) {
+  await main();
+}
