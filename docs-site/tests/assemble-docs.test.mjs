@@ -13,6 +13,7 @@ import {
   isPublicAddress,
 } from '../scripts/check-external-links.mjs';
 import {markdownSources} from '../scripts/lint-markdown.mjs';
+import {canonicalSitemapUrl} from '../scripts/site-urls.mjs';
 
 const mark = (value) => value.replaceAll('{TOKEN}', 'REWRITTEN');
 
@@ -99,6 +100,17 @@ test('keeps repository link resolution inside the repository root', () => {
   assert.equal(isPathInside('/repo', '/repo/docs/README.md'), true);
   assert.equal(isPathInside('/repo', '/repo-neighbor/README.md'), false);
   assert.equal(isPathInside('/repo', '/outside/README.md'), false);
+});
+
+test('builds canonical sitemap URLs for root and nested docs paths', () => {
+  assert.equal(
+    canonicalSitemapUrl('https://docs.example.com', '/'),
+    'https://docs.example.com/sitemap.xml'
+  );
+  assert.equal(
+    canonicalSitemapUrl('https://docs.example.com/', '/product/'),
+    'https://docs.example.com/product/sitemap.xml'
+  );
 });
 
 test('derives Markdown lint sources from the route map', () => {

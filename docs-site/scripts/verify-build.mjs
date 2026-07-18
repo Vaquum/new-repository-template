@@ -2,6 +2,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
+import {canonicalSitemapUrl} from './site-urls.mjs';
+
 const scriptPath = fileURLToPath(import.meta.url);
 const siteRoot = path.resolve(path.dirname(scriptPath), '..');
 const buildRoot = path.resolve(siteRoot, 'build');
@@ -36,8 +38,7 @@ if (sitemapCount !== expectedRoutes.size) {
   throw new Error(`sitemap has ${sitemapCount} URLs, expected ${expectedRoutes.size}`);
 }
 const robots = await fs.readFile(path.resolve(buildRoot, 'robots.txt'), 'utf8');
-const basePath = profile.basePath.endsWith('/') ? profile.basePath : `${profile.basePath}/`;
-const expectedSitemap = `${profile.siteUrl}${basePath}sitemap.xml`;
+const expectedSitemap = canonicalSitemapUrl(profile.siteUrl, profile.basePath);
 if (!robots.includes(expectedSitemap)) {
   throw new Error(`robots.txt must name ${expectedSitemap}`);
 }
@@ -59,16 +60,19 @@ async function collect(directory) {
   }
 }
 await collect(assetRoot);
-const largestJavaScript = Math.max(
-  ...await Promise.all(
-    assetPaths.filter((file) => file.endsWith('.js')).map(async (file) => (await fs.stat(file)).size)
-  )
-);
-const largestCss = Math.max(
-  ...await Promise.all(
-    assetPaths.filter((file) => file.endsWith('.css')).map(async (file) => (await fs.stat(file)).size)
-  )
-);
+async function largestAsset(extension) {
+  const matchingPaths = assetPaths.filter((file) => file.endsWith(extension));
+  if (matchingPaths.length === 0) {
+    throw new Error(`build contains no ${extension} assets`);
+  }
+  return Math.max(
+    ...await Promise.all(
+      matchingPaths.map(async (file) => (await fs.stat(file)).size)
+    )
+  );
+}
+const largestJavaScript = await largestAsset('.js');
+const largestCss = await largestAsset('.css');
 if (largestJavaScript > maxJavaScriptBytes || largestCss > maxCssBytes) {
   throw new Error(`asset budget exceeded: js=${largestJavaScript}, css=${largestCss}`);
 }

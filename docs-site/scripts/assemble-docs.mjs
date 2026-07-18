@@ -3,6 +3,8 @@ import fsSync from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
+import {canonicalSitemapUrl} from './site-urls.mjs';
+
 const scriptPath = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(scriptPath), '..', '..');
 const siteRoot = path.resolve(repoRoot, 'docs-site');
@@ -283,11 +285,13 @@ async function writeCategoryFiles() {
 }
 
 async function writeRobots() {
-  const basePath = profile.basePath.endsWith('/') ? profile.basePath : `${profile.basePath}/`;
   await ensureDir(staticRoot);
   await fs.writeFile(
     path.resolve(staticRoot, 'robots.txt'),
-    `User-agent: *\nAllow: /\nSitemap: ${profile.siteUrl}${basePath}sitemap.xml\n`
+    `User-agent: *\nAllow: /\nSitemap: ${canonicalSitemapUrl(
+      profile.siteUrl,
+      profile.basePath
+    )}\n`
   );
 }
 
