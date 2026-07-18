@@ -11,6 +11,7 @@ Build and inspect the documentation scaffold from a repository checkout.
 
 ```bash
 npm --prefix docs-site ci
+npm --prefix docs-site run security:audit
 npm --prefix docs-site run check
 ```
 

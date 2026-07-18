@@ -5,8 +5,12 @@ import {fileURLToPath} from 'node:url';
 const scriptPath = fileURLToPath(import.meta.url);
 const siteRoot = path.resolve(path.dirname(scriptPath), '..');
 const buildRoot = path.resolve(siteRoot, 'build');
-const profile = JSON.parse(await fs.readFile(path.resolve(siteRoot, 'product-docs.json')));
-const docsMap = JSON.parse(await fs.readFile(path.resolve(siteRoot, 'docs-map.json')));
+const profile = JSON.parse(
+  await fs.readFile(path.resolve(siteRoot, 'product-docs.json'), 'utf8')
+);
+const docsMap = JSON.parse(
+  await fs.readFile(path.resolve(siteRoot, 'docs-map.json'), 'utf8')
+);
 const maxJavaScriptBytes = 1_500_000;
 const maxCssBytes = 400_000;
 

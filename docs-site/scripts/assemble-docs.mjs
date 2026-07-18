@@ -8,8 +8,12 @@ const repoRoot = path.resolve(path.dirname(scriptPath), '..', '..');
 const siteRoot = path.resolve(repoRoot, 'docs-site');
 const outRoot = path.resolve(siteRoot, '.generated', 'docs');
 const staticRoot = path.resolve(siteRoot, '.generated', 'static');
-const profile = JSON.parse(await fs.readFile(path.resolve(siteRoot, 'product-docs.json')));
-const docsMap = JSON.parse(await fs.readFile(path.resolve(siteRoot, 'docs-map.json')));
+const profile = JSON.parse(
+  await fs.readFile(path.resolve(siteRoot, 'product-docs.json'), 'utf8')
+);
+const docsMap = JSON.parse(
+  await fs.readFile(path.resolve(siteRoot, 'docs-map.json'), 'utf8')
+);
 const documents = docsMap.documents;
 const sections = docsMap.sections;
 const repoBlobBaseUrl = `${profile.sourceRepoUrl}/blob/main`;
@@ -53,7 +57,11 @@ function validateConfiguration() {
   for (const doc of documents) {
     const sourcePath = path.resolve(repoRoot, doc.source);
     const destPath = path.resolve(outRoot, doc.dest);
-    if (!sourcePath.startsWith(`${repoRoot}${path.sep}`) || !fsSync.statSync(sourcePath).isFile()) {
+    if (
+      !sourcePath.startsWith(`${repoRoot}${path.sep}`)
+      || !fsSync.existsSync(sourcePath)
+      || !fsSync.statSync(sourcePath).isFile()
+    ) {
       throw new Error(`document source is missing or outside the repository: ${doc.source}`);
     }
     if (!destPath.startsWith(`${outRoot}${path.sep}`)) {
@@ -136,7 +144,7 @@ function rewriteLinks(content, fromSource) {
   );
 }
 
-function rewriteOutsideCode(content, transform) {
+export function rewriteOutsideCode(content, transform) {
   let output = '';
   let index = 0;
   let inFence = false;
@@ -144,7 +152,8 @@ function rewriteOutsideCode(content, transform) {
   while (index < content.length) {
     if (content.startsWith('```', index)) {
       if (plainStart < index) {
-        output += transform(content.slice(plainStart, index));
+        const segment = content.slice(plainStart, index);
+        output += inFence ? segment : transform(segment);
       }
       inFence = !inFence;
       output += '```';
@@ -158,7 +167,8 @@ function rewriteOutsideCode(content, transform) {
       }
       const close = content.indexOf('`', index + 1);
       if (close === -1) {
-        break;
+        output += content.slice(index);
+        return output;
       }
       output += content.slice(index, close + 1);
       index = close + 1;
@@ -167,7 +177,8 @@ function rewriteOutsideCode(content, transform) {
     }
     index += 1;
   }
-  output += transform(content.slice(plainStart));
+  const tail = content.slice(plainStart);
+  output += inFence ? tail : transform(tail);
   return output;
 }
 
@@ -231,4 +242,6 @@ async function main() {
   await writeRobots();
 }
 
-await main();
+if (process.argv[1] === scriptPath) {
+  await main();
+}

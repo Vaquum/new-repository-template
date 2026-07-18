@@ -3,6 +3,7 @@ const productDocs = require('./product-docs.json');
 
 module.exports = defineConfig({
   testDir: './tests',
+  testMatch: '**/*.spec.js',
   outputDir: './test-results',
   reporter: [['list']],
   use: {

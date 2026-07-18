@@ -32,6 +32,8 @@
   --ifm-background-color: var(--vaquum-paper);
   --ifm-background-surface-color: var(--vaquum-paper);
   --ifm-navbar-background-color: var(--vaquum-paper);
+  --ifm-navbar-search-input-background-color: var(--vaquum-paper-2);
+  --ifm-navbar-search-input-placeholder-color: var(--vaquum-ink-soft);
   --ifm-footer-background-color: var(--vaquum-ink);
   --ifm-font-color-base: var(--vaquum-ink);
   --ifm-heading-color: var(--vaquum-ink-deep);
@@ -77,6 +79,8 @@ html[data-theme='dark'] {
   --ifm-background-color: var(--vaquum-paper);
   --ifm-background-surface-color: var(--vaquum-paper);
   --ifm-navbar-background-color: var(--vaquum-paper);
+  --ifm-navbar-search-input-background-color: var(--vaquum-paper-2);
+  --ifm-navbar-search-input-placeholder-color: var(--vaquum-ink-soft);
   --ifm-footer-background-color: var(--vaquum-paper);
   --ifm-font-color-base: var(--vaquum-ink);
   --ifm-heading-color: var(--vaquum-ink-deep);

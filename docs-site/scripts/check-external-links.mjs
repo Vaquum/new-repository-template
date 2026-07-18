@@ -5,7 +5,7 @@ import {fileURLToPath} from 'node:url';
 const scriptPath = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(scriptPath), '..', '..');
 const docsMap = JSON.parse(
-  await fs.readFile(path.resolve(repoRoot, 'docs-site', 'docs-map.json'))
+  await fs.readFile(path.resolve(repoRoot, 'docs-site', 'docs-map.json'), 'utf8')
 );
 const links = new Set();
 

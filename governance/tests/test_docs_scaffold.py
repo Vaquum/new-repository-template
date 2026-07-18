@@ -75,7 +75,11 @@ def test_shared_docs_site_has_no_limen_literals() -> None:
         and not excluded.intersection(path.relative_to(DOCS_SITE).parts)
     ]
 
-    assert all('Limen' not in path.read_text(encoding='utf-8') for path in files)
+    assert all(
+        literal not in path.read_text(encoding='utf-8')
+        for path in files
+        for literal in ('Limen', '/limen/')
+    )
 
 
 def test_visual_contract_self_hosts_plex_fonts() -> None:

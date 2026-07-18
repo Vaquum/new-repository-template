@@ -93,6 +93,7 @@ gh variable list --repo <ORG>/<NAME>                                   # RULESET
 gh api repos/<ORG>/<NAME>/rulesets --jq '.[].name'                     # includes "Protect-Main"
 gh label list --repo <ORG>/<NAME>                                      # includes "slice"
 npm --prefix docs-site ci
+npm --prefix docs-site run security:audit                              # no production advisory
 npm --prefix docs-site run check                                       # static docs proof is green
 ```
 
