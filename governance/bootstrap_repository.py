@@ -199,6 +199,7 @@ def _replace_identity_tokens(
             if old_slug != repo_slug:
                 updated = updated.replace(old_slug, repo_slug)
         updated = updated.replace('{REPOSITORY_NAME}', repo_slug)
+        updated = updated.replace('{REPOSITORY_OWNER}', owner_name)
         updated = updated.replace('{ONE_SENTENCE_DESCRIPTION}', description)
         updated = updated.replace('{DISPLAY_NAME}', display_name)
         updated = updated.replace(f'Vaquum/{package_name}', f'{owner_name}/{repo_slug}')

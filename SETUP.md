@@ -5,8 +5,8 @@
 ## TL;DR
 
 1. **Once per organization:** create two org secrets — `REPO_BOOTSTRAP_TOKEN` and `RULESET_AUDIT_TOKEN` — and confirm Actions + Copilot code review are enabled. (Optional: set the `LABEL_TEMPLATE_REPOSITORY` org variable.)
-2. **Per repository:** create it from the template. The first push to `main` self-bootstraps — renames the package, opens and merges a bootstrap PR through the gates, and applies the protected-`main` ruleset.
-3. **Verify** the bootstrap run, the `RULESET_ID` variable, and the live ruleset.
+2. **Per repository:** create it from the template. The first push to `main` self-bootstraps — renames the package, specializes the documentation profile, opens and merges a bootstrap PR through the gates, and applies the protected-`main` ruleset.
+3. **Verify** the bootstrap run, the `RULESET_ID` variable, the live ruleset, and the production documentation build.
 
 The reason the secrets must be **organization** secrets (not repository secrets): creating a repo from a template makes the repository *and* its first commit on `main` in one action, which triggers the bootstrap immediately — there is no window to add a repository secret first. Org secrets are present on that first run. (If you cannot use org secrets, see [Appendix A](#appendix-a--repository-level-secrets).)
 
@@ -73,12 +73,14 @@ gh repo create <ORG>/<NAME> --template Vaquum/new-repository-template --private
 
 The Python import package defaults to the repository name in `snake_case`. To choose a different package name, run the bootstrap with `workflow_dispatch` and pass `package_name` instead of relying on the automatic first-push run.
 
+The repository starts with the complete documentation system under `docs-site/`, the five canonical sections, and starter pages. Bootstrap fills repository identity and edit-link coordinates. Product content, canonical site origin, base path, and deployment adapter remain the new repository's responsibility.
+
 ## 2 · What the bootstrap does automatically — do **not** do these by hand
 
 On the first push to `main`, `bootstrap_repository.yml`:
 
 1. Detects CodeQL availability (public repo or Advanced Security).
-2. Renames the seed package to the repo's name, regenerates the typing / fail-loud / module budgets against it, fills the README tokens, and seeds the baseline package + tests + `CHANGELOG`.
+2. Renames the seed package to the repo's name, regenerates the typing / fail-loud / module budgets against it, fills the README and documentation-profile tokens, and seeds the baseline package + tests + `CHANGELOG`.
 3. **If CodeQL cannot run** (private without Advanced Security): removes CodeQL from the laws, the ruleset snapshot, and the workflows **together** (keeping the laws ↔ ruleset bijection intact) and opens an issue to re-enable it.
 4. Opens a `slice`-labelled bootstrap PR, waits for every gate, and merges it.
 5. Copies labels, applies the `Protect-Main` ruleset to `main`, and sets the `RULESET_ID` variable.
@@ -90,9 +92,13 @@ gh run list  --repo <ORG>/<NAME> --workflow bootstrap_repository.yml   # latest 
 gh variable list --repo <ORG>/<NAME>                                   # RULESET_ID is present
 gh api repos/<ORG>/<NAME>/rulesets --jq '.[].name'                     # includes "Protect-Main"
 gh label list --repo <ORG>/<NAME>                                      # includes "slice"
+npm --prefix docs-site ci
+npm --prefix docs-site run check                                       # static docs proof is green
 ```
 
 Then open a throwaway PR and confirm the required checks appear and `pr_checks_honesty` (the laws ↔ ruleset bijection) passes. Close it without merging.
+
+Before publishing docs, replace starter prose, set `siteUrl` and `basePath` in `docs-site/product-docs.json`, map every maintained source in `docs-site/docs-map.json`, and add the host-specific redirects and security headers required by [`docs/Developer/Documentation-System.md`](docs/Developer/Documentation-System.md).
 
 ## 4 · If CodeQL was removed
 

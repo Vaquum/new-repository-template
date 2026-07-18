@@ -1,3 +1,7 @@
+# v0.15.0
+
+- Add the production documentation scaffold proven in Limen: five-section source ownership, validated product and route profiles, Docusaurus assembly, self-hosted Vaquum typography and theme, local search, route and asset verification, external-link and dependency audits, Playwright and Axe acceptance, inherited bootstrap identity, and enforcement inside the existing required lint gate.
+
 # v0.14.10
 
 - Sync `.github/rulesets/main.json` with the live Protect-Main ruleset by recording the disabled `dismissal_restriction` pull-request parameter, restoring the ruleset drift gate without changing runtime behavior.

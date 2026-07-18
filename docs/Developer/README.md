@@ -11,6 +11,12 @@ stance — live in [`CLAUDE.md`](../../CLAUDE.md). That is the single source of
 truth; this document only covers what `CLAUDE.md` does not: how the template is
 rolled out and extended.
 
+## Prerequisites
+
+- complete [`SETUP.md`](../../SETUP.md) before relying on repository gates
+- use Node.js 20 or later for the documentation site
+- install documentation dependencies from the committed lockfile with `npm ci`
+
 ## Rolling out a new repository from the template
 
 The complete setup runbook — the once-per-organization secrets and variables
@@ -19,6 +25,18 @@ the exact token scopes, what the bootstrap does automatically, how to verify it,
 the CodeQL-on-private behavior, and every failure mode — is
 [`SETUP.md`](../../SETUP.md). Follow it when creating a new repository from this
 template.
+
+## Documentation system
+
+[`Documentation-System.md`](Documentation-System.md) is the production
+documentation contract. Fresh repositories inherit its starter corpus,
+Docusaurus assembly, Vaquum theme, local search, locked toolchain, and checks.
+Existing repositories can copy the same surfaces and use its side-by-side
+parity protocol before cutover.
+
+Product identity and deployment coordinates live in
+`docs-site/product-docs.json`; source ownership and public routes live in
+`docs-site/docs-map.json`. Do not embed product literals in shared site files.
 
 ## Adding an app-specific required gate
 
