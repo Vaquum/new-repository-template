@@ -38,18 +38,32 @@ function assertUnique(values, label) {
   }
 }
 
+export function validateSections(sectionValues) {
+  if (!Array.isArray(sectionValues) || sectionValues.length !== 5) {
+    throw new Error('docs-map.json must define the five standard sections');
+  }
+  for (const section of sectionValues) {
+    requireString(section, 'dir', 'section');
+    requireString(section, 'label', 'section');
+    requireString(section, 'slug', 'section');
+    requireString(section, 'description', 'section');
+    if (!Number.isInteger(section.position) || section.position < 1) {
+      throw new Error('section.position must be a positive integer');
+    }
+  }
+  assertUnique(sectionValues.map((section) => section.dir), 'section dir');
+  assertUnique(sectionValues.map((section) => section.slug), 'section slug');
+  assertUnique(sectionValues.map((section) => section.position), 'section position');
+}
+
 function validateConfiguration() {
   for (const key of ['productId', 'productName', 'tagline', 'siteUrl', 'basePath', 'sourceRepoUrl']) {
     requireString(profile, key, 'product-docs.json');
   }
-  if (!Array.isArray(sections) || !Array.isArray(documents)) {
-    throw new Error('docs-map.json sections and documents must be arrays');
+  if (!Array.isArray(documents)) {
+    throw new Error('docs-map.json documents must be an array');
   }
-  if (sections.length !== 5) {
-    throw new Error('docs-map.json must define the five standard sections');
-  }
-  assertUnique(sections.map((section) => requireString(section, 'dir', 'section')), 'section dir');
-  assertUnique(sections.map((section) => requireString(section, 'slug', 'section')), 'section slug');
+  validateSections(sections);
   assertUnique(documents.map((doc) => requireString(doc, 'source', 'document')), 'document source');
   assertUnique(documents.map((doc) => requireString(doc, 'dest', 'document')), 'document dest');
   assertUnique(documents.map((doc) => requireString(doc, 'slug', 'document')), 'document slug');

@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {normalizeForMdx, rewriteOutsideCode} from '../scripts/assemble-docs.mjs';
+import {
+  normalizeForMdx,
+  rewriteOutsideCode,
+  validateSections,
+} from '../scripts/assemble-docs.mjs';
 import {extractExternalLinks} from '../scripts/check-external-links.mjs';
 import {markdownSources} from '../scripts/lint-markdown.mjs';
 
@@ -97,5 +101,25 @@ test('derives Markdown lint sources from the route map', () => {
   assert.deepEqual(
     markdownSources(map),
     ['CHANGELOG.md', 'README.md', 'docs/README.md']
+  );
+});
+
+test('validates every category field before generation', () => {
+  const sections = Array.from({length: 5}, (_, index) => ({
+    dir: `section-${index}`,
+    label: `Section ${index}`,
+    position: index + 1,
+    slug: `/section-${index}`,
+    description: `Section ${index} description.`,
+  }));
+
+  assert.doesNotThrow(() => validateSections(sections));
+  assert.throws(
+    () => validateSections([{...sections[0], label: ''}, ...sections.slice(1)]),
+    /section.label must be a non-empty string/
+  );
+  assert.throws(
+    () => validateSections([{...sections[0], position: 0}, ...sections.slice(1)]),
+    /section.position must be a positive integer/
   );
 });
