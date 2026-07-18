@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {rewriteOutsideCode} from '../scripts/assemble-docs.mjs';
+import {normalizeForMdx, rewriteOutsideCode} from '../scripts/assemble-docs.mjs';
 import {extractExternalLinks} from '../scripts/check-external-links.mjs';
 
 const mark = (value) => value.replaceAll('{TOKEN}', 'REWRITTEN');
@@ -60,5 +60,26 @@ test('extracts unique Markdown and HTML external links', () => {
       'https://docs.vaquum.fi/example/logo.png',
       'https://github.com/Vaquum/example',
     ]
+  );
+});
+
+test('rewrites prose links without mutating code examples', () => {
+  const source = [
+    '[Docs](docs/README.md)',
+    '```markdown',
+    '[Docs](docs/README.md)',
+    '```',
+    '`[Docs](docs/README.md)`',
+  ].join('\n');
+
+  assert.equal(
+    normalizeForMdx(source, 'README.md'),
+    [
+      '[Docs](overview/docs-hub.md)',
+      '```markdown',
+      '[Docs](docs/README.md)',
+      '```',
+      '`[Docs](docs/README.md)`',
+    ].join('\n')
   );
 });

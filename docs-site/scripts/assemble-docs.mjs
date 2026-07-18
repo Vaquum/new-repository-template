@@ -144,7 +144,7 @@ function rewriteLinks(content, fromSource) {
   );
 }
 
-export function rewriteOutsideCode(content, transform) {
+function rewriteOutsideFences(content, transform) {
   let output = '';
   let index = 0;
   let inFence = false;
@@ -161,7 +161,19 @@ export function rewriteOutsideCode(content, transform) {
       plainStart = index;
       continue;
     }
-    if (!inFence && content[index] === '`') {
+    index += 1;
+  }
+  const tail = content.slice(plainStart);
+  output += inFence ? tail : transform(tail);
+  return output;
+}
+
+function rewriteOutsideInlineCode(content, transform) {
+  let output = '';
+  let index = 0;
+  let plainStart = 0;
+  while (index < content.length) {
+    if (content[index] === '`') {
       if (plainStart < index) {
         output += transform(content.slice(plainStart, index));
       }
@@ -177,13 +189,37 @@ export function rewriteOutsideCode(content, transform) {
     }
     index += 1;
   }
-  const tail = content.slice(plainStart);
-  output += inFence ? tail : transform(tail);
+  output += transform(content.slice(plainStart));
   return output;
 }
 
-function normalizeForMdx(content) {
-  return rewriteOutsideCode(content, (chunk) =>
+export function rewriteOutsideCode(content, transform) {
+  return rewriteOutsideFences(
+    content,
+    (chunk) => rewriteOutsideInlineCode(chunk, transform)
+  );
+}
+
+function rewriteLinksOutsideCode(content, fromSource) {
+  return rewriteOutsideFences(content, (chunk) => {
+    const inlineCode = [];
+    const masked = chunk.replace(/`[^`]*(?:`|$)/g, (match) => {
+      const marker = `\u0000INLINE_CODE_${inlineCode.length}\u0000`;
+      inlineCode.push(match);
+      return marker;
+    });
+    const rewritten = rewriteLinks(masked, fromSource);
+    return inlineCode.reduce(
+      (result, code, index) =>
+        result.replace(`\u0000INLINE_CODE_${index}\u0000`, code),
+      rewritten
+    );
+  });
+}
+
+export function normalizeForMdx(content, fromSource) {
+  const rewrittenLinks = rewriteLinksOutsideCode(content, fromSource);
+  return rewriteOutsideCode(rewrittenLinks, (chunk) =>
     chunk
       .replace(/<p align="center">([\s\S]*?)<\/p>/g, '<div align="center">$1</div>')
       .replace(/<br>/g, '<br />')
@@ -200,7 +236,7 @@ async function copyDoc(doc) {
   const sourcePath = path.resolve(repoRoot, doc.source);
   const destPath = path.resolve(outRoot, doc.dest);
   const raw = await fs.readFile(sourcePath, 'utf8');
-  const output = `${buildFrontMatter(doc)}${normalizeForMdx(rewriteLinks(raw, doc.source))}`;
+  const output = `${buildFrontMatter(doc)}${normalizeForMdx(raw, doc.source)}`;
   await ensureDir(path.dirname(destPath));
   await fs.writeFile(destPath, output);
 }
