@@ -57,7 +57,7 @@ def test_docs_check_covers_portable_acceptance_surfaces() -> None:
     scripts = package['scripts']
     check = scripts['check']
 
-    assert 'markdownlint-cli2' in scripts['lint']
+    assert 'lint-markdown.mjs' in scripts['lint']
     assert 'check-external-links.mjs' in scripts['check:external-links']
     assert 'audit-security.mjs' in scripts['security:audit']
     assert 'docusaurus build --no-minify' in check
@@ -79,6 +79,34 @@ def test_shared_docs_site_has_no_limen_literals() -> None:
         literal not in path.read_text(encoding='utf-8')
         for path in files
         for literal in ('Limen', '/limen/')
+    )
+
+
+def test_seed_identity_is_confined_to_product_configuration() -> None:
+    excluded_files = {
+        'docs-map.json',
+        'product-docs.json',
+        'package-lock.json',
+    }
+    excluded_dirs = {
+        'node_modules',
+        'build',
+        '.generated',
+        '.docusaurus',
+        'test-results',
+    }
+    files = [
+        path
+        for path in DOCS_SITE.rglob('*')
+        if path.is_file()
+        and path.name not in excluded_files
+        and not excluded_dirs.intersection(path.relative_to(DOCS_SITE).parts)
+    ]
+
+    assert all(
+        literal not in path.read_text(encoding='utf-8')
+        for path in files
+        for literal in ('new_repository_template', 'new-repository-template')
     )
 
 

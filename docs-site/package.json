@@ -7,7 +7,7 @@
   },
   "scripts": {
     "prepare-docs": "node ./scripts/assemble-docs.mjs",
-    "lint": "markdownlint-cli2 --config ../.markdownlint.json ../README.md ../CHANGELOG.md \"../docs/**/*.md\" \"../new_repository_template/README.md\"",
+    "lint": "node ./scripts/lint-markdown.mjs",
     "check:external-links": "node ./scripts/check-external-links.mjs",
     "security:audit": "node ./scripts/audit-security.mjs",
     "build": "npm run prepare-docs && docusaurus build",

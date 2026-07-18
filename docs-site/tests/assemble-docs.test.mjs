@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {normalizeForMdx, rewriteOutsideCode} from '../scripts/assemble-docs.mjs';
 import {extractExternalLinks} from '../scripts/check-external-links.mjs';
+import {markdownSources} from '../scripts/lint-markdown.mjs';
 
 const mark = (value) => value.replaceAll('{TOKEN}', 'REWRITTEN');
 
@@ -81,5 +82,20 @@ test('rewrites prose links without mutating code examples', () => {
       '```',
       '`[Docs](docs/README.md)`',
     ].join('\n')
+  );
+});
+
+test('derives Markdown lint sources from the route map', () => {
+  const map = {
+    documents: [
+      {source: 'README.md'},
+      {source: 'docs/README.md'},
+      {source: 'README.md'},
+    ],
+  };
+
+  assert.deepEqual(
+    markdownSources(map),
+    ['CHANGELOG.md', 'README.md', 'docs/README.md']
   );
 });
