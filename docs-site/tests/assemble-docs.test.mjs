@@ -6,7 +6,11 @@ import {
   rewriteOutsideCode,
   validateSections,
 } from '../scripts/assemble-docs.mjs';
-import {extractExternalLinks} from '../scripts/check-external-links.mjs';
+import {
+  assertPublicUrl,
+  extractExternalLinks,
+  isPublicAddress,
+} from '../scripts/check-external-links.mjs';
 import {markdownSources} from '../scripts/lint-markdown.mjs';
 
 const mark = (value) => value.replaceAll('{TOKEN}', 'REWRITTEN');
@@ -121,5 +125,28 @@ test('validates every category field before generation', () => {
   assert.throws(
     () => validateSections([{...sections[0], position: 0}, ...sections.slice(1)]),
     /section.position must be a positive integer/
+  );
+});
+
+test('rejects external-link destinations that can reach private networks', async () => {
+  assert.equal(isPublicAddress('8.8.8.8'), true);
+  assert.equal(isPublicAddress('127.0.0.1'), false);
+  assert.equal(isPublicAddress('169.254.169.254'), false);
+  assert.equal(isPublicAddress('10.20.30.40'), false);
+  assert.equal(isPublicAddress('192.0.2.1'), false);
+  assert.equal(isPublicAddress('::1'), false);
+  assert.equal(isPublicAddress('fe80::1'), false);
+
+  await assert.rejects(
+    assertPublicUrl('http://localhost/private'),
+    /non-public destination/
+  );
+  await assert.rejects(
+    assertPublicUrl('http://169.254.169.254/latest/meta-data'),
+    /non-public destination/
+  );
+  await assert.rejects(
+    assertPublicUrl('https://user:secret@example.com/'),
+    /must not contain credentials/
   );
 });

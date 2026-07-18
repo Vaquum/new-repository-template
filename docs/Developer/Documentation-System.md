@@ -309,7 +309,8 @@ Examples satisfy the level they imply:
 - Published routes are stable API.
 - A changed route requires redirect, link migration, sitemap update, and an
   explicit expected difference.
-- External links pass the automated status check.
+- External links pass the automated status check; initial and redirected
+  destinations must resolve only to public network addresses.
 
 ## Assembly and configuration
 
