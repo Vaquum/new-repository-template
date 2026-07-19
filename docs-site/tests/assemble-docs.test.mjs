@@ -5,6 +5,7 @@ import {
   isPathInside,
   normalizeForMdx,
   rewriteOutsideCode,
+  validateProfile,
   validateSections,
 } from '../scripts/assemble-docs.mjs';
 import {auditFailure} from '../scripts/audit-report.mjs';
@@ -162,6 +163,28 @@ test('validates every category field before generation', () => {
   assert.throws(
     () => validateSections([{...sections[0], position: 0}, ...sections.slice(1)]),
     /section.position must be a positive integer/
+  );
+});
+
+test('validates documentation deployment coordinates before generation', () => {
+  const profile = {
+    productId: 'product',
+    productName: 'Product',
+    tagline: 'Product documentation.',
+    siteUrl: 'https://docs.example.com',
+    basePath: '/product/',
+    sourceRepoUrl: 'https://github.com/Vaquum/product',
+  };
+
+  assert.doesNotThrow(() => validateProfile(profile));
+  assert.doesNotThrow(() => validateProfile({...profile, basePath: '/'}));
+  assert.throws(
+    () => validateProfile({...profile, siteUrl: 'https://docs.example.com/'}),
+    /siteUrl must be an HTTP\(S\) origin without a trailing slash/
+  );
+  assert.throws(
+    () => validateProfile({...profile, basePath: 'product/'}),
+    /basePath must be \/ or have leading and trailing slashes/
   );
 });
 

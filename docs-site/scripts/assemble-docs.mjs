@@ -18,9 +18,6 @@ const docsMap = JSON.parse(
 );
 const documents = docsMap.documents;
 const sections = docsMap.sections;
-const repoBlobBaseUrl = `${profile.sourceRepoUrl}/blob/main`;
-const repoEditBaseUrl = `${profile.sourceRepoUrl}/edit/main`;
-const repoTreeBaseUrl = `${profile.sourceRepoUrl}/tree/main`;
 
 function normalizePath(value) {
   return value.split(path.sep).join('/');
@@ -68,10 +65,37 @@ export function validateSections(sectionValues) {
   assertUnique(sectionValues.map((section) => section.position), 'section position');
 }
 
-function validateConfiguration() {
-  for (const key of ['productId', 'productName', 'tagline', 'siteUrl', 'basePath', 'sourceRepoUrl']) {
-    requireString(profile, key, 'product-docs.json');
+export function validateProfile(profileValue) {
+  for (const key of [
+    'productId',
+    'productName',
+    'tagline',
+    'siteUrl',
+    'basePath',
+    'sourceRepoUrl',
+  ]) {
+    requireString(profileValue, key, 'product-docs.json');
   }
+  const siteUrl = profileValue.siteUrl;
+  if (
+    !URL.canParse(siteUrl)
+    || !['http:', 'https:'].includes(new URL(siteUrl).protocol)
+    || new URL(siteUrl).origin !== siteUrl
+  ) {
+    throw new Error(
+      'product-docs.json.siteUrl must be an HTTP(S) origin without a trailing slash'
+    );
+  }
+  const basePath = profileValue.basePath;
+  if (basePath !== '/' && !/^\/[^/]+(?:\/[^/]+)*\/$/.test(basePath)) {
+    throw new Error(
+      'product-docs.json.basePath must be / or have leading and trailing slashes'
+    );
+  }
+}
+
+function validateConfiguration() {
+  validateProfile(profile);
   if (!Array.isArray(documents)) {
     throw new Error('docs-map.json documents must be an array');
   }
@@ -96,6 +120,10 @@ function validateConfiguration() {
   }
 }
 
+validateConfiguration();
+const repoBlobBaseUrl = `${profile.sourceRepoUrl}/blob/main`;
+const repoEditBaseUrl = `${profile.sourceRepoUrl}/edit/main`;
+const repoTreeBaseUrl = `${profile.sourceRepoUrl}/tree/main`;
 const mappingBySource = new Map(
   documents.map((doc) => [normalizePath(doc.source), doc])
 );
@@ -296,7 +324,6 @@ async function writeRobots() {
 }
 
 async function main() {
-  validateConfiguration();
   await fs.rm(path.resolve(siteRoot, '.generated'), {recursive: true, force: true});
   await ensureDir(outRoot);
   await writeCategoryFiles();
