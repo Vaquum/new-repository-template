@@ -66,7 +66,13 @@ def test_docs_check_covers_portable_acceptance_surfaces() -> None:
 
 
 def test_shared_docs_site_has_no_limen_literals() -> None:
-    excluded = {'node_modules', 'build', '.generated', '.docusaurus'}
+    excluded = {
+        'node_modules',
+        'build',
+        '.generated',
+        '.docusaurus',
+        'test-results',
+    }
     files = [
         path
         for path in DOCS_SITE.rglob('*')

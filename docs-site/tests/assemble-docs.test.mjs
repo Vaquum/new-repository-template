@@ -80,6 +80,10 @@ test('extracts unique Markdown and HTML external links', () => {
     '<a href="https://docs.vaquum.fi/example/">Docs</a>',
     '<img src="https://docs.vaquum.fi/example/logo.png" alt="Logo" />',
     '[Duplicate](https://github.com/Vaquum/example)',
+    '`[Inline example](http://127.0.0.1/private)`',
+    '~~~markdown',
+    '[Fenced example](http://169.254.169.254/latest/meta-data)',
+    '~~~',
   ].join('\n');
 
   assert.deepEqual(

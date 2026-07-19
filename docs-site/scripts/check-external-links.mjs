@@ -12,14 +12,55 @@ const docsMap = JSON.parse(
   await fs.readFile(path.resolve(repoRoot, 'docs-site', 'docs-map.json'), 'utf8')
 );
 
+function stripInlineCode(line) {
+  let output = '';
+  let index = 0;
+  while (index < line.length) {
+    const opening = line.indexOf('`', index);
+    if (opening === -1) {
+      return output + line.slice(index);
+    }
+    output += line.slice(index, opening);
+    let markerEnd = opening;
+    while (line[markerEnd] === '`') {
+      markerEnd += 1;
+    }
+    const marker = line.slice(opening, markerEnd);
+    const closing = line.indexOf(marker, markerEnd);
+    if (closing === -1) {
+      return output;
+    }
+    index = closing + marker.length;
+  }
+  return output;
+}
+
+export function stripMarkdownCode(text) {
+  let fence = null;
+  return text.split('\n').map((line) => {
+    const match = line.match(/^\s*(`{3,}|~{3,})/);
+    if (match) {
+      const marker = match[1];
+      if (fence === null) {
+        fence = marker;
+      } else if (marker[0] === fence[0] && marker.length >= fence.length) {
+        fence = null;
+      }
+      return '';
+    }
+    return fence === null ? stripInlineCode(line) : '';
+  }).join('\n');
+}
+
 export function extractExternalLinks(text) {
   const links = new Set();
+  const prose = stripMarkdownCode(text);
   const patterns = [
     /\[[^\]]*]\((https?:\/\/[^)\s]+)\)/g,
     /(?:href|src)=["'](https?:\/\/[^"']+)["']/g,
   ];
   for (const pattern of patterns) {
-    for (const match of text.matchAll(pattern)) {
+    for (const match of prose.matchAll(pattern)) {
       links.add(match[1]);
     }
   }
