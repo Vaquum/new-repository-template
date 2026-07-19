@@ -3,8 +3,11 @@ import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 
+import {resolveRepositoryFile} from './repository-paths.mjs';
+
 const scriptPath = fileURLToPath(import.meta.url);
 const siteRoot = path.resolve(path.dirname(scriptPath), '..');
+const repoRoot = path.resolve(siteRoot, '..');
 const docsMap = JSON.parse(
   await fs.readFile(path.resolve(siteRoot, 'docs-map.json'), 'utf8')
 );
@@ -19,7 +22,9 @@ export function markdownSources(map) {
 }
 
 function main() {
-  const sources = markdownSources(docsMap).map((source) => `../${source}`);
+  const sources = markdownSources(docsMap).map(
+    (source) => resolveRepositoryFile(repoRoot, source)
+  );
   const result = spawnSync(
     'markdownlint-cli2',
     ['--config', '../.markdownlint.json', ...sources],

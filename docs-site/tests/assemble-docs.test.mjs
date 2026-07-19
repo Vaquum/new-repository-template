@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  isPathInside,
   normalizeForMdx,
   rewriteOutsideCode,
   validateProfile,
@@ -15,6 +14,10 @@ import {
   isPublicAddress,
 } from '../scripts/check-external-links.mjs';
 import {markdownSources} from '../scripts/lint-markdown.mjs';
+import {
+  isPathInside,
+  resolveRepositoryPath,
+} from '../scripts/repository-paths.mjs';
 import {canonicalSitemapUrl} from '../scripts/site-urls.mjs';
 
 const mark = (value) => value.replaceAll('{TOKEN}', 'REWRITTEN');
@@ -122,6 +125,10 @@ test('keeps repository link resolution inside the repository root', () => {
   assert.equal(isPathInside('/repo', '/repo/docs/README.md'), true);
   assert.equal(isPathInside('/repo', '/repo-neighbor/README.md'), false);
   assert.equal(isPathInside('/repo', '/outside/README.md'), false);
+  assert.throws(
+    () => resolveRepositoryPath('/repo', '../outside/README.md'),
+    /documentation source is outside the repository/
+  );
 });
 
 test('builds canonical sitemap URLs for root and nested docs paths', () => {

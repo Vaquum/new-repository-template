@@ -49,7 +49,10 @@ def test_route_map_owns_five_sections_and_existing_unique_sources() -> None:
     assert len(sources) == len(set(sources))
     assert len(destinations) == len(set(destinations))
     assert len(routes) == len(set(routes))
-    assert all((REPO_ROOT / source).is_file() for source in sources)
+    resolved_root = REPO_ROOT.resolve()
+    resolved_sources = [(REPO_ROOT / source).resolve() for source in sources]
+    assert all(path.is_relative_to(resolved_root) for path in resolved_sources)
+    assert all(path.is_file() for path in resolved_sources)
 
 
 def test_docs_check_covers_portable_acceptance_surfaces() -> None:

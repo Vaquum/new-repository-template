@@ -6,6 +6,8 @@ import net from 'node:net';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
+import {resolveRepositoryFile} from './repository-paths.mjs';
+
 const scriptPath = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(scriptPath), '..', '..');
 const docsMap = JSON.parse(
@@ -199,7 +201,8 @@ async function checkLink(url) {
 async function main() {
   const links = new Set();
   for (const document of docsMap.documents) {
-    const text = await fs.readFile(path.resolve(repoRoot, document.source), 'utf8');
+    const sourcePath = resolveRepositoryFile(repoRoot, document.source);
+    const text = await fs.readFile(sourcePath, 'utf8');
     for (const url of extractExternalLinks(text)) {
       links.add(url);
     }

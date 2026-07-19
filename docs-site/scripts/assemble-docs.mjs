@@ -3,6 +3,10 @@ import fsSync from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
+import {
+  isPathInside,
+  resolveRepositoryFile,
+} from './repository-paths.mjs';
 import {canonicalSitemapUrl} from './site-urls.mjs';
 
 const scriptPath = fileURLToPath(import.meta.url);
@@ -21,16 +25,6 @@ const sections = docsMap.sections;
 
 function normalizePath(value) {
   return value.split(path.sep).join('/');
-}
-
-export function isPathInside(root, candidate) {
-  const relative = path.relative(root, candidate);
-  return (
-    relative === ''
-    || (!relative.startsWith(`..${path.sep}`)
-      && relative !== '..'
-      && !path.isAbsolute(relative))
-  );
 }
 
 function requireString(object, key, context) {
@@ -105,15 +99,8 @@ function validateConfiguration() {
   assertUnique(documents.map((doc) => requireString(doc, 'slug', 'document')), 'document slug');
 
   for (const doc of documents) {
-    const sourcePath = path.resolve(repoRoot, doc.source);
+    const sourcePath = resolveRepositoryFile(repoRoot, doc.source);
     const destPath = path.resolve(outRoot, doc.dest);
-    if (
-      !sourcePath.startsWith(`${repoRoot}${path.sep}`)
-      || !fsSync.existsSync(sourcePath)
-      || !fsSync.statSync(sourcePath).isFile()
-    ) {
-      throw new Error(`document source is missing or outside the repository: ${doc.source}`);
-    }
     if (!destPath.startsWith(`${outRoot}${path.sep}`)) {
       throw new Error(`document destination is outside generated docs: ${doc.dest}`);
     }
