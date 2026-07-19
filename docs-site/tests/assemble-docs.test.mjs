@@ -7,6 +7,7 @@ import {
   rewriteOutsideCode,
   validateSections,
 } from '../scripts/assemble-docs.mjs';
+import {auditFailure} from '../scripts/audit-report.mjs';
 import {
   assertPublicUrl,
   extractExternalLinks,
@@ -16,6 +17,22 @@ import {markdownSources} from '../scripts/lint-markdown.mjs';
 import {canonicalSitemapUrl} from '../scripts/site-urls.mjs';
 
 const mark = (value) => value.replaceAll('{TOKEN}', 'REWRITTEN');
+
+test('fails closed on npm audit errors and malformed reports', () => {
+  assert.match(
+    auditFailure({error: {code: 'ENOAUDIT'}}),
+    /npm audit failed.*ENOAUDIT/
+  );
+  assert.equal(
+    auditFailure({metadata: {}}),
+    'npm audit report has no vulnerabilities object'
+  );
+  assert.equal(auditFailure({vulnerabilities: {}}), null);
+  assert.equal(
+    auditFailure({vulnerabilities: {package: {severity: 'high'}}}),
+    'Docs-site npm vulnerabilities: package'
+  );
+});
 
 test('rewrites prose but preserves fenced and inline code', () => {
   const source = [

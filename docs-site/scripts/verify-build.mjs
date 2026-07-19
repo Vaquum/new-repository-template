@@ -73,9 +73,13 @@ async function largestAsset(extension) {
 }
 const largestJavaScript = await largestAsset('.js');
 const largestCss = await largestAsset('.css');
+const assetSummary = (
+  `js=${largestJavaScript}/${maxJavaScriptBytes}, `
+  + `css=${largestCss}/${maxCssBytes}`
+);
 if (largestJavaScript > maxJavaScriptBytes || largestCss > maxCssBytes) {
-  throw new Error(`asset budget exceeded: js=${largestJavaScript}, css=${largestCss}`);
+  throw new Error(`asset budget exceeded: ${assetSummary}`);
 }
 process.stdout.write(
-  `Build verified: ${expectedRoutes.size} routes, js<=${largestJavaScript}, css<=${largestCss}\n`
+  `Build verified: ${expectedRoutes.size} routes, ${assetSummary}\n`
 );
