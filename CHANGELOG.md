@@ -1,6 +1,16 @@
-# v0.15.0
+# v0.16.0
 
 - Add the production documentation scaffold proven in Limen: five-section source ownership, validated product and route profiles, Docusaurus assembly, self-hosted Vaquum typography and theme, local search, route and asset verification, external-link and dependency audits, Playwright and Axe acceptance, inherited bootstrap identity, and enforcement inside the existing required lint gate.
+
+# v0.15.0
+
+- Add slice-gate rule 9 (PRD closure): the PR's closing set must be exactly {slice} while the parent PRD has other open slice sub-issues, exactly {slice, parent PRD} when the cited slice is the parent's last open one (resolved from the native sub-issues graph), and exactly {slice} for a parentless slice. Rule 1 now admits the second reference only under that contract, so a PRD can no longer stay silently open after its last slice merges.
+- Add slice-gate rule 10 (Done Means completion): every checkbox in the cited issue's `## Done Means` section must be `- [x]` or carry `OVERRULED: <reason>` before merge; the machine-written evidence fields are not checkboxes and stay exempt pre-merge. Adopted from the downstream-proven form in Vaquum/Limen, which scopes the scan to the Done Means section rather than the whole body.
+- Replace the slice template's Closeout section with Done Means: five evidence-backed checkboxes ahead of the Merge SHA / Merged PR number / required-run-id fields, and a Significance note that names the delivered workflow instead of promising an "issue-closer bot".
+- Deliver `slice_closeout_guard.yml`, the promised closeout bot, fill-then-verify: a slice closed by a merged PR gets its evidence fields written from the branch rules and the head commit's check runs (failing loud when either cannot be resolved); a close with no merged PR and no evidence — or a writer failure — reopens the issue with a comment naming what is missing.
+- Harden the gate's parsing for real-world issue bodies: section regexes accept `###` headings (issue-form rendering), issue bodies are CRLF-normalised before byte-equal checks, closing references are deduplicated, and gate setup failures now exit 2 instead of 1 so they cannot be mistaken for rule violations. Law 1 in `CLAUDE.md` restates the closing-set semantics.
+- Close the review-round findings on the new rules: rule 10 demands exactly one Done Means section (an appended all-checked copy cannot shadow the real boxes), scans every GFM checkbox form (`-`, `*`, `+`, any indent), and rejects the literal `OVERRULED: <reason>` placeholder and unbounded `NOTOVERRULED:`-style tokens; qualified (`owner/repo#N`) and URL closing references hard-fail rule 1 because GitHub would act on them while the gate cannot fold them into the validated closing set.
+- Harden the closeout guard the same way: only successful required check runs become evidence, an ambiguous duplicate Done Means section fails the writer instead of receiving evidence, a no-PR close must carry complete evidence (checked or overruled boxes, a Merge SHA reachable from `main`, a Merged PR number, and a non-empty required-run list) to stand, and any guard failure — not only the writer's — reopens the issue. Rule 9's graph lookups run only for a citation that passed rules 3-5, so a plain rule violation cannot be obscured by an API exit-2.
 
 # v0.14.10
 

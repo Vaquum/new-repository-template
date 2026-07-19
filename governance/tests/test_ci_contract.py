@@ -6,10 +6,39 @@ import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+CLOSEOUT_GUARD_WORKFLOW = REPO_ROOT / '.github/workflows/slice_closeout_guard.yml'
 
 
 def test_post_merge_changelog_workflow_removed() -> None:
     assert not (REPO_ROOT / '.github/workflows/pr_post_changelog.yml').exists()
+
+
+def test_slice_closeout_guard_workflow_contract() -> None:
+    workflow = CLOSEOUT_GUARD_WORKFLOW.read_text(encoding='utf-8')
+
+    assert 'issues:\n    types: [closed]' in workflow
+    assert "if: contains(github.event.issue.labels.*.name, 'slice')" in workflow
+    assert 'issues: write' in workflow
+    assert 'closedByPullRequestsReferences' in workflow
+    # Evidence quality: only successful check runs may become closeout
+    # evidence — a failed required check must fail the writer loud.
+    assert "select(.conclusion == \"success\")" in workflow
+    # An appended duplicate Done Means section must not receive (or
+    # shadow) evidence, and a hand-typed Merge SHA on a no-PR close
+    # must be reachable from main to count.
+    assert 'expected exactly one Done Means section' in workflow
+    assert 'compare/main...$CLAIMED' in workflow
+    assert r"r'^##+ Done Means\b.*?^##+ Author Checks\b'" in workflow
+    # Fill: a merged closing PR gets the evidence fields written in place.
+    assert "if: steps.closing_pr.outputs.pr_number != ''" in workflow
+    assert 'gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file new_body.txt' in workflow
+    # Verify: an incomplete-evidence close with no merged PR, or any
+    # guard failure, reopens the issue instead of letting the close
+    # stand.
+    assert 'gh issue reopen' in workflow
+    assert 'empty Merged PR number' in workflow
+    assert 'empty required-run list' in workflow
+    assert 'if: failure()\n' in workflow
 
 
 def test_update_changelog_script_removed() -> None:
