@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   normalizeForMdx,
   rewriteOutsideCode,
+  validateDocuments,
   validateProfile,
   validateSections,
 } from '../scripts/assemble-docs.mjs';
@@ -180,6 +181,27 @@ test('validates every category field before generation', () => {
   assert.throws(
     () => validateSections([{...sections[0], position: 0}, ...sections.slice(1)]),
     /section.position must be a positive integer/
+  );
+  assert.throws(
+    () => validateSections([{...sections[0], slug: '/section/'}, ...sections.slice(1)]),
+    /section.slug must be \/ or a canonical leading-slash route/
+  );
+});
+
+test('validates canonical document routes before generation', () => {
+  const documents = [
+    {source: 'README.md', dest: 'index.md', slug: '/'},
+    {source: 'docs/README.md', dest: 'overview.md', slug: '/overview'},
+  ];
+
+  assert.doesNotThrow(() => validateDocuments(documents));
+  assert.throws(
+    () => validateDocuments([{...documents[0], slug: 'overview'}]),
+    /document.slug must be \/ or a canonical leading-slash route/
+  );
+  assert.throws(
+    () => validateDocuments([{...documents[0], slug: '/overview/'}]),
+    /document.slug must be \/ or a canonical leading-slash route/
   );
 });
 

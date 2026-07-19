@@ -41,6 +41,26 @@ function assertUnique(values, label) {
   }
 }
 
+function requireRouteSlug(object, context) {
+  const value = requireString(object, 'slug', context);
+  const segments = value.split('/').slice(1);
+  if (
+    value !== '/'
+    && (
+      !value.startsWith('/')
+      || value.endsWith('/')
+      || segments.some(
+        (segment) => !segment || segment === '.' || segment === '..' || /[?#]/.test(segment)
+      )
+    )
+  ) {
+    throw new Error(
+      `${context}.slug must be / or a canonical leading-slash route without a trailing slash`
+    );
+  }
+  return value;
+}
+
 export function validateSections(sectionValues) {
   if (!Array.isArray(sectionValues) || sectionValues.length !== 5) {
     throw new Error('docs-map.json must define the five standard sections');
@@ -48,7 +68,7 @@ export function validateSections(sectionValues) {
   for (const section of sectionValues) {
     requireString(section, 'dir', 'section');
     requireString(section, 'label', 'section');
-    requireString(section, 'slug', 'section');
+    requireRouteSlug(section, 'section');
     requireString(section, 'description', 'section');
     if (!Number.isInteger(section.position) || section.position < 1) {
       throw new Error('section.position must be a positive integer');
@@ -57,6 +77,20 @@ export function validateSections(sectionValues) {
   assertUnique(sectionValues.map((section) => section.dir), 'section dir');
   assertUnique(sectionValues.map((section) => section.slug), 'section slug');
   assertUnique(sectionValues.map((section) => section.position), 'section position');
+}
+
+export function validateDocuments(documentValues) {
+  if (!Array.isArray(documentValues)) {
+    throw new Error('docs-map.json documents must be an array');
+  }
+  for (const document of documentValues) {
+    requireString(document, 'source', 'document');
+    requireString(document, 'dest', 'document');
+    requireRouteSlug(document, 'document');
+  }
+  assertUnique(documentValues.map((document) => document.source), 'document source');
+  assertUnique(documentValues.map((document) => document.dest), 'document dest');
+  assertUnique(documentValues.map((document) => document.slug), 'document slug');
 }
 
 export function validateProfile(profileValue) {
@@ -90,16 +124,11 @@ export function validateProfile(profileValue) {
 
 function validateConfiguration() {
   validateProfile(profile);
-  if (!Array.isArray(documents)) {
-    throw new Error('docs-map.json documents must be an array');
-  }
   validateSections(sections);
-  assertUnique(documents.map((doc) => requireString(doc, 'source', 'document')), 'document source');
-  assertUnique(documents.map((doc) => requireString(doc, 'dest', 'document')), 'document dest');
-  assertUnique(documents.map((doc) => requireString(doc, 'slug', 'document')), 'document slug');
+  validateDocuments(documents);
 
   for (const doc of documents) {
-    const sourcePath = resolveRepositoryFile(repoRoot, doc.source);
+    resolveRepositoryFile(repoRoot, doc.source);
     const destPath = path.resolve(outRoot, doc.dest);
     if (!destPath.startsWith(`${outRoot}${path.sep}`)) {
       throw new Error(`document destination is outside generated docs: ${doc.dest}`);
@@ -277,7 +306,7 @@ export function normalizeForMdx(content, fromSource) {
 }
 
 async function copyDoc(doc) {
-  const sourcePath = path.resolve(repoRoot, doc.source);
+  const sourcePath = resolveRepositoryFile(repoRoot, doc.source);
   const destPath = path.resolve(outRoot, doc.dest);
   const raw = await fs.readFile(sourcePath, 'utf8');
   const output = `${buildFrontMatter(doc)}${normalizeForMdx(raw, doc.source)}`;

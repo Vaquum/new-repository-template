@@ -1,9 +1,13 @@
 import {spawnSync} from 'node:child_process';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
 
 import {auditFailure} from './audit-report.mjs';
 
+const scriptPath = fileURLToPath(import.meta.url);
+const siteRoot = path.resolve(path.dirname(scriptPath), '..');
 const result = spawnSync('npm', ['audit', '--omit=dev', '--json'], {
-  cwd: process.cwd(),
+  cwd: siteRoot,
   encoding: 'utf8',
 });
 if (!result.stdout) {
