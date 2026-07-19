@@ -44,6 +44,9 @@ test('rewrites prose but preserves fenced and inline code', () => {
     '```text',
     'inside {TOKEN}',
     '```',
+    '~~~text',
+    'inside tilde {TOKEN}',
+    '~~~',
     'after `{TOKEN}` and {TOKEN}',
   ].join('\n');
 
@@ -54,6 +57,9 @@ test('rewrites prose but preserves fenced and inline code', () => {
       '```text',
       'inside {TOKEN}',
       '```',
+      '~~~text',
+      'inside tilde {TOKEN}',
+      '~~~',
       'after `{TOKEN}` and REWRITTEN',
     ].join('\n')
   );

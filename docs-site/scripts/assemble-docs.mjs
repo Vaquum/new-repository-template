@@ -187,26 +187,29 @@ function rewriteLinks(content, fromSource) {
 
 function rewriteOutsideFences(content, transform) {
   let output = '';
-  let index = 0;
-  let inFence = false;
-  let plainStart = 0;
-  while (index < content.length) {
-    if (content.startsWith('```', index)) {
-      if (plainStart < index) {
-        const segment = content.slice(plainStart, index);
-        output += inFence ? segment : transform(segment);
+  let plain = '';
+  let fence = null;
+  for (const line of content.match(/[^\n]*\n|[^\n]+$/g) || []) {
+    const match = line.match(/^\s*(`{3,}|~{3,})/);
+    if (match) {
+      const marker = match[1];
+      if (fence === null) {
+        output += transform(plain);
+        plain = '';
+        fence = marker;
+      } else if (marker[0] === fence[0] && marker.length >= fence.length) {
+        fence = null;
       }
-      inFence = !inFence;
-      output += '```';
-      index += 3;
-      plainStart = index;
+      output += line;
       continue;
     }
-    index += 1;
+    if (fence === null) {
+      plain += line;
+    } else {
+      output += line;
+    }
   }
-  const tail = content.slice(plainStart);
-  output += inFence ? tail : transform(tail);
-  return output;
+  return output + transform(plain);
 }
 
 function rewriteOutsideInlineCode(content, transform) {
