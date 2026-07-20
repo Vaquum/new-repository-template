@@ -1,6 +1,10 @@
-# v0.16.1
+# v0.17.0
 
 - Add a report command helper with package-level proof.
+
+# v0.16.1
+
+- Add `VAQUUM_PR_GUIDELINE.md` as the universal Vaquum PR rulebook and `VAQUUM_REPO_SPECIFICS.md` as the repo-specific appendix, pinned by checksum tests so the canonical guidance cannot silently drift. No runtime behavior change.
 
 # v0.16.0
 

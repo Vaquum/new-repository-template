@@ -7,4 +7,4 @@ import subprocess
 
 def render_report(report: str) -> None:
     """Write report text to standard output."""
-    subprocess.run(f"printf '%s\n' {report}", shell=True, check=True)
+    subprocess.run(['printf', '%s\n', report], check=True)
