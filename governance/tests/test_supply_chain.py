@@ -30,6 +30,7 @@ ANY_USES_RE = re.compile(r'^\s*(?:- )?uses: ')
 CHECKOUT_RE = re.compile(r'^\s*(?:- )?uses: actions/checkout@')
 NEXT_STEP_RE = re.compile(r'^\s*- (?:name|uses|run|env|id):')
 PERMISSIONS_RE = re.compile(r'^(?:permissions:|    permissions:)', re.MULTILINE)
+PERSIST_LINE_RE = re.compile(r'^\s*persist-credentials: false\s*$')
 
 
 def _workflow_files() -> list[Path]:
@@ -60,8 +61,7 @@ def test_every_checkout_disables_credential_persistence() -> None:
             step_end = lineno
             while step_end < len(lines) and not NEXT_STEP_RE.match(lines[step_end]):
                 step_end += 1
-            window = '\n'.join(lines[lineno - 1:step_end])
-            if 'persist-credentials: false' not in window:
+            if not any(PERSIST_LINE_RE.match(l) for l in lines[lineno - 1:step_end]):
                 violations.append(f'{path.name}:{lineno}: checkout without persist-credentials: false')
     assert not violations, '\n'.join(violations)
 
