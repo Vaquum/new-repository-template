@@ -1,5 +1,6 @@
 {
   "new_repository_template/__init__.py": 22,
+  "new_repository_template/report_store.py": 20,
   "governance/__init__.py": 10,
   "governance/check_budget_ratchet.py": 120,
   "governance/check_coverage_floor.py": 120,
