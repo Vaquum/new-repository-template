@@ -54,7 +54,7 @@ jobs:
       - name: Resolve base ref and fetch base-ref budget
         id: base
         env:
-          GH_TOKEN: ${ secrets.GITHUB_TOKEN }
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Mirror pr_checks_typing: if base has the budget, fetch it;
           # otherwise the head must introduce it (bootstrap path,

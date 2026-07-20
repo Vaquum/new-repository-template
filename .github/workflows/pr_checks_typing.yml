@@ -38,7 +38,7 @@ jobs:
       - name: Resolve base ref and fetch base-ref budget
         id: base
         env:
-          GH_TOKEN: ${ secrets.GITHUB_TOKEN }
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           if [ -n "${{ github.base_ref }}" ]; then

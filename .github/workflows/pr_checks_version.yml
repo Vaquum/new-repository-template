@@ -56,7 +56,7 @@ jobs:
       - name: Extract base + head artifacts
         id: artifacts
         env:
-          GH_TOKEN: ${ secrets.GITHUB_TOKEN }
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           BASE_REV="origin/${{ github.base_ref }}"
