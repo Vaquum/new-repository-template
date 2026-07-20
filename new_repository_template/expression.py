@@ -37,4 +37,8 @@ def _evaluate(node: ast.expr) -> float:
 
 def evaluate(expression: str) -> float:
     """Return the numeric result of an expression."""
-    return _evaluate(ast.parse(expression, mode='eval').body)
+    try:
+        parsed = ast.parse(expression, mode='eval')
+    except SyntaxError as error:
+        raise ValueError('expression must contain only numeric arithmetic') from error
+    return _evaluate(parsed.body)
