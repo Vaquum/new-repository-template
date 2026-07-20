@@ -120,6 +120,11 @@ def test_pr_checks_lint_runs_pinned_ruff_on_tools_and_tests_tools() -> None:
     assert 'governance/check_coverage_ratchet.py' in workflow
     assert 'governance/check_dependency_vulnerabilities.py' in workflow
     assert 'governance/check_budget_ratchet.py' in workflow
+    assert 'uses: actions/setup-node@v6' in workflow
+    assert 'npm --prefix docs-site ci' in workflow
+    assert 'npm --prefix docs-site exec -- playwright install --with-deps chromium' in workflow
+    assert 'npm --prefix docs-site run security:audit' in workflow
+    assert 'npm --prefix docs-site run check' in workflow
     assert 'vulture' in workflow
     assert '"${{ steps.package.outputs.package_root }}/" --min-confidence 80' in workflow
     # No soft-fail pathway: no `|| true`, no continue-on-error on any step.

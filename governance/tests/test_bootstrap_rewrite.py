@@ -82,6 +82,17 @@ def test_template_slug_survives_file_bootstrap(tmp_path: Path) -> None:
     assert 'https://github.com/Vaquum/new-repository-template' in readme
     setup = (repo / 'SETUP.md').read_text(encoding='utf-8')
     assert '--template Vaquum/new-repository-template' in setup
+    docs_profile = json.loads(
+        (repo / 'docs-site' / 'product-docs.json').read_text(encoding='utf-8')
+    )
+    assert docs_profile == {
+        'productId': 'my-new-app',
+        'productName': 'My New App',
+        'tagline': 'Python package with repository law built in.',
+        'siteUrl': 'https://docs.vaquum.fi',
+        'basePath': '/my-new-app/',
+        'sourceRepoUrl': 'https://github.com/Vaquum/my-new-app',
+    }
 
 
 @_requires_seed
