@@ -55,10 +55,13 @@ jobs:
 
       - name: Extract base + head artifacts
         id: artifacts
+        env:
+          GH_TOKEN: ${ secrets.GITHUB_TOKEN }
         run: |
           set -euo pipefail
           BASE_REV="origin/${{ github.base_ref }}"
-          git fetch origin "${{ github.base_ref }}" --depth=1
+          AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')"
+          git -c "http.https://github.com/.extraheader=$AUTH" fetch origin "${{ github.base_ref }}" --depth=1
           git rev-parse --verify "$BASE_REV" >/dev/null
 
           # Base artifacts must exist; if either is missing the gate
