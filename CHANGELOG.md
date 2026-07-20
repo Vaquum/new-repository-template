@@ -1,3 +1,7 @@
+# v0.16.1
+
+- Add an immutable merge-path probe sequence with package-level proof.
+
 # v0.16.0
 
 - Add the production documentation scaffold proven in Limen: five-section source ownership, validated product and route profiles, Docusaurus assembly, self-hosted Vaquum typography and theme, local search, route and asset verification, external-link and dependency audits, Playwright and Axe acceptance, inherited bootstrap identity, and enforcement inside the existing required lint gate.
