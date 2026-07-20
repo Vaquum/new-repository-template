@@ -1,8 +1,8 @@
 """Supply-chain law: workflow actions are pinned by commit SHA and
 checkout credentials are never persisted.
 
-Three assertions over every workflow file, so a regression in any one
-of them reds the required tests gate:
+One assertion per law over every workflow file, so a regression in any
+one of them reds the required tests gate:
 
   1. Every ``uses:`` reference is pinned to a full 40-hex commit SHA
      with a trailing ``# vX.Y.Z`` comment naming the tag it was
@@ -35,6 +35,10 @@ CHECKOUT_RE = re.compile(r'^\s*(?:- )?uses: actions/checkout@')
 NEXT_STEP_RE = re.compile(r'^\s*- (?:name|uses|run|env|id|if):')
 PERMISSIONS_RE = re.compile(r'^(?:permissions:|    permissions:)', re.MULTILINE)
 PERSIST_LINE_RE = re.compile(r'^\s*persist-credentials: false\s*$')
+# Deliberately exempts exactly one canonical spelling: like the byte-equal
+# title rule, the law pins the form itself, so a differently-formatted
+# compliant fetch fails loud and gets rewritten to canon rather than
+# growing regex permutations here.
 GIT_FETCH_RE = re.compile(r'^\s*git (?!-c "http\.https://github\.com/\.extraheader=\$AUTH" )[^|]*\bfetch\b')
 
 
