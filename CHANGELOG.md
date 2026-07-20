@@ -1,3 +1,9 @@
+# v0.17.0
+
+- Pin every workflow action reference to a full commit SHA with a `# vX.Y.Z` tag comment (checkout v5.0.1, setup-python v6.3.0, setup-node v6.5.0, upload-artifact v7.0.1, setup-uv v7.6.0, codeql-action v4.37.1), so a repointed upstream tag can no longer change what runs in CI after review.
+- Set `persist-credentials: false` on all fourteen checkout steps with no exception: no workflow pushes with the persisted credential (bootstrap pushes through an explicit token remote), so none may keep it.
+- Add `governance/tests/test_supply_chain.py` to the required tests gate: zero mutable `uses:` tags, credential persistence disabled on every checkout, and an explicit `permissions:` block in every workflow — each pinned by its own assertion so regressions red the gate. Adopted from the law proven in Vaquum/Limen (its PR #696).
+
 # v0.16.0
 
 - Add the production documentation scaffold proven in Limen: five-section source ownership, validated product and route profiles, Docusaurus assembly, self-hosted Vaquum typography and theme, local search, route and asset verification, external-link and dependency audits, Playwright and Axe acceptance, inherited bootstrap identity, and enforcement inside the existing required lint gate.
