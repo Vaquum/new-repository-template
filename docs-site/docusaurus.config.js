@@ -2,22 +2,14 @@ const path = require('node:path');
 const {themes: prismThemes} = require('prism-react-renderer');
 const productDocs = require('./product-docs.json');
 
-function normalizeBaseUrl(value) {
-  if (!value || value === '/') {
-    return '/';
-  }
-  const leading = value.startsWith('/') ? value : `/${value}`;
-  return leading.endsWith('/') ? leading : `${leading}/`;
-}
-
 function repositoryCoordinates(sourceRepoUrl) {
   const url = new URL(sourceRepoUrl);
   const [organizationName, projectName] = url.pathname.split('/').filter(Boolean);
   return {organizationName, projectName};
 }
 
-const baseUrl = normalizeBaseUrl(process.env.DOCS_BASE_URL || productDocs.basePath);
-const url = process.env.DOCS_SITE_URL || productDocs.siteUrl;
+const baseUrl = productDocs.basePath;
+const url = productDocs.siteUrl;
 const {organizationName, projectName} = repositoryCoordinates(productDocs.sourceRepoUrl);
 const faviconLetter = encodeURIComponent(productDocs.productName.slice(0, 1).toUpperCase());
 

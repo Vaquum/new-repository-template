@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
-import {canonicalSitemapUrl} from './site-urls.mjs';
+import {canonicalSitemapUrl, siteRoute} from './site-urls.mjs';
 
 const scriptPath = fileURLToPath(import.meta.url);
 const siteRoot = path.resolve(path.dirname(scriptPath), '..');
@@ -43,8 +43,17 @@ if (!robots.includes(expectedSitemap)) {
   throw new Error(`robots.txt must name ${expectedSitemap}`);
 }
 const searchIndex = await fs.readFile(path.resolve(buildRoot, 'search-index.json'), 'utf8');
-if (!searchIndex.includes('Documentation system contract')) {
-  throw new Error('search index does not contain the documentation contract');
+const searchPayload = JSON.parse(searchIndex);
+const indexedDocuments = searchPayload[0]?.documents;
+if (!Array.isArray(indexedDocuments)) {
+  throw new Error('search index does not contain a page-document collection');
+}
+const indexedRoutes = new Set(indexedDocuments.map((document) => document.u));
+for (const document of docsMap.documents) {
+  const route = siteRoute(profile.basePath, document.slug);
+  if (!indexedRoutes.has(route)) {
+    throw new Error(`search index does not contain mapped route ${route}`);
+  }
 }
 
 const assetRoot = path.resolve(buildRoot, 'assets');

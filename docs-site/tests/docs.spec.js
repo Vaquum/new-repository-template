@@ -1,10 +1,23 @@
+const fs = require('node:fs');
+const path = require('node:path');
 const {test, expect} = require('@playwright/test');
 const AxeBuilder = require('@axe-core/playwright').default;
+const docsMap = require('../docs-map.json');
 const productDocs = require('../product-docs.json');
 
+const contractDocument = docsMap.documents.find(
+  (document) => document.source === 'docs/Developer/Documentation-System.md'
+);
+const contractSource = fs.readFileSync(
+  path.resolve(__dirname, '..', '..', contractDocument.source),
+  'utf8'
+);
+const contractTitle = contractSource.match(/^# (.+)$/m)[1];
+const contractRoute = contractDocument.slug.replace(/^\//, '');
+
 test('desktop documentation surface matches the shared contract', async ({page}) => {
-  await page.goto('developer/documentation-system?docusaurus-theme=light');
-  await expect(page.locator('h1')).toHaveText('Documentation system contract');
+  await page.goto(`${contractRoute}?docusaurus-theme=light`);
+  await expect(page.locator('h1')).toHaveText(contractTitle);
   await expect(page.locator('.navbar__link')).toHaveText([
     'Home',
     'Overview',
@@ -16,7 +29,7 @@ test('desktop documentation surface matches the shared contract', async ({page})
   ]);
   await expect(page.locator('a', {hasText: 'Edit this page'})).toHaveAttribute(
     'href',
-    `${productDocs.sourceRepoUrl}/edit/main/docs/Developer/Documentation-System.md`
+    `${productDocs.sourceRepoUrl}/edit/main/${contractDocument.source}`
   );
   const geometry = await page.locator('.theme-doc-markdown').evaluate((element) => ({
     width: element.getBoundingClientRect().width,
@@ -37,12 +50,12 @@ test('desktop documentation surface matches the shared contract', async ({page})
 
 test('search and mobile behavior remain functional', async ({page}) => {
   await page.goto('?docusaurus-theme=light');
-  await page.locator('input[aria-label="Search"]').fill('Documentation system');
+  await page.locator('input[aria-label="Search"]').fill(contractTitle);
   await expect(page.locator('[role="listbox"]')).toBeVisible();
-  await expect(page.locator('[role="listbox"]')).toContainText('Documentation system contract');
+  await expect(page.locator('[role="listbox"]')).toContainText(contractTitle);
 
   await page.setViewportSize({width: 390, height: 844});
-  await page.goto('developer/documentation-system?docusaurus-theme=dark');
+  await page.goto(`${contractRoute}?docusaurus-theme=dark`);
   await expect(page.locator('.navbar__toggle')).toBeVisible();
   await expect(page.locator('.theme-doc-sidebar-container')).toBeHidden();
   const mobile = await page.evaluate(() => ({
