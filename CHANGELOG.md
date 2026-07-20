@@ -1,3 +1,7 @@
+# v0.16.0
+
+- Add the production documentation scaffold proven in Limen: five-section source ownership, validated product and route profiles, Docusaurus assembly, self-hosted Vaquum typography and theme, local search, route and asset verification, external-link and dependency audits, Playwright and Axe acceptance, inherited bootstrap identity, and enforcement inside the existing required lint gate.
+
 # v0.15.0
 
 - Add slice-gate rule 9 (PRD closure): the PR's closing set must be exactly {slice} while the parent PRD has other open slice sub-issues, exactly {slice, parent PRD} when the cited slice is the parent's last open one (resolved from the native sub-issues graph), and exactly {slice} for a parentless slice. Rule 1 now admits the second reference only under that contract, so a PRD can no longer stay silently open after its last slice merges.

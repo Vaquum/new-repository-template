@@ -1,0 +1,8 @@
+{
+  "productId": "new-repository-template",
+  "productName": "{DISPLAY_NAME}",
+  "tagline": "{ONE_SENTENCE_DESCRIPTION}",
+  "siteUrl": "https://docs.vaquum.fi",
+  "basePath": "/new-repository-template/",
+  "sourceRepoUrl": "https://github.com/{REPOSITORY_OWNER}/{REPOSITORY_NAME}"
+}
