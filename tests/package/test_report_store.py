@@ -15,3 +15,8 @@ def test_load_report_reads_named_file(tmp_path: Path) -> None:
 def test_load_report_rejects_parent_traversal(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match='escapes storage root'):
         load_report(tmp_path, '../secret.txt')
+
+
+def test_load_report_rejects_absolute_path(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match='escapes storage root'):
+        load_report(tmp_path, '/tmp/secret.txt')
