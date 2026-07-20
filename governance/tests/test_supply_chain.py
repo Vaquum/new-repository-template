@@ -23,7 +23,7 @@ from pathlib import Path
 
 from _common import REPO_ROOT
 
-WORKFLOWS_DIR = Path(REPO_ROOT) / '.github' / 'workflows'
+WORKFLOWS_DIR = REPO_ROOT / '.github' / 'workflows'
 
 PINNED_USES_RE = re.compile(r'^\s*(?:- )?uses: \S+@[0-9a-f]{40}\s+# v\d+[\w.-]*$')
 ANY_USES_RE = re.compile(r'^\s*(?:- )?uses: ')
