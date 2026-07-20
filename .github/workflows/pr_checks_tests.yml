@@ -25,7 +25,10 @@ jobs:
           python-version: '3.12'
 
       - name: Install package and test dependencies
-        run: python -m pip install --upgrade pip '.[dev]'
+        run: |
+          python -m pip install --require-hashes -r requirements/ci/dev-env.txt
+          python -m pip install --require-hashes -r requirements/ci/build-tools.txt
+          python -m pip install --no-build-isolation --no-deps -e .
 
       - name: Run package tests
         run: pytest tests/package -q --maxfail=1

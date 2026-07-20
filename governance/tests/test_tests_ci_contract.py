@@ -15,6 +15,8 @@ def test_pr_checks_tests_pins_python_and_runtime_suite_command() -> None:
     workflow = TESTS_WORKFLOW.read_text(encoding='utf-8')
 
     assert "python-version: '3.12'" in workflow
-    assert "python -m pip install --upgrade pip '.[dev]'" in workflow
+    assert 'python -m pip install --require-hashes -r requirements/ci/dev-env.txt' in workflow
+    assert 'python -m pip install --require-hashes -r requirements/ci/build-tools.txt' in workflow
+    assert 'python -m pip install --no-build-isolation --no-deps -e .' in workflow
     assert EXPECTED_TEST_COMMAND in workflow
     assert 'continue-on-error' not in workflow

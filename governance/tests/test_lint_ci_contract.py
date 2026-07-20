@@ -12,6 +12,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 LINT_WORKFLOW: Final[Path] = REPO_ROOT / '.github/workflows/pr_checks_lint.yml'
 RULESET_WORKFLOW: Final[Path] = REPO_ROOT / '.github/workflows/pr_checks_ruleset.yml'
 RULESET_SNAPSHOT: Final[Path] = REPO_ROOT / '.github/rulesets/main.json'
+DEV_ENV_IN: Final[Path] = REPO_ROOT / 'requirements/ci/dev-env.in'
+DEV_ENV_TXT: Final[Path] = REPO_ROOT / 'requirements/ci/dev-env.txt'
 BAD_FIXTURE: Final[Path] = REPO_ROOT / 'governance/tests/fixtures/lint/bad_imports.py'
 RUFF_VERSION: Final[str] = '0.15.11'
 EXPECTED_RUFF_POLICY: Final[dict[str, object]] = {
@@ -103,7 +105,8 @@ def test_pr_checks_lint_runs_pinned_ruff_on_tools_and_tests_tools() -> None:
     # Tests table in lockstep.
     workflow = LINT_WORKFLOW.read_text(encoding='utf-8')
 
-    assert f"'ruff=={RUFF_VERSION}'" in workflow
+    assert '--require-hashes -r requirements/ci/dev-env.txt' in workflow
+    assert '--no-build-isolation --no-deps -e .' in workflow
     assert 'id: package' in workflow
     assert 'package_root="$(python - <<' in workflow
     assert '.venv-lint/bin/python -m ruff check "${{ steps.package.outputs.package_root }}" governance tests' in workflow
@@ -134,7 +137,7 @@ def test_pr_checks_lint_runs_pinned_ruff_on_tools_and_tests_tools() -> None:
 def test_pr_checks_ruleset_runs_test_lint_ci_contract() -> None:
     workflow = RULESET_WORKFLOW.read_text(encoding='utf-8')
 
-    assert f"'ruff=={RUFF_VERSION}'" in workflow
+    assert '--require-hashes -r requirements/ci/dev-env.txt' in workflow
     assert 'governance/tests/test_lint_ci_contract.py' in workflow
 
 
@@ -149,12 +152,15 @@ def test_pinned_ruff_fails_on_known_bad_fixture() -> None:
     assert 'bad_imports.py' in f'{result.stdout}\n{result.stderr}'
 
 
-def test_ruff_pin_is_consistent_across_workflows() -> None:
-    files = [LINT_WORKFLOW, RULESET_WORKFLOW]
+def test_ruff_pin_is_consistent_across_requirement_sets() -> None:
+    # The lint and ruleset venvs install the compiled dev-env set, so
+    # the ruff the gates run is whatever dev-env pins; source (.in) and
+    # compiled (.txt) must both carry exactly the contract version.
+    files = [DEV_ENV_IN, DEV_ENV_TXT]
     pins = sorted({
         pin
-        for workflow in files
-        for pin in re.findall(r'ruff==([0-9.]+)', workflow.read_text(encoding='utf-8'))
+        for source in files
+        for pin in re.findall(r'^ruff==([0-9.]+)', source.read_text(encoding='utf-8'), re.MULTILINE)
     })
 
     assert pins == [RUFF_VERSION]

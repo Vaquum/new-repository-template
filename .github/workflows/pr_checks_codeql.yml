@@ -33,13 +33,13 @@ jobs:
         with:
           # 3.12 to match `pyproject.toml` `requires-python = ">=3.12"`
           # (driven by vaquum-praxis's >=3.12 floor; mismatched here
-          # would fail `pip install -e .` resolution).
+          # would fail the editable package install's resolution).
           python-version: '3.12'
 
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
-          pip install -e .
+          pip install --require-hashes -r requirements/ci/build-tools.txt
+          pip install --no-build-isolation --no-deps -e .
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@7188fc363630916deb702c7fdcf4e481b751f97a  # v4.37.1
