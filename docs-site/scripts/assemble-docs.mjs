@@ -281,7 +281,7 @@ function rewriteOutsideInlineCode(content, transform) {
   }
   return inlineCode.reduce(
     (result, code, codeIndex) =>
-      result.replace(`\u0000INLINE_CODE_${codeIndex}\u0000`, code),
+      result.replace(`\u0000INLINE_CODE_${codeIndex}\u0000`, () => code),
     transform(masked)
   );
 }

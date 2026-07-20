@@ -14,7 +14,10 @@ import {
   extractExternalLinks,
   isPublicAddress,
 } from '../scripts/check-external-links.mjs';
-import {markdownSources} from '../scripts/lint-markdown.mjs';
+import {
+  lintExitCode,
+  markdownSources,
+} from '../scripts/lint-markdown.mjs';
 import {
   isPathInside,
   resolveRepositoryPath,
@@ -85,11 +88,11 @@ test('preserves the tail of unmatched inline code', () => {
 });
 
 test('preserves multi-backtick inline code while transforming surrounding prose', () => {
-  const source = 'before {TOKEN}, ``inside ` {TOKEN}``, after {TOKEN}';
+  const source = 'before {TOKEN}, ``inside $& $$ ` {TOKEN}``, after {TOKEN}';
 
   assert.equal(
     rewriteOutsideCode(source, mark),
-    'before REWRITTEN, ``inside ` {TOKEN}``, after REWRITTEN'
+    'before REWRITTEN, ``inside $& $$ ` {TOKEN}``, after REWRITTEN'
   );
 });
 
@@ -184,6 +187,11 @@ test('derives Markdown lint sources from the route map', () => {
     markdownSources(map),
     ['CHANGELOG.md', 'README.md', 'docs/README.md']
   );
+});
+
+test('fails markdown lint when the subprocess exits by signal', () => {
+  assert.equal(lintExitCode(null), 1);
+  assert.equal(lintExitCode(2), 2);
 });
 
 test('validates every category field before generation', () => {

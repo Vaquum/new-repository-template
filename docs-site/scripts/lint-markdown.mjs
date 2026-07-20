@@ -21,6 +21,10 @@ export function markdownSources(map) {
   ].sort();
 }
 
+export function lintExitCode(status) {
+  return status ?? 1;
+}
+
 function main() {
   const sources = markdownSources(docsMap).map(
     (source) => resolveRepositoryFile(repoRoot, source)
@@ -38,7 +42,7 @@ function main() {
     throw result.error;
   }
   if (result.status !== 0) {
-    process.exit(result.status);
+    process.exit(lintExitCode(result.status));
   }
 }
 
