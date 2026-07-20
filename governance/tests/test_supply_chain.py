@@ -25,9 +25,11 @@ from _common import REPO_ROOT
 
 WORKFLOWS_DIR = REPO_ROOT / '.github' / 'workflows'
 
-PINNED_USES_RE = re.compile(r'^\s*(?:- )?uses: \S+@[0-9a-f]{40}\s+# v\d+[\w.-]*$')
+PINNED_USES_RE = re.compile(r'^\s*(?:- )?uses: \S+@[0-9a-f]{40}\s+# v\d+\.\d+\.\d+$')
 ANY_USES_RE = re.compile(r'^\s*(?:- )?uses: ')
 CHECKOUT_RE = re.compile(r'^\s*(?:- )?uses: actions/checkout@')
+NEXT_STEP_RE = re.compile(r'^\s*- (?:name|uses|run|env|id):')
+PERMISSIONS_RE = re.compile(r'^(?:permissions:|    permissions:)', re.MULTILINE)
 
 
 def _workflow_files() -> list[Path]:
@@ -55,15 +57,21 @@ def test_every_checkout_disables_credential_persistence() -> None:
         for lineno, line in enumerate(lines, start=1):
             if not CHECKOUT_RE.match(line):
                 continue
-            window = '\n'.join(lines[lineno - 1:lineno + 6])
+            step_end = lineno
+            while step_end < len(lines) and not NEXT_STEP_RE.match(lines[step_end]):
+                step_end += 1
+            window = '\n'.join(lines[lineno - 1:step_end])
             if 'persist-credentials: false' not in window:
                 violations.append(f'{path.name}:{lineno}: checkout without persist-credentials: false')
     assert not violations, '\n'.join(violations)
 
 
 def test_every_workflow_declares_permissions() -> None:
+    # Column 0 is the workflow-level key and a four-space indent is the
+    # job-level key; deeper matches (e.g. the word inside a run block)
+    # do not count as a permissions declaration.
     violations: list[str] = []
     for path in _workflow_files():
-        if not re.search(r'^\s*permissions:', path.read_text(encoding='utf-8'), re.MULTILINE):
+        if not PERMISSIONS_RE.search(path.read_text(encoding='utf-8')):
             violations.append(f'{path.name}: no permissions block at workflow or job level')
     assert not violations, '\n'.join(violations)
