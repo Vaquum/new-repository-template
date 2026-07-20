@@ -1,3 +1,7 @@
+# v0.16.1
+
+- Add `VAQUUM_PR_GUIDELINE.md` as the universal Vaquum PR rulebook and `VAQUUM_REPO_SPECIFICS.md` as the repo-specific appendix, pinned by checksum tests so the canonical guidance cannot silently drift. No runtime behavior change.
+
 # v0.16.0
 
 - Add the production documentation scaffold proven in Limen: five-section source ownership, validated product and route profiles, Docusaurus assembly, self-hosted Vaquum typography and theme, local search, route and asset verification, external-link and dependency audits, Playwright and Axe acceptance, inherited bootstrap identity, and enforcement inside the existing required lint gate.
