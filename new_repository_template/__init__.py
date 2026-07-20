@@ -1,3 +1,5 @@
 """Public package surface for new_repository_template."""
 
-__all__: list[str] = []
+from .report_store import load_report
+
+__all__: list[str] = ['load_report']
