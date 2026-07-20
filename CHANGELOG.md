@@ -1,3 +1,9 @@
+# v0.17.0
+
+- Pin every workflow action reference to a full commit SHA with a `# vX.Y.Z` tag comment (checkout v5.0.1, setup-python v6.3.0, setup-node v6.5.0, upload-artifact v7.0.1, setup-uv v7.6.0, codeql-action v4.37.1), so a repointed upstream tag can no longer change what runs in CI after review.
+- Set `persist-credentials: false` on all fourteen checkout steps with no exception: no workflow pushes with the persisted credential (bootstrap pushes through an explicit token remote), so none may keep it. The eight base-ref `git fetch` sites authenticate per command through an `http.<host>.extraheader` `-c` flag scoped to the single fetch, so private repositories bootstrapped from this template keep working without any credential landing on disk.
+- Add `governance/tests/test_supply_chain.py` to the required tests gate: zero mutable `uses:` tags, credential persistence disabled on every checkout, and an explicit `permissions:` block in every workflow — each pinned by its own assertion so regressions red the gate. Adopted from the law proven in Vaquum/Limen (its PR #696).
+
 # v0.16.1
 
 - Add `VAQUUM_PR_GUIDELINE.md` as the universal Vaquum PR rulebook and `VAQUUM_REPO_SPECIFICS.md` as the repo-specific appendix, pinned by checksum tests so the canonical guidance cannot silently drift. No runtime behavior change.

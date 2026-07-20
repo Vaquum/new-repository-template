@@ -106,7 +106,7 @@ def test_audit_main_ruleset_workflow_contract() -> None:
     assert 'vars.RULESET_ID' in workflow
     assert '--ruleset-id "$RULESET_ID"' in workflow
     assert '--output-dir .ruleset-audit' in workflow
-    assert 'actions/upload-artifact@v7' in workflow
+    assert 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1' in workflow
     assert 'failure()' in workflow
     assert '.ruleset-audit' in workflow
 
