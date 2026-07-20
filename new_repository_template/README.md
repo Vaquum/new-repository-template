@@ -12,12 +12,12 @@ This package owns the repository's public Python surface. It does not own reposi
 
 ## Public entry points
 
-The seed exports no runtime symbols. Bootstrap preserves that empty, explicit public surface:
+The package exports a deterministic merge-path validation marker:
 
 ```python
 import new_repository_template
 
-assert new_repository_template.__all__ == []
+assert new_repository_template.probe_marker() == 'merge-path-ready'
 ```
 
 ## Adjacent surfaces
@@ -28,4 +28,4 @@ assert new_repository_template.__all__ == []
 
 ## Read next
 
-Replace this page when the package gains its first real public capability.
+Start with `probe_marker()` when validating package installation and import.
