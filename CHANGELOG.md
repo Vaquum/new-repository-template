@@ -4,6 +4,10 @@
 - Set `persist-credentials: false` on all fourteen checkout steps with no exception: no workflow pushes with the persisted credential (bootstrap pushes through an explicit token remote), so none may keep it.
 - Add `governance/tests/test_supply_chain.py` to the required tests gate: zero mutable `uses:` tags, credential persistence disabled on every checkout, and an explicit `permissions:` block in every workflow — each pinned by its own assertion so regressions red the gate. Adopted from the law proven in Vaquum/Limen (its PR #696).
 
+# v0.16.1
+
+- Add `VAQUUM_PR_GUIDELINE.md` as the universal Vaquum PR rulebook and `VAQUUM_REPO_SPECIFICS.md` as the repo-specific appendix, pinned by checksum tests so the canonical guidance cannot silently drift. No runtime behavior change.
+
 # v0.16.0
 
 - Add the production documentation scaffold proven in Limen: five-section source ownership, validated product and route profiles, Docusaurus assembly, self-hosted Vaquum typography and theme, local search, route and asset verification, external-link and dependency audits, Playwright and Axe acceptance, inherited bootstrap identity, and enforcement inside the existing required lint gate.
