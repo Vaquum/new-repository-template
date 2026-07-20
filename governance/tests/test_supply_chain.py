@@ -61,7 +61,7 @@ def test_every_checkout_disables_credential_persistence() -> None:
             step_end = lineno
             while step_end < len(lines) and not NEXT_STEP_RE.match(lines[step_end]):
                 step_end += 1
-            if not any(PERSIST_LINE_RE.match(l) for l in lines[lineno - 1:step_end]):
+            if not any(PERSIST_LINE_RE.match(entry) for entry in lines[lineno - 1:step_end]):
                 violations.append(f'{path.name}:{lineno}: checkout without persist-credentials: false')
     assert not violations, '\n'.join(violations)
 
