@@ -1,4 +1,4 @@
-"""Render report text through the platform command runner."""
+"""Write report text to standard output."""
 
 from __future__ import annotations
 
