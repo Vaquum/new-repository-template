@@ -7,7 +7,7 @@ import {
   isPathInside,
   resolveRepositoryFile,
 } from './repository-paths.mjs';
-import {canonicalSitemapUrl} from './site-urls.mjs';
+import {canonicalSitemapUrl, siteRoute} from './site-urls.mjs';
 
 const scriptPath = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(scriptPath), '..', '..');
@@ -175,7 +175,7 @@ function buildFrontMatter(doc) {
   return lines.join('\n');
 }
 
-function resolveDocLink(fromSource, target) {
+function resolveDocLink(fromSource, target, mappedAsRoute = false) {
   if (!target || /^(https?:|mailto:|#|\/)/.test(target)) {
     return target;
   }
@@ -199,6 +199,10 @@ function resolveDocLink(fromSource, target) {
       ? `${repoUrlBase}/${resolvedSource}#${targetHash}`
       : `${repoUrlBase}/${resolvedSource}`;
   }
+  if (mappedAsRoute) {
+    const route = siteRoute(profile.basePath, targetDoc.slug);
+    return targetHash ? `${route}#${targetHash}` : route;
+  }
   const currentDoc = mappingBySource.get(normalizePath(fromSource));
   const fromDest = currentDoc ? normalizePath(currentDoc.dest) : '';
   const toDest = normalizePath(targetDoc.dest);
@@ -209,8 +213,13 @@ function resolveDocLink(fromSource, target) {
 }
 
 function rewriteLinks(content, fromSource) {
-  return content.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, label, target) =>
+  const markdown = content.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, label, target) =>
     `[${label}](${resolveDocLink(fromSource, target.trim())})`
+  );
+  return markdown.replace(
+    /(<a\b[^>]*?\bhref\s*=\s*)(["'])([^"']+)\2/gi,
+    (match, prefix, quote, target) =>
+      `${prefix}${quote}${resolveDocLink(fromSource, target.trim(), true)}${quote}`
   );
 }
 
@@ -242,28 +251,39 @@ function rewriteOutsideFences(content, transform) {
 }
 
 function rewriteOutsideInlineCode(content, transform) {
-  let output = '';
+  let masked = '';
   let index = 0;
-  let plainStart = 0;
+  const inlineCode = [];
   while (index < content.length) {
-    if (content[index] === '`') {
-      if (plainStart < index) {
-        output += transform(content.slice(plainStart, index));
-      }
-      const close = content.indexOf('`', index + 1);
-      if (close === -1) {
-        output += content.slice(index);
-        return output;
-      }
-      output += content.slice(index, close + 1);
-      index = close + 1;
-      plainStart = index;
-      continue;
+    const opening = content.indexOf('`', index);
+    if (opening === -1) {
+      masked += content.slice(index);
+      break;
     }
-    index += 1;
+    masked += content.slice(index, opening);
+    let markerEnd = opening;
+    while (content[markerEnd] === '`') {
+      markerEnd += 1;
+    }
+    const marker = content.slice(opening, markerEnd);
+    let closing = content.indexOf(marker, markerEnd);
+    while (
+      closing !== -1
+      && (content[closing - 1] === '`' || content[closing + marker.length] === '`')
+    ) {
+      closing = content.indexOf(marker, closing + 1);
+    }
+    const spanEnd = closing === -1 ? content.length : closing + marker.length;
+    const placeholder = `\u0000INLINE_CODE_${inlineCode.length}\u0000`;
+    inlineCode.push(content.slice(opening, spanEnd));
+    masked += placeholder;
+    index = spanEnd;
   }
-  output += transform(content.slice(plainStart));
-  return output;
+  return inlineCode.reduce(
+    (result, code, codeIndex) =>
+      result.replace(`\u0000INLINE_CODE_${codeIndex}\u0000`, code),
+    transform(masked)
+  );
 }
 
 export function rewriteOutsideCode(content, transform) {
@@ -274,20 +294,10 @@ export function rewriteOutsideCode(content, transform) {
 }
 
 function rewriteLinksOutsideCode(content, fromSource) {
-  return rewriteOutsideFences(content, (chunk) => {
-    const inlineCode = [];
-    const masked = chunk.replace(/`[^`]*(?:`|$)/g, (match) => {
-      const marker = `\u0000INLINE_CODE_${inlineCode.length}\u0000`;
-      inlineCode.push(match);
-      return marker;
-    });
-    const rewritten = rewriteLinks(masked, fromSource);
-    return inlineCode.reduce(
-      (result, code, index) =>
-        result.replace(`\u0000INLINE_CODE_${index}\u0000`, code),
-      rewritten
-    );
-  });
+  return rewriteOutsideFences(
+    content,
+    (chunk) => rewriteOutsideInlineCode(chunk, (plain) => rewriteLinks(plain, fromSource))
+  );
 }
 
 export function normalizeForMdx(content, fromSource) {

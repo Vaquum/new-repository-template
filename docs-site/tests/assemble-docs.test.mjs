@@ -19,7 +19,7 @@ import {
   isPathInside,
   resolveRepositoryPath,
 } from '../scripts/repository-paths.mjs';
-import {canonicalSitemapUrl} from '../scripts/site-urls.mjs';
+import {canonicalSitemapUrl, siteRoute} from '../scripts/site-urls.mjs';
 
 const mark = (value) => value.replaceAll('{TOKEN}', 'REWRITTEN');
 
@@ -84,6 +84,15 @@ test('preserves the tail of unmatched inline code', () => {
   );
 });
 
+test('preserves multi-backtick inline code while transforming surrounding prose', () => {
+  const source = 'before {TOKEN}, ``inside ` {TOKEN}``, after {TOKEN}';
+
+  assert.equal(
+    rewriteOutsideCode(source, mark),
+    'before REWRITTEN, ``inside ` {TOKEN}``, after REWRITTEN'
+  );
+});
+
 test('extracts unique Markdown and HTML external links', () => {
   const source = [
     '[Repository](https://github.com/Vaquum/example)',
@@ -109,21 +118,30 @@ test('extracts unique Markdown and HTML external links', () => {
 test('rewrites prose links without mutating code examples', () => {
   const source = [
     '[Docs](docs/README.md)',
+    '[``Docs with `ticks` ``](docs/README.md)',
+    '<a href="docs/README.md">Docs</a>',
     '```markdown',
     '[Docs](docs/README.md)',
     '```',
     '`[Docs](docs/README.md)`',
+    '``[Docs](docs/README.md) with `ticks` ``',
   ].join('\n');
 
-  assert.equal(
-    normalizeForMdx(source, 'README.md'),
-    [
-      '[Docs](overview/docs-hub.md)',
-      '```markdown',
-      '[Docs](docs/README.md)',
-      '```',
-      '`[Docs](docs/README.md)`',
-    ].join('\n')
+  const normalized = normalizeForMdx(source, 'README.md');
+  assert.match(normalized, /^\[Docs\]\(overview\/docs-hub\.md\)$/m);
+  assert.match(
+    normalized,
+    /^\[``Docs with `ticks` ``\]\(overview\/docs-hub\.md\)$/m
+  );
+  assert.match(
+    normalized,
+    /^<a href="\/(?:[^"]*\/)?overview\/docs-hub">Docs<\/a>$/m
+  );
+  assert.match(normalized, /^`\[Docs\]\(docs\/README\.md\)`$/m);
+  assert.match(normalized, /^``\[Docs\]\(docs\/README\.md\) with `ticks` ``$/m);
+  assert.match(
+    normalized,
+    /```markdown\n\[Docs\]\(docs\/README\.md\)\n```/
   );
 });
 
@@ -147,6 +165,10 @@ test('builds canonical sitemap URLs for root and nested docs paths', () => {
     canonicalSitemapUrl('https://docs.example.com/', '/product/'),
     'https://docs.example.com/product/sitemap.xml'
   );
+  assert.equal(siteRoute('/', '/guide'), '/guide');
+  assert.equal(siteRoute('/', '/'), '/');
+  assert.equal(siteRoute('/product/', '/guide'), '/product/guide');
+  assert.equal(siteRoute('/product/', '/'), '/product/');
 });
 
 test('derives Markdown lint sources from the route map', () => {
