@@ -1,3 +1,7 @@
+# v0.17.1
+
+- Clear GHSA-52cp-r559-cp3m (js-yaml merge-key quadratic CPU, `>=4.0.0 <4.3.0`) from the docs-site lockfile by lifting the existing `js-yaml@^4` override to 4.3.0; the whole flagged Docusaurus chain resolved through that single pin. `npm run security:audit` and the full site check pass. No runtime behavior change.
+
 # v0.17.0
 
 - Pin every workflow action reference to a full commit SHA with a `# vX.Y.Z` tag comment (checkout v5.0.1, setup-python v6.3.0, setup-node v6.5.0, upload-artifact v7.0.1, setup-uv v7.6.0, codeql-action v4.37.1), so a repointed upstream tag can no longer change what runs in CI after review.
