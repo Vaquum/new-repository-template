@@ -52,7 +52,10 @@ jobs:
 
       - name: Install gate toolchain and project
         run: |
-          uv pip install --python .venv-lint/bin/python -e '.[dev]' 'ruff==0.15.11'
+          uv pip install --python .venv-lint/bin/python --require-hashes -r requirements/ci/dev-env.txt
+          uv pip install --python .venv-lint/bin/python --require-hashes -r requirements/ci/runtime-env.txt
+          uv pip install --python .venv-lint/bin/python --require-hashes -r requirements/ci/build-tools.txt
+          uv pip install --python .venv-lint/bin/python --no-build-isolation --no-deps -e .
 
       - name: Resolve package root
         id: package

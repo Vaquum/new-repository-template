@@ -1,3 +1,10 @@
+# v0.18.0
+
+- Hash-lock every workflow dependency install: four compiled requirement sets under `requirements/ci/` (`gate-tools` for the YAML the slice gate and bootstrap read, `dev-env` mirroring the pyproject dev extra, `build-tools` mirroring `[build-system].requires`, `runtime-env` mirroring `[project.dependencies]` — empty today, and the sole channel for the runtime dependencies the `--no-deps` editable install deliberately skips), installed everywhere with `pip install --require-hashes`; the package itself installs with `--no-build-isolation --no-deps -e .` so no job resolves a third-party package outside the pinned sets. Adopted from the law proven in Vaquum/Limen (its PR #729).
+- Drop the ruleset-audit venv's bare `pip install --upgrade pip` (the audit is stdlib-only) and the `--upgrade pip` prefixes elsewhere — runner pip installs the hashed sets as-is.
+- Extend `governance/tests/test_supply_chain.py` with the install law: every workflow `pip install` is either a hash-locked set or the no-resolution editable form, every compiled set is hash-complete per entry, and every `.in` source has its compiled `.txt` sibling.
+- Repoint the ruff-pin contract at the new source of truth: `test_governance_config` and `test_lint_ci_contract` now resolve the ruff pin from `requirements/ci/dev-env.in`/`.txt` (still asserted equal to `governance.yml`'s `toolchain.ruff_version` and the pyproject dev extra), and the tests/lint/ruleset workflow contracts assert the hashed-install lines.
+
 # v0.17.1
 
 - Clear GHSA-52cp-r559-cp3m (js-yaml merge-key quadratic CPU, `>=4.0.0 <4.3.0`) from the docs-site lockfile by lifting the existing `js-yaml@^4` override to 4.3.0; the whole flagged Docusaurus chain resolved through that single pin. `npm run security:audit` and the full site check pass. No runtime behavior change.

@@ -1,0 +1,4 @@
+# Gate-tools set: the YAML parser the slice gate and bootstrap read
+# issue templates with. Compiled to gate-tools.txt with hashes; CI
+# installs only the compiled set.
+pyyaml==6.0.2

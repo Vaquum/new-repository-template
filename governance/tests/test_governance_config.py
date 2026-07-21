@@ -93,20 +93,23 @@ def _setup_python_versions() -> dict[str, list[str]]:
     return versions
 
 
-def _ruff_install_pins() -> dict[str, list[str]]:
-    pins: dict[str, list[str]] = {}
-    for workflow in sorted(WORKFLOWS_DIR.glob('*.yml')):
-        workflow_pins: list[str] = []
-        for line in workflow.read_text(encoding='utf-8').splitlines():
-            if 'pip install' not in line or 'ruff' not in line:
-                continue
-            matches = re.findall(r'(?<![A-Za-z0-9_-])ruff(?:==([0-9.]+))?', line)
-            assert matches, f'{workflow.name} has ruff install line without a ruff token'
-            assert all(matches), f'{workflow.name} must pin every ruff install: {line}'
-            workflow_pins.extend(matches)
-        if workflow_pins:
-            pins[workflow.name] = workflow_pins
-    return pins
+def _requirement_pins(package: str) -> list[str]:
+    # Workflows install the compiled dev-env.txt, and operators edit
+    # dev-env.in; both must carry exactly one identical pin, so a
+    # hand-edited compiled set cannot ship an ungoverned tool while the
+    # source still reads correctly.
+    sources = [
+        REPO_ROOT / 'requirements' / 'ci' / 'dev-env.in',
+        REPO_ROOT / 'requirements' / 'ci' / 'dev-env.txt',
+    ]
+    pins = {
+        pin
+        for source in sources
+        for pin in re.findall(
+            rf'^{package}==([0-9.]+)\b', source.read_text(encoding='utf-8'), re.MULTILINE
+        )
+    }
+    return sorted(pins)
 
 
 def test_governance_config_schema_is_minimal() -> None:
@@ -143,9 +146,8 @@ def test_workflow_runtime_and_tooling_match_config() -> None:
     assert _setup_python_versions()
     for workflow_name, versions in _setup_python_versions().items():
         assert versions == [python_version] * len(versions), workflow_name
-    assert _ruff_install_pins()
-    for workflow_name, pins in _ruff_install_pins().items():
-        assert pins == [ruff_version] * len(pins), workflow_name
+    assert _requirement_pins('ruff') == [ruff_version]
+    assert _requirement_pins('pyright') == [pyright_version]
     assert pyproject['project']['requires-python'] == f'>={python_version}'
     assert f'ruff=={ruff_version}' in pyproject['project']['optional-dependencies']['dev']
     assert f'pyright=={pyright_version}' in pyproject['project']['optional-dependencies']['dev']

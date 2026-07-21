@@ -44,7 +44,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install bootstrap dependencies
-        run: python -m pip install --upgrade pip 'pyyaml==6.0.2'
+        run: python -m pip install --require-hashes -r requirements/ci/gate-tools.txt
 
       - name: Detect CodeQL availability
         id: codeql

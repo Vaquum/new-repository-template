@@ -28,9 +28,6 @@ jobs:
       - name: Set up audit venv
         run: python -m venv .venv-ruleset-audit
 
-      - name: Install audit dependencies
-        run: .venv-ruleset-audit/bin/python -m pip install --upgrade pip
-
       - name: Audit live main ruleset with privileged token
         env:
           GH_TOKEN: ${{ secrets.RULESET_AUDIT_TOKEN }}
