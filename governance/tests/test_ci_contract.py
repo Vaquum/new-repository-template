@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 import tempfile
@@ -7,6 +8,10 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CLOSEOUT_GUARD_WORKFLOW = REPO_ROOT / '.github/workflows/slice_closeout_guard.yml'
+ON_ISSUE_WORKFLOW = REPO_ROOT / '.github/workflows/pr_checks_slice_on_issue.yml'
+SWEEP_WORKFLOW = REPO_ROOT / '.github/workflows/pr_checks_slice_sweep.yml'
+READINESS_WORKFLOW = REPO_ROOT / '.github/workflows/pr_merge_readiness.yml'
+RULESET_SNAPSHOT = REPO_ROOT / '.github/rulesets/main.json'
 
 
 def test_post_merge_changelog_workflow_removed() -> None:
@@ -39,6 +44,76 @@ def test_slice_closeout_guard_workflow_contract() -> None:
     assert 'empty Merged PR number' in workflow
     assert 'empty required-run list' in workflow
     assert 'if: failure()\n' in workflow
+
+
+def test_slice_on_issue_workflow_contract() -> None:
+    workflow = ON_ISSUE_WORKFLOW.read_text(encoding='utf-8')
+
+    # Rerun-first delivery: heal the canonical pull_request run instead
+    # of stacking parallel check-runs; the API POST stays only as the
+    # fail-closed fallback. Delivery compares against the LATEST
+    # check-run of the name — what branch protection reads.
+    assert 'actions/runs/$RUN_ID/rerun' in workflow
+    assert 'falling back to check-run POST' in workflow
+    assert 'actions: write' in workflow
+    assert 'check-runs?check_name=pr_checks_slice' in workflow
+    # Rule 9 staleness: the affected set includes the parent PRD's
+    # slice sub-issue siblings, and a parent-lookup failure fails loud
+    # instead of silently shrinking the set.
+    assert 'sub_issues' in workflow
+    assert 'refusing to compute a sibling set that may be incomplete' in workflow
+    # SIGPIPE-safe truncation: parameter expansion, never a pipe.
+    assert 'SUMMARY=${SUMMARY:0:60000}' in workflow
+    assert '"$GATE_OUT" | head -c' not in workflow
+
+
+def test_slice_sweep_workflow_contract() -> None:
+    workflow = SWEEP_WORKFLOW.read_text(encoding='utf-8')
+
+    assert "- cron: '17 */6 * * *'" in workflow
+    assert 'workflow_dispatch:' in workflow
+    # A dispatch from another ref must still execute main's gate.
+    assert 'ref: main' in workflow
+    # Killing a sweep mid-posting would strand some PRs a full interval.
+    assert 'cancel-in-progress: false' in workflow
+    # Main-only authority: the sweep publishes its own verdict against
+    # the latest check-run and never reruns the pull_request workflow —
+    # a rerun would re-execute the gate from the judged PR's merge ref
+    # and let the PR self-attest.
+    assert 'check-runs?check_name=pr_checks_slice' in workflow
+    assert 'self-attest' in workflow
+    assert 'actions/runs/$RUN_ID/rerun' not in workflow
+    assert 'actions: write' not in workflow
+    assert 'file enumeration incomplete' in workflow
+    assert 'SUMMARY=${SUMMARY:0:60000}' in workflow
+    assert '--require-hashes -r requirements/ci/gate-tools.txt' in workflow
+
+
+def test_merge_readiness_workflow_contract() -> None:
+    workflow = READINESS_WORKFLOW.read_text(encoding='utf-8')
+
+    # pull_request_review_thread is a webhook event only, not an
+    # Actions trigger — the defect that stalled the downstream first
+    # delivery; comment activity and suite completions refresh instead.
+    # Matched as a trigger key so the workflow's own explanatory
+    # comment does not satisfy the assertion.
+    assert '\n  pull_request_review_thread:' not in workflow
+    assert 'pull_request_review:' in workflow
+    assert 'pull_request_review_comment:' in workflow
+    assert 'check_suite:' in workflow
+    assert '<!-- merge-readiness -->' in workflow
+    assert 'required-check inventory unavailable (fail-closed)' in workflow
+    assert 'pull-requests: write' in workflow
+    # One concurrency lane per PR across every event type, so parallel
+    # runs cannot race the read-then-create on the marker comment.
+    assert 'github.event.check_suite.pull_requests[0].number' in workflow
+    # Informational only: never itself a required context, so it cannot
+    # deadlock the merge it reports on.
+    snapshot = json.loads(RULESET_SNAPSHOT.read_text(encoding='utf-8'))
+    for rule in snapshot['rules']:
+        if rule['type'] == 'required_status_checks':
+            contexts = [c['context'] for c in rule['parameters']['required_status_checks']]
+            assert 'pr_merge_readiness' not in contexts
 
 
 def test_update_changelog_script_removed() -> None:
