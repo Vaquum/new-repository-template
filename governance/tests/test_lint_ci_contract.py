@@ -106,6 +106,8 @@ def test_pr_checks_lint_runs_pinned_ruff_on_tools_and_tests_tools() -> None:
     workflow = LINT_WORKFLOW.read_text(encoding='utf-8')
 
     assert '--require-hashes -r requirements/ci/dev-env.txt' in workflow
+    assert '--require-hashes -r requirements/ci/runtime-env.txt' in workflow
+    assert '--require-hashes -r requirements/ci/build-tools.txt' in workflow
     assert '--no-build-isolation --no-deps -e .' in workflow
     assert 'id: package' in workflow
     assert 'package_root="$(python - <<' in workflow
