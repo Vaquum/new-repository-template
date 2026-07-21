@@ -90,7 +90,7 @@ jobs:
           set -euo pipefail
           REPO="${{ github.repository }}"
 
-          jq -c '.[]' open_prs.json | while read pr; do
+          jq -c '.[]' open_prs.json | while IFS= read -r pr; do
             PR_NUM=$(echo "$pr" | jq -r .number)
             HEAD_SHA=$(echo "$pr" | jq -r .headRefOid)
             echo "::group::re-running slice gate for PR #$PR_NUM @ $HEAD_SHA"
