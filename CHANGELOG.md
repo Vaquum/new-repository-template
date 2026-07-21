@@ -1,3 +1,10 @@
+# v0.21.0
+
+- Narrow the conventional-commits gate's attribution scan to AI-qualified forms: bare `gemini`, `cursor`, `llm`, and unqualified `generated with` collide with legitimate domain vocabulary (the Gemini exchange, database cursors, "generated with <tool>") and hard-failed a required gate on text naming no AI assistant; every unambiguous marker stays bare and the `co-authored-by` alternation gains `gpt|llm`. Surfaced live downstream (Vaquum/Limen PR #710 review) and ported from its delivered fix; retires port note #64.
+- Check conventional-commits form on every closing-referenced issue carrying the `slice` label instead of short-circuiting on a single reference: under rule 9 the last slice's PR closes {slice, parent PRD}, and the short-circuit skipped slice-title validation exactly there. PRD titles stay exempt.
+- Fail closed on an unparseable `git log` line (exit 2 instead of silently skipping commits), deduplicate closing references before fetching, and fetch linked issues as a title-plus-labels JSON payload with strict parsing.
+- Unshallow the base fetch in `pr_checks_cc.yml` (a depth-limited fetch can truncate the commit range the gate must scan) and null-guard the PR body extraction (`.body // ""`), so an empty PR body reaches the gate as empty instead of the literal string `null`.
+
 # v0.20.0
 
 - Make the on-issue slice-gate rerun rerun-first: after computing a linked PR's verdict it heals the canonical pull_request `pr_checks_slice` run when its conclusion disagrees (a workflow run's conclusion is immutable unless rerun, so the old API-posted parallel check-runs left a permanently red entry on every rule-10 delivery); the check-run POST stays only as the fail-closed fallback. The affected set now includes the parent PRD's slice sub-issue siblings — rule 9's verdict for a sibling flips when this issue closes or reopens — and the fallback summary truncates with a parameter expansion instead of the SIGPIPE-prone `printf | head -c` pipe.

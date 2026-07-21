@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
 """Conventional Commits gate -- hard-fail on any deviation.
 
+The linked-issue rule checks every closing-referenced issue that
+carries the ``slice`` label rather than short-circuiting on a single
+reference: under slice-gate rule 9 the last slice's PR closes
+{slice, parent PRD}, and a single-reference short-circuit would skip
+slice-title validation exactly there. PRD titles stay exempt.
+
 This gate enforces the Conventional Commits v1.0.0 specification on:
 
   1. The PR title.
-  2. The title of the issue the PR closes (resolved by the same
-     Closes/Fixes/Resolves #N rule the slice gate uses; if no such
-     reference exists or the issue does not exist, this check is not
-     run because the slice gate already fails the PR).
+  2. The title of every slice-labelled issue the PR closes (resolved
+     by the same Closes/Fixes/Resolves #N rule the slice gate uses;
+     reference-count discipline and unresolvable references are the
+     slice gate's concern, not duplicated here).
   3. Every non-merge commit message in the PR's commit range
      (``$BASE..$HEAD``).
 
@@ -19,15 +25,15 @@ Specification reference: https://www.conventionalcommits.org/en/v1.0.0/
 
 Accepted format:
 
-    <type>[optional scope]!?: <description>
+    <type>[optional scope][!]: <description>
 
 where ``<type>`` is one of::
 
     feat | fix | docs | style | refactor | perf | test | build |
     ci | chore | revert
 
-all lowercase. Optional ``scope`` is parenthesized alphanumeric
-(hyphens, underscores, slashes, dots allowed). Optional ``!`` before
+all lowercase. Optional ``scope`` is parenthesized lowercase
+alphanumeric (hyphens, underscores, slashes, dots allowed). Optional ``!`` before
 the colon marks a breaking change. ``<description>`` must be
 non-empty after the ``:`` plus exactly one space.
 
@@ -49,6 +55,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -56,6 +63,9 @@ from pathlib import Path
 from typing import Final
 
 from _common import CC_RE, CLOSING_KEYWORD_RE
+
+# git log --format=%H%x09%P%x09%s yields exactly three tab-separated fields.
+GIT_LOG_FIELD_COUNT: Final[int] = 3
 
 # Allowed types per the widely-followed set (Angular convention + CC v1.0.0).
 CC_TYPES: Final[frozenset[str]] = frozenset({
@@ -73,11 +83,20 @@ ATTRIBUTION_EXEMPT_RE: Final[re.Pattern[str]] = re.compile(
     r'\b[\w-]+\.md\b|\bcopilot(?:[ -]code)?[ -]review\b',
     re.IGNORECASE,
 )
+# The bare tokens ``gemini``, ``cursor``, ``llm``, and unqualified
+# ``generated with`` collide with legitimate domain vocabulary (the
+# Gemini crypto exchange, database cursors, "generated with <tool>")
+# and would hard-fail a required gate on text that names no AI
+# assistant. They are narrowed to AI-qualified forms; every unambiguous
+# marker stays bare.
 ATTRIBUTION_RE: Final[re.Pattern[str]] = re.compile(
-    r'\bclaude\b|\bcodex\b|\bchatgpt\b|\bgpt-?\d\b|\bcopilot\b|\bcursor\b'
-    r'|\bgemini\b|\banthropic\b|\bopenai\b|\bllm\b|\bai[ -]?assistant\b'
-    r'|generated[ -]with'
-    r'|co-authored-by:\s*.*(?:claude|openai|anthropic|chatgpt|codex|copilot|cursor|gemini)',
+    r'\bclaude\b|\bcodex\b|\bchatgpt\b|\bgpt-?\d\b|\bcopilot\b'
+    r'|\bgoogle[ -]gemini\b|\bgemini[ -](?:pro|ultra|flash|cli|api|code)\b'
+    r'|\bcursor[ -](?:ai|ide|agent|editor)\b'
+    r'|\banthropic\b|\bopenai\b|\bai[ -]?assistant\b'
+    r'|\bllm[ -](?:assist(?:ant|ed)|generated|written|authored)\b'
+    r'|generated[ -]with[ -](?:an?[ -])?(?:claude|chatgpt|codex|copilot|cursor|gemini|gpt|llm|ai)\b'
+    r'|co-authored-by:\s*.*(?:claude|openai|anthropic|chatgpt|codex|copilot|cursor|gemini|gpt|llm)',
     re.IGNORECASE,
 )
 
@@ -140,8 +159,14 @@ def list_commits(base_ref: str, head_ref: str) -> list[dict[str, object]]:
         if not line.strip():
             continue
         parts = line.split('\t', 2)
-        if len(parts) != 3:
-            continue
+        if len(parts) != GIT_LOG_FIELD_COUNT:
+            # Fail closed: a line this gate cannot parse means commits
+            # could go unchecked, which is a setup failure, not a skip.
+            print(
+                f'cc_gate: unparseable git log line: {line!r}',
+                file=sys.stderr,
+            )
+            raise SystemExit(2)
         sha, parents, subject = parts
         is_merge = len(parents.split()) > 1
         commits.append({
@@ -152,8 +177,8 @@ def list_commits(base_ref: str, head_ref: str) -> list[dict[str, object]]:
     return commits
 
 
-def fetch_issue_title(repo: str, number: int) -> str:
-    """Return the title of the issue.
+def fetch_issue(repo: str, number: int) -> dict[str, object]:
+    """Return ``{'title': ..., 'labels': [...]}`` for the issue.
 
     Any gh failure here is a gate setup failure because linked-issue
     title validation is part of cc_gate's own contract.
@@ -162,7 +187,7 @@ def fetch_issue_title(repo: str, number: int) -> str:
         result = subprocess.run(
             [
                 'gh', 'api', f'repos/{repo}/issues/{number}',
-                '--jq', '.title',
+                '--jq', '{title: .title, labels: [.labels[].name]}',
             ],
             check=False,
             capture_output=True,
@@ -183,18 +208,29 @@ def fetch_issue_title(repo: str, number: int) -> str:
             file=sys.stderr,
         )
         raise SystemExit(2)
-    title = result.stdout.strip()
-    if not title:
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        print(
+            f'cc_gate: linked issue #{number} payload is not JSON: {exc}',
+            file=sys.stderr,
+        )
+        raise SystemExit(2) from exc
+    if not isinstance(payload, dict) or not str(payload.get('title', '')).strip():
         print(
             f'cc_gate: linked issue #{number} has an empty title payload',
             file=sys.stderr,
         )
         raise SystemExit(2)
-    return title
+    return payload
 
 
 def find_closing_references(body: str) -> list[int]:
-    return [int(m.group(1)) for m in CLOSING_KEYWORD_RE.finditer(body)]
+    # Deduplicated, first-seen order: a body repeating a reference must
+    # not fetch the same issue twice.
+    return list(dict.fromkeys(
+        int(m.group(1)) for m in CLOSING_KEYWORD_RE.finditer(body)
+    ))
 
 
 def attribution_hit(text: str) -> str | None:
@@ -255,15 +291,21 @@ def gate(
         if err is not None:
             failures.append(f'commit {sha[:8]} subject {subject!r} {err}.')
 
-    # Rule 3: linked issue title. Multiple refs or no refs are a
-    # slice_gate concern; cc_gate does not duplicate that failure.
+    # Rule 3: linked slice-issue titles. Reference-count discipline is
+    # a slice_gate concern; cc_gate checks CC on every closing-referenced
+    # issue that carries the ``slice`` label and exempts the rest (the
+    # parent PRD on rule-9 last-slice PRs, most notably).
     refs = find_closing_references(pr_body)
-    if len(refs) == 1:
-        issue_title = fetch_issue_title(repo, refs[0])
+    for number in refs:
+        issue = fetch_issue(repo, number)
+        labels = issue.get('labels')
+        if not isinstance(labels, list) or 'slice' not in labels:
+            continue
+        issue_title = str(issue.get('title', ''))
         err = check_cc(issue_title)
         if err is not None:
             failures.append(
-                f'linked issue #{refs[0]} title {issue_title!r} {err}.'
+                f'linked slice issue #{number} title {issue_title!r} {err}.'
             )
 
     # Rule 4: no AI/LLM attribution in the PR title or any commit message.
