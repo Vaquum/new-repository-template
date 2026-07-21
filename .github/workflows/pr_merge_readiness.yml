@@ -25,8 +25,12 @@ on:
   check_suite:
     types: [completed]
 
+# Keyed by PR number for every event that carries one — including
+# check_suite, whose payload lists its PRs — so runs for the same PR
+# serialize instead of racing the read-then-create on the marker
+# comment; the head SHA and run id are last-resort fallbacks only.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.check_suite.head_sha || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.check_suite.pull_requests[0].number || github.event.check_suite.head_sha || github.run_id }}
   cancel-in-progress: true
 
 permissions:

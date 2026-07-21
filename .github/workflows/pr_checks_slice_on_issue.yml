@@ -1,8 +1,10 @@
 name: pr_checks_slice_on_issue
 
 # Re-run the slice gate on every PR that closes an issue when that
-# issue's state changes, and publish a fresh `pr_checks_slice`
-# check-run on each such PR's head commit.
+# issue's state changes, and heal each such PR's `pr_checks_slice`
+# verdict: when the latest check-run disagrees with the fresh verdict,
+# rerun the canonical pull_request run, posting a check-run via the
+# API only as the fail-closed fallback.
 #
 # Why: `pr_checks_slice` runs on pull_request activity and caches its
 # verdict. Rules 3-10 depend on mutable issue state (OPEN, slice label,
@@ -96,10 +98,22 @@ jobs:
           ISSUE_NUM="${{ github.event.issue.number }}"
 
           AFFECTED="$ISSUE_NUM"
-          PARENT=$(gh api graphql \
+          # Fail loud on a parent-lookup failure: collapsing transient
+          # API errors into "no parent" would silently drop the sibling
+          # set — the exact staleness this workflow exists to prevent.
+          # Only a deleted issue, whose parent is genuinely
+          # unreachable, degrades to the parentless path.
+          if ! PARENT=$(gh api graphql \
             -f query='query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { issue(number: $number) { parent { number } } } }' \
             -F owner="${REPO%/*}" -F name="${REPO#*/}" -F number="$ISSUE_NUM" \
-            --jq '.data.repository.issue.parent.number' 2>/dev/null || echo null)
+            --jq '.data.repository.issue.parent.number // "null"'); then
+            if [ "${{ github.event.action }}" = "deleted" ]; then
+              PARENT=null
+            else
+              echo "::error::parent lookup for issue #$ISSUE_NUM failed; refusing to compute a sibling set that may be incomplete"
+              exit 1
+            fi
+          fi
           if [ -n "$PARENT" ] && [ "$PARENT" != "null" ]; then
             SIBLINGS=$(gh api "repos/$REPO/issues/$PARENT/sub_issues" --paginate \
               --jq '.[] | select(any(.labels[]; .name == "slice")) | .number')
@@ -206,24 +220,29 @@ jobs:
             # the canonical checks-UI entry and a workflow run's
             # conclusion is immutable unless rerun -- an API-posted
             # check-run satisfies branch protection but leaves the old
-            # red run visible forever. If the latest completed canonical
-            # run disagrees with the verdict just computed, rerun it so
-            # the UI shows a single truthful entry; fall back to the
-            # check-run POST only when no rerunnable canonical run
+            # red run visible forever. The comparison is against the
+            # LATEST check-run of the name on the head SHA, because
+            # that is what branch protection reads: a stale fallback
+            # POST can outrank a healthy canonical run, and comparing
+            # against the canonical conclusion alone would skip
+            # delivery exactly when healing is needed. Fall back to
+            # the check-run POST only when no rerunnable canonical run
             # exists (fail-closed, unchanged contract).
+            LATEST=$(gh api \
+              "repos/$REPO/commits/$HEAD_SHA/check-runs?check_name=pr_checks_slice&per_page=100" --paginate \
+              --jq '[.check_runs[] | select(.status == "completed")] | sort_by(.completed_at) | last | .conclusion // empty')
+            if [ "$LATEST" = "$CONCLUSION" ]; then
+              echo "latest pr_checks_slice check-run already $CONCLUSION; nothing to deliver"
+              echo "::endgroup::"
+              continue
+            fi
             CANONICAL=$(gh api \
               "repos/$REPO/actions/workflows/pr_checks_slice.yml/runs?head_sha=$HEAD_SHA&event=pull_request&status=completed&per_page=1" \
               --jq '.workflow_runs[0] // empty')
             if [ -n "$CANONICAL" ]; then
               RUN_ID=$(echo "$CANONICAL" | jq -r .id)
-              RUN_CONCLUSION=$(echo "$CANONICAL" | jq -r .conclusion)
-              if [ "$RUN_CONCLUSION" = "$CONCLUSION" ]; then
-                echo "canonical run $RUN_ID already $CONCLUSION; nothing to deliver"
-                echo "::endgroup::"
-                continue
-              fi
               if gh api --method POST "repos/$REPO/actions/runs/$RUN_ID/rerun" > /dev/null; then
-                echo "canonical run $RUN_ID rerun requested ($RUN_CONCLUSION -> expected $CONCLUSION)"
+                echo "canonical run $RUN_ID rerun requested (latest check-run ${LATEST:-absent} -> expected $CONCLUSION)"
                 echo "::endgroup::"
                 continue
               fi

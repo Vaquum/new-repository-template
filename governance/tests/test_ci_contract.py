@@ -51,13 +51,17 @@ def test_slice_on_issue_workflow_contract() -> None:
 
     # Rerun-first delivery: heal the canonical pull_request run instead
     # of stacking parallel check-runs; the API POST stays only as the
-    # fail-closed fallback.
+    # fail-closed fallback. Delivery compares against the LATEST
+    # check-run of the name — what branch protection reads.
     assert 'actions/runs/$RUN_ID/rerun' in workflow
     assert 'falling back to check-run POST' in workflow
     assert 'actions: write' in workflow
+    assert 'check-runs?check_name=pr_checks_slice' in workflow
     # Rule 9 staleness: the affected set includes the parent PRD's
-    # slice sub-issue siblings, not only the changed issue.
+    # slice sub-issue siblings, and a parent-lookup failure fails loud
+    # instead of silently shrinking the set.
     assert 'sub_issues' in workflow
+    assert 'refusing to compute a sibling set that may be incomplete' in workflow
     # SIGPIPE-safe truncation: parameter expansion, never a pipe.
     assert 'SUMMARY=${SUMMARY:0:60000}' in workflow
     assert '"$GATE_OUT" | head -c' not in workflow
@@ -72,7 +76,14 @@ def test_slice_sweep_workflow_contract() -> None:
     assert 'ref: main' in workflow
     # Killing a sweep mid-posting would strand some PRs a full interval.
     assert 'cancel-in-progress: false' in workflow
-    assert 'actions/runs/$RUN_ID/rerun' in workflow
+    # Main-only authority: the sweep publishes its own verdict against
+    # the latest check-run and never reruns the pull_request workflow —
+    # a rerun would re-execute the gate from the judged PR's merge ref
+    # and let the PR self-attest.
+    assert 'check-runs?check_name=pr_checks_slice' in workflow
+    assert 'self-attest' in workflow
+    assert 'actions/runs/$RUN_ID/rerun' not in workflow
+    assert 'actions: write' not in workflow
     assert 'file enumeration incomplete' in workflow
     assert 'SUMMARY=${SUMMARY:0:60000}' in workflow
     assert '--require-hashes -r requirements/ci/gate-tools.txt' in workflow
@@ -93,6 +104,9 @@ def test_merge_readiness_workflow_contract() -> None:
     assert '<!-- merge-readiness -->' in workflow
     assert 'required-check inventory unavailable (fail-closed)' in workflow
     assert 'pull-requests: write' in workflow
+    # One concurrency lane per PR across every event type, so parallel
+    # runs cannot race the read-then-create on the marker comment.
+    assert 'github.event.check_suite.pull_requests[0].number' in workflow
     # Informational only: never itself a required context, so it cannot
     # deadlock the merge it reports on.
     snapshot = json.loads(RULESET_SNAPSHOT.read_text(encoding='utf-8'))
