@@ -1,3 +1,7 @@
+# v0.19.0
+
+- Put the enforcement surfaces under code-owner review: `.github/CODEOWNERS` assigns `/governance/`, `/.github/`, `/governance.yml`, and `/requirements/` to four owners with deliberately no `*` rule, and the Protect-Main snapshot (plus all four ruleset fixtures) sets `require_code_owner_review: true`. An Actions check executes from the merge ref of the PR it judges and can be neutered by it; owner review is the one layer outside that ref. The live flag was flipped before this PR while no CODEOWNERS file existed (inert), so the ruleset drift gate stays green through delivery and enforcement activates exactly at merge — the inverse ordering of the deadlock Vaquum/Limen hit live (its S691). `governance/tests/test_codeowners.py` pins the file, the no-global-rule law, and the snapshot flag in the required lint gate.
+
 # v0.18.0
 
 - Hash-lock every workflow dependency install: four compiled requirement sets under `requirements/ci/` (`gate-tools` for the YAML the slice gate and bootstrap read, `dev-env` mirroring the pyproject dev extra, `build-tools` mirroring `[build-system].requires`, `runtime-env` mirroring `[project.dependencies]` — empty today, and the sole channel for the runtime dependencies the `--no-deps` editable install deliberately skips), installed everywhere with `pip install --require-hashes`; the package itself installs with `--no-build-isolation --no-deps -e .` so no job resolves a third-party package outside the pinned sets. Adopted from the law proven in Vaquum/Limen (its PR #729).
