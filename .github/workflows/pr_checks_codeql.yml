@@ -33,11 +33,13 @@ jobs:
         with:
           # 3.12 to match `pyproject.toml` `requires-python = ">=3.12"`
           # (driven by vaquum-praxis's >=3.12 floor; mismatched here
-          # would fail the editable package install's resolution).
+          # would fail the editable install's requires-python check --
+          # the only resolution left after --no-deps).
           python-version: '3.12'
 
       - name: Install dependencies
         run: |
+          pip install --require-hashes -r requirements/ci/runtime-env.txt
           pip install --require-hashes -r requirements/ci/build-tools.txt
           pip install --no-build-isolation --no-deps -e .
 

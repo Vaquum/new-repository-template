@@ -26,7 +26,9 @@ And the install law over every ``pip install`` a workflow runs:
      (``--require-hashes -r requirements/ci/<set>.txt``) or the
      first-party editable install with resolution disabled
      (``--no-build-isolation --no-deps -e .``), so no job resolves a
-     third-party package outside the hash-pinned sets.
+     third-party package outside the hash-pinned sets. The declared
+     runtime dependencies the ``--no-deps`` install skips come from
+     the ``runtime-env`` set, which mirrors ``[project.dependencies]``.
   6. Every compiled set is hash-complete (each requirement entry
      carries at least one ``--hash=sha256``) and every ``.in`` source
      has its compiled ``.txt`` sibling and vice versa.
@@ -52,11 +54,17 @@ PERSIST_LINE_RE = re.compile(r'^\s*persist-credentials: false\s*$')
 # compliant fetch fails loud and gets rewritten to canon rather than
 # growing regex permutations here.
 GIT_FETCH_RE = re.compile(r'^\s*git (?!-c "http\.https://github\.com/\.extraheader=\$AUTH" )[^|]*\bfetch\b')
+# Anchored across the whole stripped line (an optional inline `run:`
+# prefix and the interpreter/uv prefix included), so a non-compliant
+# install cannot hide chained ahead of a compliant tail.
+INSTALL_PREFIX = r'(?:run: )?(?:[\w./-]+ -m |uv )?'
 HASHED_INSTALL_RE = re.compile(
-    r'pip install (?:--python \S+ )?--require-hashes -r requirements/ci/[a-z-]+\.txt$'
+    INSTALL_PREFIX
+    + r'pip install (?:--python \S+ )?--require-hashes -r requirements/ci/[a-z-]+\.txt'
 )
 EDITABLE_INSTALL_RE = re.compile(
-    r'pip install (?:--python \S+ )?--no-build-isolation --no-deps -e \.$'
+    INSTALL_PREFIX
+    + r'pip install (?:--python \S+ )?--no-build-isolation --no-deps -e \.'
 )
 REQUIREMENT_ENTRY_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._\[\],-]*==')
 
@@ -125,7 +133,7 @@ def test_every_workflow_install_is_hash_locked() -> None:
             if 'pip install' not in line or line.lstrip().startswith('#'):
                 continue
             stripped = line.strip()
-            if HASHED_INSTALL_RE.search(stripped) or EDITABLE_INSTALL_RE.search(stripped):
+            if HASHED_INSTALL_RE.fullmatch(stripped) or EDITABLE_INSTALL_RE.fullmatch(stripped):
                 continue
             violations.append(f'{path.name}:{lineno}: {stripped}')
     assert not violations, (
