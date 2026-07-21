@@ -94,13 +94,22 @@ def _setup_python_versions() -> dict[str, list[str]]:
 
 
 def _requirement_pins(package: str) -> list[str]:
-    # Workflows install the compiled dev-env set rather than naming the
-    # tools directly, so the operator-edited source of each tool pin is
-    # requirements/ci/dev-env.in.
-    source = REPO_ROOT / 'requirements' / 'ci' / 'dev-env.in'
-    return re.findall(
-        rf'^{package}==([0-9.]+)$', source.read_text(encoding='utf-8'), re.MULTILINE
-    )
+    # Workflows install the compiled dev-env.txt, and operators edit
+    # dev-env.in; both must carry exactly one identical pin, so a
+    # hand-edited compiled set cannot ship an ungoverned tool while the
+    # source still reads correctly.
+    sources = [
+        REPO_ROOT / 'requirements' / 'ci' / 'dev-env.in',
+        REPO_ROOT / 'requirements' / 'ci' / 'dev-env.txt',
+    ]
+    pins = {
+        pin
+        for source in sources
+        for pin in re.findall(
+            rf'^{package}==([0-9.]+)\b', source.read_text(encoding='utf-8'), re.MULTILINE
+        )
+    }
+    return sorted(pins)
 
 
 def test_governance_config_schema_is_minimal() -> None:
