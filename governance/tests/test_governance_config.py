@@ -93,12 +93,14 @@ def _setup_python_versions() -> dict[str, list[str]]:
     return versions
 
 
-def _ruff_requirement_pins() -> list[str]:
-    # Workflows install the compiled dev-env set rather than naming ruff
-    # directly, so the operator-edited source of the ruff pin is
+def _requirement_pins(package: str) -> list[str]:
+    # Workflows install the compiled dev-env set rather than naming the
+    # tools directly, so the operator-edited source of each tool pin is
     # requirements/ci/dev-env.in.
     source = REPO_ROOT / 'requirements' / 'ci' / 'dev-env.in'
-    return re.findall(r'^ruff==([0-9.]+)$', source.read_text(encoding='utf-8'), re.MULTILINE)
+    return re.findall(
+        rf'^{package}==([0-9.]+)$', source.read_text(encoding='utf-8'), re.MULTILINE
+    )
 
 
 def test_governance_config_schema_is_minimal() -> None:
@@ -135,7 +137,8 @@ def test_workflow_runtime_and_tooling_match_config() -> None:
     assert _setup_python_versions()
     for workflow_name, versions in _setup_python_versions().items():
         assert versions == [python_version] * len(versions), workflow_name
-    assert _ruff_requirement_pins() == [ruff_version]
+    assert _requirement_pins('ruff') == [ruff_version]
+    assert _requirement_pins('pyright') == [pyright_version]
     assert pyproject['project']['requires-python'] == f'>={python_version}'
     assert f'ruff=={ruff_version}' in pyproject['project']['optional-dependencies']['dev']
     assert f'pyright=={pyright_version}' in pyproject['project']['optional-dependencies']['dev']
