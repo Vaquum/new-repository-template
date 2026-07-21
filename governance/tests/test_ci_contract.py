@@ -84,7 +84,9 @@ def test_merge_readiness_workflow_contract() -> None:
     # pull_request_review_thread is a webhook event only, not an
     # Actions trigger — the defect that stalled the downstream first
     # delivery; comment activity and suite completions refresh instead.
-    assert 'pull_request_review_thread' not in workflow
+    # Matched as a trigger key so the workflow's own explanatory
+    # comment does not satisfy the assertion.
+    assert '\n  pull_request_review_thread:' not in workflow
     assert 'pull_request_review:' in workflow
     assert 'pull_request_review_comment:' in workflow
     assert 'check_suite:' in workflow
