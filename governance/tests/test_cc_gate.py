@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -71,12 +73,9 @@ def test_list_commits_fails_closed_on_unparseable_log_line(monkeypatch) -> None:
         stderr = ''
 
     monkeypatch.setattr(subprocess, 'run', lambda *a, **k: FakeResult())
-    try:
+    with pytest.raises(SystemExit) as excinfo:
         cc.list_commits('base', 'head')
-    except SystemExit as exc:
-        assert exc.code == 2
-    else:
-        raise AssertionError('unparseable git log line must exit 2, not skip commits')
+    assert excinfo.value.code == 2
 
 
 def test_gate_checks_every_slice_labelled_reference(monkeypatch) -> None:
