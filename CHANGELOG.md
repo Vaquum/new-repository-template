@@ -1,3 +1,8 @@
+# v0.21.1
+
+- Reconcile API-posted `pr_checks_slice` check-runs at verdict delivery in the on-issue and sweep workflows: an API-posted check-run outranks the workflow-run entries of the same name and only a newer POST supersedes it, so a fallback failure POSTed while the canonical run was still in progress outlived the green rerun and pinned the merge button red (observed live on Vaquum/Limen PR #757, resolved only by an empty commit). Delivery now classifies check-runs by check suite — job-backed runs live in the check suites of `pr_checks_slice.yml`'s own workflow runs, everything else is an API-posted fallback — POSTs a superseding verdict whenever the latest API-posted check-run disagrees with the fresh one, and keeps the plain POST fail-closed when no verdict surface exists at all.
+- Grant the sweep `actions: read` to enumerate the canonical runs' check suites; it still never reruns the pull_request workflow (main-only execution contract), and both workflow contracts pin the reconciliation markers in `governance/tests/test_ci_contract.py`.
+
 # v0.21.0
 
 - Narrow the conventional-commits gate's attribution scan to AI-qualified forms: bare `gemini`, `cursor`, `llm`, and unqualified `generated with` collide with legitimate domain vocabulary (the Gemini exchange, database cursors, "generated with <tool>") and hard-failed a required gate on text naming no AI assistant; every unambiguous marker stays bare, the `co-authored-by` alternation gains word-bounded `gpt|llm` (a surname like Hillman cannot match `llm` as a substring), and `api`/`code` are deliberately not Gemini qualifiers ("Gemini API client" is exchange vocabulary). Surfaced live downstream (Vaquum/Limen PR #710 review) and ported from its delivered fix; retires port note #64.
