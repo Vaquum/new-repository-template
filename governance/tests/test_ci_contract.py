@@ -51,12 +51,17 @@ def test_slice_on_issue_workflow_contract() -> None:
 
     # Rerun-first delivery: heal the canonical pull_request run instead
     # of stacking parallel check-runs; the API POST stays only as the
-    # fail-closed fallback. Delivery compares against the LATEST
-    # check-run of the name — what branch protection reads.
+    # fail-closed fallback.
     assert 'actions/runs/$RUN_ID/rerun' in workflow
     assert 'falling back to check-run POST' in workflow
     assert 'actions: write' in workflow
     assert 'check-runs?check_name=pr_checks_slice' in workflow
+    # API-posted reconciliation: an API-posted check-run outranks the
+    # workflow-run entries of the same name and only a newer POST
+    # supersedes it (Vaquum/Limen PR #757), so a disagreeing latest
+    # API-posted check-run always draws a superseding POST.
+    assert 'check_suite_id' in workflow
+    assert 'LATEST_POSTED' in workflow
     # Rule 9 staleness: the affected set includes the parent PRD's
     # slice sub-issue siblings, and a parent-lookup failure fails loud
     # instead of silently shrinking the set.
@@ -84,6 +89,13 @@ def test_slice_sweep_workflow_contract() -> None:
     assert 'self-attest' in workflow
     assert 'actions/runs/$RUN_ID/rerun' not in workflow
     assert 'actions: write' not in workflow
+    # API-posted reconciliation (Vaquum/Limen PR #757): a disagreeing
+    # latest API-posted check-run always draws a superseding POST, and
+    # classifying check-runs by canonical check suite needs actions:
+    # read on the token.
+    assert 'check_suite_id' in workflow
+    assert 'LATEST_POSTED' in workflow
+    assert 'actions: read' in workflow
     assert 'file enumeration incomplete' in workflow
     assert 'SUMMARY=${SUMMARY:0:60000}' in workflow
     assert '--require-hashes -r requirements/ci/gate-tools.txt' in workflow

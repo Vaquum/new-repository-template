@@ -1,9 +1,10 @@
 name: pr_checks_slice_sweep
 
 # Re-run the slice gate for every open PR targeting main on a fixed
-# cadence and, when the latest `pr_checks_slice` check-run disagrees
-# with the fresh verdict, publish the main-computed verdict as a new
-# check-run on the head commit.
+# cadence and, when the latest `pr_checks_slice` check-run -- or the
+# latest previously API-posted check-run -- disagrees with the fresh
+# verdict, publish the main-computed verdict as a new check-run on the
+# head commit.
 #
 # Why: `pr_checks_slice` runs on pull_request activity and caches its
 # verdict; `pr_checks_slice_on_issue` reposts it when a linked issue
@@ -21,9 +22,13 @@ name: pr_checks_slice_sweep
 # main-only contract closes. The on-issue rerun owns UI healing; the
 # sweep owns authoritative delivery.
 #
-# GitHub branch protection treats the MOST RECENT check-run per name
-# per commit SHA as authoritative, so a failure posted here
-# immediately blocks merge until the issue state or the PR is fixed.
+# GitHub branch protection does not treat the most recent check-run
+# per name as authoritative: once an API-posted check-run exists on a
+# head SHA it outranks the workflow-run entries of the same name, and
+# only a newer API-posted check-run supersedes it (observed on
+# Vaquum/Limen PR #757). A failure posted here blocks merge
+# immediately, and a stale API-posted verdict must be reposted -- a
+# green canonical run alone never clears it.
 #
 # The fail-closed truncation and file-enumeration contracts mirror
 # pr_checks_slice_on_issue.yml; first proven downstream in Vaquum/Limen
@@ -54,6 +59,7 @@ jobs:
       issues: read
       pull-requests: read
       checks: write  # required to POST the main-computed check-runs
+      actions: read  # required to classify check-runs by canonical check suite
 
     steps:
       - name: Checkout
@@ -152,18 +158,40 @@ jobs:
               TITLE_OUT="Slice gate FAILED in scheduled sweep"
             fi
 
-            # Publish only on disagreement with the LATEST check-run of
-            # the name on the head SHA -- what branch protection reads;
-            # a stale fallback POST can outrank the canonical run, so
-            # this comparison is what bounds staleness. The sweep never
+            # Publish on disagreement; never rerun. The sweep never
             # reruns the pull_request workflow: that would re-execute
             # the gate from the judged PR's merge ref and let the PR
             # self-attest, the exact channel the main-only execution
-            # contract closes.
-            LATEST=$(gh api \
-              "repos/$REPO/commits/$HEAD_SHA/check-runs?check_name=pr_checks_slice&per_page=100" --paginate \
-              --jq '[.check_runs[] | select(.status == "completed")] | sort_by(.completed_at) | last | .conclusion // empty')
-            if [ "$LATEST" = "$CONCLUSION" ]; then
+            # contract closes. Two verdict surfaces are compared
+            # separately: an API-posted check-run is immutable and
+            # branch protection keeps honouring it even after a later
+            # canonical run lands the opposite verdict (Vaquum/Limen
+            # PR #757), so a disagreeing latest API-posted check-run
+            # always draws a fresh superseding POST; otherwise the
+            # sweep posts only when the latest completed check-run of
+            # the name disagrees with the fresh verdict. Check-runs
+            # inside the check suites of pr_checks_slice.yml's own
+            # workflow runs are job-backed; every other completed
+            # check-run of the name is an API-posted fallback.
+            RUNS=$(gh api \
+              "repos/$REPO/actions/workflows/pr_checks_slice.yml/runs?head_sha=$HEAD_SHA&per_page=100" \
+              --jq '.workflow_runs')
+            SUITES=$(echo "$RUNS" | jq '[.[].check_suite_id]')
+            gh api \
+              "repos/$REPO/commits/$HEAD_SHA/check-runs?check_name=pr_checks_slice&per_page=100&filter=all" \
+              --paginate --jq '.check_runs[]' > check_runs.jsonl
+            LATEST_POSTED=$(jq -rs --argjson suites "$SUITES" \
+              '[.[] | select(.status == "completed")
+                    | .check_suite.id as $s | select(($suites | index($s)) == null)]
+               | sort_by(.completed_at) | last | .conclusion // empty' check_runs.jsonl)
+            LATEST=$(jq -rs \
+              '[.[] | select(.status == "completed")]
+               | sort_by(.completed_at) | last | .conclusion // empty' check_runs.jsonl)
+            if [ -n "$LATEST_POSTED" ] && [ "$LATEST_POSTED" != "$CONCLUSION" ]; then
+              echo "latest API-posted check-run is $LATEST_POSTED; posting superseding check-run"
+            elif [ "$LATEST" != "$CONCLUSION" ]; then
+              echo "latest pr_checks_slice check-run is ${LATEST:-absent}; posting $CONCLUSION"
+            else
               echo "latest pr_checks_slice check-run already $CONCLUSION; nothing to deliver"
               echo "::endgroup::"
               continue
