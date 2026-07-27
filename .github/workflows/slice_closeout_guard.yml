@@ -33,6 +33,16 @@ jobs:
       && github.event.issue.state_reason != 'not_planned'
       && github.event.issue.state_reason != 'duplicate'
     steps:
+      # The evidence splice lives in governance/closeout_evidence.py, so the
+      # job needs the repository on disk. Every other step reaches GitHub
+      # through `gh` against $GITHUB_REPOSITORY and needs no working tree,
+      # which is why this job had no checkout until the splice moved out of
+      # the workflow.
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5.0.1
+        with:
+          persist-credentials: false
+
       - name: Resolve the closing PR
         id: closing_pr
         env:
