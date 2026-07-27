@@ -38,7 +38,12 @@ def test_slice_closeout_guard_workflow_contract() -> None:
     # An appended duplicate Done Means section must not receive (or
     # shadow) evidence, and a hand-typed Merge SHA on a no-PR close
     # must be reachable from main to count.
-    assert 'expected exactly one Done Means section' in workflow
+    # The splice moved into governance/closeout_evidence.py so it could be
+    # unit tested; the workflow now calls it. Its fail-closed behaviour is
+    # asserted there, in test_closeout_evidence.py.
+    assert 'python governance/closeout_evidence.py' in workflow
+    evidence = (REPO_ROOT / 'governance/closeout_evidence.py').read_text(encoding='utf-8')
+    assert 'expected exactly one Done Means section' in evidence
     assert 'compare/main...$CLAIMED' in workflow
     assert r"r'^##+ Done Means\b.*?^##+ Author Checks\b'" in workflow
     # Fill: a merged closing PR gets the evidence fields written in place.
@@ -184,23 +189,7 @@ def test_closeout_guard_skips_withdrawals() -> None:
     condition = workflow['jobs']['slice_closeout_guard']['if']
     assert 'state_reason' in condition
     assert "!= 'not_planned'" in condition
+    # a duplicate close is equally evidence-free and equally permanent
+    assert "!= 'duplicate'" in condition
     # every other close still goes through the evidence check
     assert "contains(github.event.issue.labels.*.name, 'slice')" in condition
-
-
-def test_closeout_guard_repairs_missing_evidence_fields() -> None:
-    """Absent evidence fields are repaired, not treated as a failed closeout.
-
-    The writer used to exit 1 when the Done Means section lacked the three
-    field lines, so the guard reopened correctly merged slices over body
-    formatting -- the gate being wrong rather than the work. The evidence is
-    in hand at that point; only the lines to hold it are missing.
-    """
-    guard = CLOSEOUT_GUARD_WORKFLOW.read_text(encoding='utf-8')
-    assert 'Done Means section is missing evidence field lines' not in guard
-    assert 'if not found_sha:' in guard
-    assert 'if not found_pr:' in guard
-    assert 'if not found_runs:' in guard
-    # still fails closed where the evidence is contradicted rather than absent
-    assert 'expected exactly one Done Means section' in guard
-    assert 'not reachable from main' in guard

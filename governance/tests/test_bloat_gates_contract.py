@@ -72,7 +72,7 @@ def test_module_budgets_covers_every_package_path() -> None:
         f'extra={sorted(package_paths - actual_paths)}, '
         f'missing={sorted(actual_paths - package_paths)}'
     )
-    assert len(script_paths) == 13, f'expected 13 scripts paths, got {len(script_paths)}'
+    assert len(script_paths) == 14, f'expected 14 scripts paths, got {len(script_paths)}'
 
 
 def _actual_package_paths() -> set[str]:

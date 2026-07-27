@@ -23,14 +23,15 @@ jobs:
       issues: write
       pull-requests: read
       checks: read
-    # A `not planned` close is a withdrawal: the slice was decided against,
-    # so it has no merged PR, no merge SHA and no required-run list, and it
-    # never will. Guarding it reopens the issue forever. `state_reason` is
-    # the durable record of that decision, surfaced by the API and the UI.
-    # Every other close still goes through the full evidence check.
+    # `not planned` and `duplicate` are both decisions not to build the
+    # slice: neither has a merged PR, a merge SHA or a required-run list,
+    # and neither ever will, so guarding them reopens the issue forever.
+    # `state_reason` is the durable record, surfaced by the API and the UI.
+    # `completed` and an absent reason still go through the full check.
     if: >-
       contains(github.event.issue.labels.*.name, 'slice')
       && github.event.issue.state_reason != 'not_planned'
+      && github.event.issue.state_reason != 'duplicate'
     steps:
       - name: Resolve the closing PR
         id: closing_pr
@@ -64,88 +65,7 @@ jobs:
             --paginate --jq '.check_runs[] | select(.conclusion == "success") | "\(.name)\t\(.id)"' \
             > check_runs.txt
           gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUMBER" --jq '.body // ""' > issue_body.txt
-          python - <<'EOF'
-          import os
-          import re
-          import sys
-          from pathlib import Path
-
-          body = Path('issue_body.txt').read_text(encoding='utf-8')
-          required = [c for c in Path('required_contexts.txt').read_text(encoding='utf-8').splitlines() if c]
-          if not required:
-              print('slice_closeout_guard: no required status checks resolved from the main branch rules', file=sys.stderr)
-              sys.exit(1)
-          check_runs = {}
-          for raw in Path('check_runs.txt').read_text(encoding='utf-8').splitlines():
-              if not raw:
-                  continue
-              name, run_id = raw.split('\t')
-              check_runs[name] = run_id
-          missing = [c for c in required if c not in check_runs]
-          if missing:
-              print(f"slice_closeout_guard: required contexts without a successful check run on the closing PR head commit: {', '.join(missing)}", file=sys.stderr)
-              sys.exit(1)
-          runs = [f'- {c} : {check_runs[c]}' for c in required]
-
-          matches = list(re.finditer(
-              r'^##+ Done Means\b.*?^##+ Author Checks\b',
-              body,
-              re.MULTILINE | re.DOTALL,
-          ))
-          if len(matches) != 1:
-              print(f'slice_closeout_guard: expected exactly one Done Means section, found {len(matches)}', file=sys.stderr)
-              sys.exit(1)
-          start, end = matches[0].span()
-          lines = matches[0].group(0).split('\n')
-
-          out = []
-          found_sha = found_pr = found_runs = False
-          i = 0
-          while i < len(lines):
-              line = lines[i]
-              if line.startswith('Merge SHA:'):
-                  out.append(f"Merge SHA: {os.environ['MERGE_SHA']}")
-                  found_sha = True
-              elif line.startswith('Merged PR number:'):
-                  out.append(f"Merged PR number: #{os.environ['PR_NUMBER']}")
-                  found_pr = True
-              elif line.startswith('Required CI runs'):
-                  out.append(line)
-                  found_runs = True
-                  i += 1
-                  while i < len(lines) and lines[i].lstrip().startswith('-'):
-                      i += 1
-                  out.extend(runs)
-                  continue
-              else:
-                  out.append(line)
-              i += 1
-          # Absent fields are missing scaffolding, not contradicted evidence:
-          # the merge SHA, the PR number and the run ids are all in hand, and
-          # only the lines to hold them are missing. Refusing here reopened
-          # correctly merged slices over body formatting. Append what is
-          # absent, keeping the section's trailing blank line last.
-          appended = []
-          if not found_sha:
-              appended.append(f"Merge SHA: {os.environ['MERGE_SHA']}")
-          if not found_pr:
-              appended.append(f"Merged PR number: #{os.environ['PR_NUMBER']}")
-          if not found_runs:
-              appended.append('Required CI runs (workflow name : run id):')
-              appended.extend(runs)
-          if appended:
-              # The matched section ends with the Author Checks header, so the
-              # fields go before it -- and before the blank line separating
-              # them -- not at the end of `out`.
-              tail = len(out) - 1
-              while tail > 0 and not re.match(r'^##+ Author Checks\b', out[tail]):
-                  tail -= 1
-              while tail > 0 and not out[tail - 1].strip():
-                  tail -= 1
-              out[tail:tail] = [*appended, '']
-
-          Path('new_body.txt').write_text(body[:start] + '\n'.join(out) + body[end:], encoding='utf-8')
-          EOF
+          python governance/closeout_evidence.py
           gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file new_body.txt
       - name: Detect a close with no merged closing PR and no evidence
         id: closeout
