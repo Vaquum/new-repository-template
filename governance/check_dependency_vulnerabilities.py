@@ -14,11 +14,10 @@ import json
 import subprocess
 import sys
 import tempfile
-import tomllib
 from functools import partial
 from pathlib import Path
 
-from _common import REPO_ROOT, fail_setup
+from _common import REPO_ROOT, TOMLDecodeError, fail_setup, loads_toml
 
 PYPROJECT = REPO_ROOT / 'pyproject.toml'
 EXCEPTIONS = REPO_ROOT / '.github' / 'vuln_exceptions.json'
@@ -29,8 +28,8 @@ _fail_setup = partial(fail_setup, 'DEPENDENCY VULNERABILITY GATE')
 
 def _runtime_dependencies() -> list[str]:
     try:
-        data = tomllib.loads(PYPROJECT.read_text(encoding='utf-8'))
-    except (OSError, tomllib.TOMLDecodeError) as exc:
+        data = loads_toml(PYPROJECT.read_text(encoding='utf-8'))
+    except (OSError, TOMLDecodeError) as exc:
         _fail_setup(f'cannot read pyproject.toml: {exc}')
     project = data.get('project', {})
     deps = project.get('dependencies', []) if isinstance(project, dict) else []

@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import json
 import re
-import tomllib
 from pathlib import Path
 from typing import Final
 
 import yaml
+from _common import loads_toml
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 CONFIG_PATH: Final[Path] = REPO_ROOT / 'governance.yml'
@@ -141,7 +141,7 @@ def test_workflow_runtime_and_tooling_match_config() -> None:
     python_version = _str(runtime, 'python_version')
     ruff_version = _str(toolchain, 'ruff_version')
     pyright_version = _str(toolchain, 'pyright_version')
-    pyproject = tomllib.loads((REPO_ROOT / 'pyproject.toml').read_text(encoding='utf-8'))
+    pyproject = loads_toml((REPO_ROOT / 'pyproject.toml').read_text(encoding='utf-8'))
 
     assert _setup_python_versions()
     for workflow_name, versions in _setup_python_versions().items():

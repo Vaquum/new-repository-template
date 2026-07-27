@@ -11,15 +11,24 @@ import re
 import shutil
 import subprocess
 import sys
-import tomllib
 import urllib.parse
 from pathlib import Path
 from typing import Final
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - Python 3.10 fallback
+    import tomli as tomllib
+
 
 # The bootstrap is the rename engine: it deliberately imports nothing from the
 # governance/_common helper module (it keeps its own REPO_ROOT and
 # _significant_lines below) so it stays a self-contained script that can run on
 # a repository mid-specialization without depending on sibling gate modules.
+# That is why the tomllib/tomli guard is inlined above rather than taken from
+# _common.loads_toml, which every other TOML reader here goes through: routing
+# this module through _common would trade self-containment for deduplication,
+# and self-containment is the property that lets bootstrap run at all.
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 BOOTSTRAP_SCRIPT: Final[Path] = Path(__file__).resolve()
 RULESET_PATH: Final[Path] = REPO_ROOT / '.github' / 'rulesets' / 'main.json'

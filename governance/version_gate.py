@@ -50,11 +50,10 @@ from __future__ import annotations
 import argparse
 import re
 import sys
-import tomllib
 from pathlib import Path
 from typing import Final
 
-from _common import CC_RE
+from _common import CC_RE, TOMLDecodeError, loads_toml
 
 # Strict `MAJOR.MINOR.PATCH` only. We explicitly reject prerelease
 # and build-metadata forms because this gate compares as integer
@@ -95,8 +94,8 @@ def parse_semver(value: str) -> tuple[int, int, int]:
 
 def extract_version(pyproject_text: str, label: str) -> str:
     try:
-        data = tomllib.loads(pyproject_text)
-    except tomllib.TOMLDecodeError as exc:
+        data = loads_toml(pyproject_text)
+    except TOMLDecodeError as exc:
         print(
             f'version_gate: cannot parse {label} pyproject.toml: {exc}',
             file=sys.stderr,
