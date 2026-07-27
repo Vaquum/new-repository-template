@@ -37,6 +37,12 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Install gate toolchain
+        # version_gate reads pyproject.toml. This repository is 3.12, where
+        # tomllib is stdlib, but a derived repository below 3.11 needs the
+        # tomli fallback this set pins -- and this job installed nothing.
+        run: python -m pip install --require-hashes -r requirements/ci/gate-tools.txt
+
       - name: Extract PR title from event payload
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
@@ -99,7 +105,19 @@ jobs:
           echo "base CHANGELOG bytes:  $(wc -c < base_CHANGELOG.md)"
           echo "head CHANGELOG bytes:  $(wc -c < head_CHANGELOG.md)"
 
-          mode="$(REPOSITORY_NAME="${{ github.event.repository.name }}" python -c 'import os, tomllib; from pathlib import Path; base = tomllib.loads(Path("base_pyproject.toml").read_text())["project"]["name"]; head = tomllib.loads(Path("head_pyproject.toml").read_text())["project"]["name"]; repo = os.environ["REPOSITORY_NAME"]; print("template-specialization" if base == "new-repository-template" and head == repo else "normal")')"
+          mode="$(REPOSITORY_NAME="${{ github.event.repository.name }}" python - <<'PY'
+          import os
+          from pathlib import Path
+          try:
+              import tomllib
+          except ModuleNotFoundError:  # Python 3.10 fallback
+              import tomli as tomllib
+          base = tomllib.loads(Path("base_pyproject.toml").read_text())["project"]["name"]
+          head = tomllib.loads(Path("head_pyproject.toml").read_text())["project"]["name"]
+          repo = os.environ["REPOSITORY_NAME"]
+          print("template-specialization" if base == "new-repository-template" and head == repo else "normal")
+          PY
+          )"
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
 
       - name: Run version gate

@@ -11,10 +11,11 @@ import re
 import shutil
 import subprocess
 import sys
-import tomllib
 import urllib.parse
 from pathlib import Path
 from typing import Final
+
+from _common import TOMLDecodeError, loads_toml
 
 # The bootstrap is the rename engine: it deliberately imports nothing from the
 # governance/_common helper module (it keeps its own REPO_ROOT and
@@ -61,10 +62,10 @@ KNOWN_SEED_PACKAGES: Final[frozenset[str]] = frozenset({
 def _load_pyproject() -> dict[str, object]:
     path = REPO_ROOT / 'pyproject.toml'
     try:
-        return tomllib.loads(path.read_text(encoding='utf-8'))
+        return loads_toml(path.read_text(encoding='utf-8'))
     except FileNotFoundError:
         return {}
-    except tomllib.TOMLDecodeError as exc:
+    except TOMLDecodeError as exc:
         raise SystemExit(f'bootstrap: cannot parse pyproject.toml: {exc}') from exc
 
 

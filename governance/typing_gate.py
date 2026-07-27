@@ -47,11 +47,10 @@ import ast
 import json
 import re
 import sys
-import tomllib
 from pathlib import Path
 from typing import Final
 
-from _common import REPO_ROOT, find_python_files
+from _common import REPO_ROOT, TOMLDecodeError, find_python_files, loads_toml
 
 BUDGET_PATH: Final[Path] = REPO_ROOT / '.github' / 'typing_budget.json'
 PYPROJECT_PATH: Final[Path] = REPO_ROOT / 'pyproject.toml'
@@ -812,7 +811,7 @@ def update_budget(pyright_json_path: str | None) -> None:
     excludes = [str(x) for x in budget.get('excludes', [])]
     files = find_python_files(package_root, excludes)
 
-    for name, spec in budget['patterns'].items():
+    for _name, spec in budget['patterns'].items():
         spec['total'] = count_pattern(files, str(spec['pattern']))
 
     budget['any_references']['total'] = count_any_references_ast(files)
@@ -843,13 +842,12 @@ def update_budget(pyright_json_path: str | None) -> None:
 
 def load_pyproject() -> dict[str, object]:
     try:
-        with open(PYPROJECT_PATH, 'rb') as f:
-            return tomllib.load(f)
+        return loads_toml(PYPROJECT_PATH.read_text(encoding='utf-8'))
     except OSError as exc:
         _setup_failure(
             f'typing_gate: cannot read {PYPROJECT_PATH.relative_to(REPO_ROOT)}: {exc}'
         )
-    except tomllib.TOMLDecodeError as exc:
+    except TOMLDecodeError as exc:
         _setup_failure(
             f'typing_gate: cannot parse {PYPROJECT_PATH.relative_to(REPO_ROOT)}: {exc}'
         )

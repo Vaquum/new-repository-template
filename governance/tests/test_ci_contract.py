@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -145,7 +146,10 @@ def test_typing_gate_setup_failures_exit_2() -> None:
 
         result = subprocess.run(
             [
-                'python3',
+                # sys.executable, not a bare python3: below 3.11 the gate
+                # resolves tomli, and only the interpreter running this
+                # suite has it installed.
+                sys.executable,
                 'governance/typing_gate.py',
                 '--pyright-json',
                 '/tmp/missing-pyright.json',

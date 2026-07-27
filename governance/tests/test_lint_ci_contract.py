@@ -4,9 +4,10 @@ import json
 import re
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
 from typing import Final
+
+from _common import loads_toml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 LINT_WORKFLOW: Final[Path] = REPO_ROOT / '.github/workflows/pr_checks_lint.yml'
@@ -169,7 +170,7 @@ def test_ruff_pin_is_consistent_across_requirement_sets() -> None:
 
 
 def test_pyproject_ruff_policy_contract() -> None:
-    data = tomllib.loads((REPO_ROOT / 'pyproject.toml').read_text(encoding='utf-8'))
+    data = loads_toml((REPO_ROOT / 'pyproject.toml').read_text(encoding='utf-8'))
     ruff = data['tool']['ruff']
     actual_policy = {
         'exclude': ruff.get('exclude'),

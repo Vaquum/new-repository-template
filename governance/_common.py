@@ -14,7 +14,16 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Final, NoReturn
+from typing import Any, Final, NoReturn
+
+# `tomllib` is stdlib only from 3.11. Guarded once, here, rather than at
+# each of the six call sites: a derived repository with a lower floor needs
+# the fallback, and duplicating the guard put a `try`/`except` under
+# `tests/` where the test-fallback gate reads it as a swallowed assertion.
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - Python 3.10 fallback
+    import tomli as tomllib
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 TYPING_BUDGET: Final[Path] = REPO_ROOT / '.github' / 'typing_budget.json'
@@ -99,3 +108,22 @@ def find_python_files(root: Path, excludes: list[str]) -> list[Path]:
         path for path in sorted(root.rglob('*.py'))
         if not _is_path_excluded(path.relative_to(REPO_ROOT), excludes)
     ]
+
+
+
+# Re-exported so call sites can catch a parse failure without importing the
+# TOML module themselves, which is what let the unguarded import spread.
+TOMLDecodeError: Final[type[Exception]] = tomllib.TOMLDecodeError
+
+
+def loads_toml(text: str) -> dict[str, Any]:
+    """Parse TOML text, tolerating a pre-3.11 interpreter.
+
+    The single place this repository parses TOML. `tomllib` arrived in 3.11, so
+    a repository derived from this template with a lower floor resolves the
+    `tomli` fallback instead. Every gate and contract test goes through here,
+    so the fallback cannot be forgotten at one call site -- and no `try`/
+    `except` lands under `tests/`, where the test-fallback gate would read it
+    as a swallowed assertion.
+    """
+    return tomllib.loads(text)

@@ -5,9 +5,10 @@ import json
 import re
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
 from typing import Final
+
+from _common import loads_toml
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 BUDGET_JSON: Final[Path] = REPO_ROOT / '.github/module_budgets.json'
@@ -145,7 +146,7 @@ def test_scripts_are_self_budgeted() -> None:
 
 
 def test_ruff_select_includes_new_rules() -> None:
-    cfg = tomllib.loads(PYPROJECT.read_text(encoding='utf-8'))
+    cfg = loads_toml(PYPROJECT.read_text(encoding='utf-8'))
     select = cfg['tool']['ruff']['lint']['select']
     for rule in ('C901', 'PLR0912', 'PLR0913', 'PLR0915', 'T201',
                  'FIX001', 'FIX002', 'FIX003', 'FIX004',
@@ -189,3 +190,47 @@ def test_budget_ratchet_accepts_marker(tmp_path: Path) -> None:
     )
     assert result.returncode == 0, result.stderr + result.stdout
     assert 'BUDGET RATCHET GATE -- PASS' in result.stdout
+
+
+def test_no_module_imports_tomllib_unguarded() -> None:
+    """Every TOML read goes through `_common.loads_toml`, never a bare import.
+
+    `tomllib` is stdlib only from 3.11. This repository targets 3.12, so a bare
+    `import tomllib` passes every gate here and breaks on the first derived
+    repository with a lower floor -- which is what happened, across five
+    separate surfaces. Nothing in this repository's own CI exercises the
+    failing path, so only a scan catches the reintroduction.
+
+    `_common` itself carries the one guarded import, indented inside its `try`,
+    which is the fix rather than the defect.
+    """
+    offenders: list[str] = []
+    for path in sorted(GOVERNANCE_DIR.rglob('*.py')):
+        for lineno, line in enumerate(
+            path.read_text(encoding='utf-8').splitlines(), start=1
+        ):
+            if line == 'import tomllib':
+                offenders.append(f'{path.relative_to(REPO_ROOT)}:{lineno}')
+    assert not offenders, (
+        'unguarded module-level `import tomllib` -- read TOML through '
+        f'`_common.loads_toml` instead: {offenders}'
+    )
+
+
+def test_no_gate_test_shells_out_to_a_bare_python3() -> None:
+    """Subprocess tests must invoke `sys.executable`, not a bare `python3`.
+
+    A bare `python3` runs the system interpreter, which below 3.11 has neither
+    `tomllib` nor the `tomli` the venv installed. The gate then dies on
+    ModuleNotFoundError and the test asserts against the wrong failure.
+    """
+    offenders: list[str] = []
+    for path in sorted((GOVERNANCE_DIR / 'tests').glob('*.py')):
+        for lineno, line in enumerate(
+            path.read_text(encoding='utf-8').splitlines(), start=1
+        ):
+            # The subprocess-argument form exactly, so a comment or a pattern
+            # literal naming it is not a hit.
+            if line.strip() in ("'python3',", '"python3",'):
+                offenders.append(f'{path.relative_to(REPO_ROOT)}:{lineno}')
+    assert not offenders, f'use sys.executable instead: {offenders}'

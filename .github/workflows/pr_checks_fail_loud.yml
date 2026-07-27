@@ -67,7 +67,19 @@ jobs:
 
           if git show "$BASE_REV:.github/fail_loud_budget.json" > base_budget.json 2>/dev/null; then
             if git show "$BASE_REV:pyproject.toml" > base_pyproject.toml 2>/dev/null; then
-              mode="$(REPOSITORY_NAME="${{ github.event.repository.name }}" python -c 'import os, tomllib; from pathlib import Path; base = tomllib.loads(Path("base_pyproject.toml").read_text())["project"]["name"]; head = tomllib.loads(Path("pyproject.toml").read_text())["project"]["name"]; repo = os.environ["REPOSITORY_NAME"]; print("bootstrap" if base == "new-repository-template" and head == repo else "compare")')"
+              mode="$(REPOSITORY_NAME="${{ github.event.repository.name }}" python - <<'PY'
+          import os
+          from pathlib import Path
+          try:
+              import tomllib
+          except ModuleNotFoundError:  # Python 3.10 fallback
+              import tomli as tomllib
+          base = tomllib.loads(Path("base_pyproject.toml").read_text())["project"]["name"]
+          head = tomllib.loads(Path("pyproject.toml").read_text())["project"]["name"]
+          repo = os.environ["REPOSITORY_NAME"]
+          print("bootstrap" if base == "new-repository-template" and head == repo else "compare")
+          PY
+              )"
             else
               mode="compare"
             fi
