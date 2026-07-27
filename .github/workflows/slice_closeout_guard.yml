@@ -23,7 +23,14 @@ jobs:
       issues: write
       pull-requests: read
       checks: read
-    if: contains(github.event.issue.labels.*.name, 'slice')
+    # A `not planned` close is a withdrawal: the slice was decided against,
+    # so it has no merged PR, no merge SHA and no required-run list, and it
+    # never will. Guarding it reopens the issue forever. `state_reason` is
+    # the durable record of that decision, surfaced by the API and the UI.
+    # Every other close still goes through the full evidence check.
+    if: >-
+      contains(github.event.issue.labels.*.name, 'slice')
+      && github.event.issue.state_reason != 'not_planned'
     steps:
       - name: Resolve the closing PR
         id: closing_pr
@@ -113,9 +120,29 @@ jobs:
               else:
                   out.append(line)
               i += 1
-          if not (found_sha and found_pr and found_runs):
-              print('slice_closeout_guard: Done Means section is missing evidence field lines', file=sys.stderr)
-              sys.exit(1)
+          # Absent fields are missing scaffolding, not contradicted evidence:
+          # the merge SHA, the PR number and the run ids are all in hand, and
+          # only the lines to hold them are missing. Refusing here reopened
+          # correctly merged slices over body formatting. Append what is
+          # absent, keeping the section's trailing blank line last.
+          appended = []
+          if not found_sha:
+              appended.append(f"Merge SHA: {os.environ['MERGE_SHA']}")
+          if not found_pr:
+              appended.append(f"Merged PR number: #{os.environ['PR_NUMBER']}")
+          if not found_runs:
+              appended.append('Required CI runs (workflow name : run id):')
+              appended.extend(runs)
+          if appended:
+              # The matched section ends with the Author Checks header, so the
+              # fields go before it -- and before the blank line separating
+              # them -- not at the end of `out`.
+              tail = len(out) - 1
+              while tail > 0 and not re.match(r'^##+ Author Checks\b', out[tail]):
+                  tail -= 1
+              while tail > 0 and not out[tail - 1].strip():
+                  tail -= 1
+              out[tail:tail] = [*appended, '']
 
           Path('new_body.txt').write_text(body[:start] + '\n'.join(out) + body[end:], encoding='utf-8')
           EOF

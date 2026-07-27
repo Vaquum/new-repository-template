@@ -7,6 +7,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import yaml
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CLOSEOUT_GUARD_WORKFLOW = REPO_ROOT / '.github/workflows/slice_closeout_guard.yml'
 ON_ISSUE_WORKFLOW = REPO_ROOT / '.github/workflows/pr_checks_slice_on_issue.yml'
@@ -23,7 +25,11 @@ def test_slice_closeout_guard_workflow_contract() -> None:
     workflow = CLOSEOUT_GUARD_WORKFLOW.read_text(encoding='utf-8')
 
     assert 'issues:\n    types: [closed]' in workflow
-    assert "if: contains(github.event.issue.labels.*.name, 'slice')" in workflow
+    # Parsed rather than string-matched: the condition is a multi-line
+    # folded scalar since it also excludes withdrawals, so pinning its exact
+    # source text breaks on a reformat that changes nothing semantic.
+    condition = yaml.safe_load(workflow)['jobs']['slice_closeout_guard']['if']
+    assert "contains(github.event.issue.labels.*.name, 'slice')" in condition
     assert 'issues: write' in workflow
     assert 'closedByPullRequestsReferences' in workflow
     # Evidence quality: only successful check runs may become closeout
@@ -164,3 +170,37 @@ def test_typing_gate_setup_failures_exit_2() -> None:
     assert result.returncode == 2
     assert result.stdout == ''
     assert 'typing_gate: cannot parse pyproject.toml:' in result.stderr
+
+
+def test_closeout_guard_skips_withdrawals() -> None:
+    """A `not planned` close is a withdrawal, and the guard must let it stand.
+
+    The guard reopens any close it cannot back with a merge SHA, a merged PR
+    number and a required-run list. A withdrawn slice has none of those and
+    never will, so guarding it reopens the issue forever -- which is what
+    happened to #70-#74. `state_reason` is the durable record of the decision.
+    """
+    workflow = yaml.safe_load(CLOSEOUT_GUARD_WORKFLOW.read_text(encoding='utf-8'))
+    condition = workflow['jobs']['slice_closeout_guard']['if']
+    assert 'state_reason' in condition
+    assert "!= 'not_planned'" in condition
+    # every other close still goes through the evidence check
+    assert "contains(github.event.issue.labels.*.name, 'slice')" in condition
+
+
+def test_closeout_guard_repairs_missing_evidence_fields() -> None:
+    """Absent evidence fields are repaired, not treated as a failed closeout.
+
+    The writer used to exit 1 when the Done Means section lacked the three
+    field lines, so the guard reopened correctly merged slices over body
+    formatting -- the gate being wrong rather than the work. The evidence is
+    in hand at that point; only the lines to hold it are missing.
+    """
+    guard = CLOSEOUT_GUARD_WORKFLOW.read_text(encoding='utf-8')
+    assert 'Done Means section is missing evidence field lines' not in guard
+    assert 'if not found_sha:' in guard
+    assert 'if not found_pr:' in guard
+    assert 'if not found_runs:' in guard
+    # still fails closed where the evidence is contradicted rather than absent
+    assert 'expected exactly one Done Means section' in guard
+    assert 'not reachable from main' in guard
