@@ -23,8 +23,26 @@ jobs:
       issues: write
       pull-requests: read
       checks: read
-    if: contains(github.event.issue.labels.*.name, 'slice')
+    # `not planned` and `duplicate` are both decisions not to build the
+    # slice: neither has a merged PR, a merge SHA or a required-run list,
+    # and neither ever will, so guarding them reopens the issue forever.
+    # `state_reason` is the durable record, surfaced by the API and the UI.
+    # `completed` and an absent reason still go through the full check.
+    if: >-
+      contains(github.event.issue.labels.*.name, 'slice')
+      && github.event.issue.state_reason != 'not_planned'
+      && github.event.issue.state_reason != 'duplicate'
     steps:
+      # The evidence splice lives in governance/closeout_evidence.py, so the
+      # job needs the repository on disk. Every other step reaches GitHub
+      # through `gh` against $GITHUB_REPOSITORY and needs no working tree,
+      # which is why this job had no checkout until the splice moved out of
+      # the workflow.
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5.0.1
+        with:
+          persist-credentials: false
+
       - name: Resolve the closing PR
         id: closing_pr
         env:
@@ -57,68 +75,7 @@ jobs:
             --paginate --jq '.check_runs[] | select(.conclusion == "success") | "\(.name)\t\(.id)"' \
             > check_runs.txt
           gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUMBER" --jq '.body // ""' > issue_body.txt
-          python - <<'EOF'
-          import os
-          import re
-          import sys
-          from pathlib import Path
-
-          body = Path('issue_body.txt').read_text(encoding='utf-8')
-          required = [c for c in Path('required_contexts.txt').read_text(encoding='utf-8').splitlines() if c]
-          if not required:
-              print('slice_closeout_guard: no required status checks resolved from the main branch rules', file=sys.stderr)
-              sys.exit(1)
-          check_runs = {}
-          for raw in Path('check_runs.txt').read_text(encoding='utf-8').splitlines():
-              if not raw:
-                  continue
-              name, run_id = raw.split('\t')
-              check_runs[name] = run_id
-          missing = [c for c in required if c not in check_runs]
-          if missing:
-              print(f"slice_closeout_guard: required contexts without a successful check run on the closing PR head commit: {', '.join(missing)}", file=sys.stderr)
-              sys.exit(1)
-          runs = [f'- {c} : {check_runs[c]}' for c in required]
-
-          matches = list(re.finditer(
-              r'^##+ Done Means\b.*?^##+ Author Checks\b',
-              body,
-              re.MULTILINE | re.DOTALL,
-          ))
-          if len(matches) != 1:
-              print(f'slice_closeout_guard: expected exactly one Done Means section, found {len(matches)}', file=sys.stderr)
-              sys.exit(1)
-          start, end = matches[0].span()
-          lines = matches[0].group(0).split('\n')
-
-          out = []
-          found_sha = found_pr = found_runs = False
-          i = 0
-          while i < len(lines):
-              line = lines[i]
-              if line.startswith('Merge SHA:'):
-                  out.append(f"Merge SHA: {os.environ['MERGE_SHA']}")
-                  found_sha = True
-              elif line.startswith('Merged PR number:'):
-                  out.append(f"Merged PR number: #{os.environ['PR_NUMBER']}")
-                  found_pr = True
-              elif line.startswith('Required CI runs'):
-                  out.append(line)
-                  found_runs = True
-                  i += 1
-                  while i < len(lines) and lines[i].lstrip().startswith('-'):
-                      i += 1
-                  out.extend(runs)
-                  continue
-              else:
-                  out.append(line)
-              i += 1
-          if not (found_sha and found_pr and found_runs):
-              print('slice_closeout_guard: Done Means section is missing evidence field lines', file=sys.stderr)
-              sys.exit(1)
-
-          Path('new_body.txt').write_text(body[:start] + '\n'.join(out) + body[end:], encoding='utf-8')
-          EOF
+          python governance/closeout_evidence.py
           gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file new_body.txt
       - name: Detect a close with no merged closing PR and no evidence
         id: closeout

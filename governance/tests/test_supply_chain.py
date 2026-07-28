@@ -38,6 +38,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import yaml
 from _common import REPO_ROOT
 
 WORKFLOWS_DIR = REPO_ROOT / '.github' / 'workflows'
@@ -162,3 +163,44 @@ def test_requirement_sets_are_hash_complete_and_paired() -> None:
             if '--hash=sha256' not in '\n'.join(block):
                 violations.append(f'{path.name}:{lineno}: {line.split(" ")[0]} has no hash')
     assert not violations, '\n'.join(violations)
+
+
+def test_every_job_running_a_repo_file_checks_out_the_repository() -> None:
+    """A job that executes a tracked file must first check the repository out.
+
+    Most guard jobs reach GitHub entirely through `gh` against
+    `$GITHUB_REPOSITORY` and need no working tree, so a missing checkout is
+    invisible until a step runs something from disk -- and then it fails with
+    `can't open file`, which for `slice_closeout_guard` means reopening a
+    correctly merged slice. No unit test can see this: the failure is in the
+    job's composition, not in any module the job calls.
+    """
+    tracked_dirs = ('governance/', 'scripts/', 'tests/')
+    offenders: list[str] = []
+    for path in sorted(WORKFLOWS_DIR.glob('*.yml')):
+        workflow = yaml.safe_load(path.read_text(encoding='utf-8'))
+        for job_name, job in (workflow.get('jobs') or {}).items():
+            steps = job.get('steps') or []
+            has_checkout = any(
+                isinstance(s.get('uses'), str) and s['uses'].startswith('actions/checkout@')
+                for s in steps
+            )
+            if has_checkout:
+                continue
+            for step in steps:
+                run = step.get('run')
+                if not isinstance(run, str):
+                    continue
+                for line in run.split('\n'):
+                    stripped = line.strip()
+                    if stripped.startswith('#'):
+                        continue
+                    if any(f' {d}' in f' {stripped}' for d in tracked_dirs):
+                        offenders.append(
+                            f'{path.name}:{job_name} runs `{stripped}` with no checkout'
+                        )
+                        break
+                else:
+                    continue
+                break
+    assert not offenders, '\n'.join(offenders)

@@ -7,6 +7,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import yaml
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CLOSEOUT_GUARD_WORKFLOW = REPO_ROOT / '.github/workflows/slice_closeout_guard.yml'
 ON_ISSUE_WORKFLOW = REPO_ROOT / '.github/workflows/pr_checks_slice_on_issue.yml'
@@ -23,7 +25,11 @@ def test_slice_closeout_guard_workflow_contract() -> None:
     workflow = CLOSEOUT_GUARD_WORKFLOW.read_text(encoding='utf-8')
 
     assert 'issues:\n    types: [closed]' in workflow
-    assert "if: contains(github.event.issue.labels.*.name, 'slice')" in workflow
+    # Parsed rather than string-matched: the condition is a multi-line
+    # folded scalar since it also excludes withdrawals, so pinning its exact
+    # source text breaks on a reformat that changes nothing semantic.
+    condition = yaml.safe_load(workflow)['jobs']['slice_closeout_guard']['if']
+    assert "contains(github.event.issue.labels.*.name, 'slice')" in condition
     assert 'issues: write' in workflow
     assert 'closedByPullRequestsReferences' in workflow
     # Evidence quality: only successful check runs may become closeout
@@ -32,7 +38,12 @@ def test_slice_closeout_guard_workflow_contract() -> None:
     # An appended duplicate Done Means section must not receive (or
     # shadow) evidence, and a hand-typed Merge SHA on a no-PR close
     # must be reachable from main to count.
-    assert 'expected exactly one Done Means section' in workflow
+    # The splice moved into governance/closeout_evidence.py so it could be
+    # unit tested; the workflow now calls it. Its fail-closed behaviour is
+    # asserted there, in test_closeout_evidence.py.
+    assert 'python governance/closeout_evidence.py' in workflow
+    evidence = (REPO_ROOT / 'governance/closeout_evidence.py').read_text(encoding='utf-8')
+    assert 'expected exactly one Done Means section' in evidence
     assert 'compare/main...$CLAIMED' in workflow
     assert r"r'^##+ Done Means\b.*?^##+ Author Checks\b'" in workflow
     # Fill: a merged closing PR gets the evidence fields written in place.
@@ -115,6 +126,13 @@ def test_merge_readiness_workflow_contract() -> None:
     assert 'pull_request_review_comment:' in workflow
     assert 'check_suite:' in workflow
     assert '<!-- merge-readiness -->' in workflow
+
+    # Queued, not cancelled. The group exists to serialise the
+    # read-then-create on the marker comment, and cancelling is not
+    # serialising -- it kills the earlier run, which then surfaces as a
+    # failed check on the PR this workflow exists to report on.
+    parsed = yaml.safe_load(workflow)
+    assert parsed['concurrency']['cancel-in-progress'] is False
     assert 'required-check inventory unavailable (fail-closed)' in workflow
     assert 'pull-requests: write' in workflow
     # One concurrency lane per PR across every event type, so parallel
@@ -164,3 +182,21 @@ def test_typing_gate_setup_failures_exit_2() -> None:
     assert result.returncode == 2
     assert result.stdout == ''
     assert 'typing_gate: cannot parse pyproject.toml:' in result.stderr
+
+
+def test_closeout_guard_skips_withdrawals() -> None:
+    """A `not planned` close is a withdrawal, and the guard must let it stand.
+
+    The guard reopens any close it cannot back with a merge SHA, a merged PR
+    number and a required-run list. A withdrawn slice has none of those and
+    never will, so guarding it reopens the issue forever -- which is what
+    happened to #70-#74. `state_reason` is the durable record of the decision.
+    """
+    workflow = yaml.safe_load(CLOSEOUT_GUARD_WORKFLOW.read_text(encoding='utf-8'))
+    condition = workflow['jobs']['slice_closeout_guard']['if']
+    assert 'state_reason' in condition
+    assert "!= 'not_planned'" in condition
+    # a duplicate close is equally evidence-free and equally permanent
+    assert "!= 'duplicate'" in condition
+    # every other close still goes through the evidence check
+    assert "contains(github.event.issue.labels.*.name, 'slice')" in condition
