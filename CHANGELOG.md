@@ -1,3 +1,9 @@
+# v0.21.4
+
+- Count every open sub-issue when rule 9 decides whether a PR must also close its parent PRD, instead of only `slice`-labelled ones. The narrow count assumed every child of a PRD is a slice, which breaks for a PRD used as a programme tracker: #93 carried 24 open backlog items and one promoted slice, and the gate concluded the slice was the parent's last open child and demanded the closing set be `{#93, #121}` — closing a PRD that was 1/26 delivered. The workaround was detaching the slice from the sub-issue graph, which loses the linkage that makes PRD progress visible. A PRD with open children is not done, whatever those children are labelled, so `fetch_open_slice_sub_issue_numbers` becomes `fetch_open_sub_issue_numbers` and drops its label predicate.
+- Name the counted children in the rule 9 failure message. It previously asserted a conclusion — "last open slice sub-issue" — without the evidence behind it, so a red gate could not be distinguished from a wrong gate without querying the sub-issue graph by hand. That is precisely how the defect above presented.
+- Reword law 1 to match: the parent PRD closes with its slice when the slice is the PRD's last open **sub-issue**, not its last open slice sub-issue.
+
 # v0.21.3
 
 - Let `slice_closeout_guard` accept a withdrawal. It fires on any `closed` event for a `slice`-labelled issue and reopens the close unless it can be backed by a merge SHA, a merged PR number and a required-run list. A slice closed as *not planned* has none of those and never will, so the guard reopened it forever — five spent live-probe fixtures (#70-#74) sat reopened for exactly this reason, and the same defect forced a label-removal workaround downstream. The job condition now excludes `state_reason == 'not_planned'`; `state_reason` is the durable record of the decision, surfaced by both the API and the UI, and every other close still goes through the full evidence check.
