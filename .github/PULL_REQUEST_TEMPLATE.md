@@ -17,3 +17,4 @@ _(Fill in at least a short description of the intent of the change.)_
 - [ ] I validated that the change returns what it promised — not merely that it ran
 - [ ] I removed any extraneous examples/comments
 - [ ] I linked issue to auto-close on merge (e.g., “Fixes #123”) when applicable
+- [ ] If this PR delivers a PRD's **last** remaining sub-issue, I also linked the parent PRD to close with it (e.g. "Closes #120"), so the PRD closes on merge instead of by hand — rule 9 requires the closing set to be exactly `{slice, parent PRD}` in that case

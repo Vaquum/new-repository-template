@@ -18,56 +18,89 @@ DEV_ENV_TXT: Final[Path] = REPO_ROOT / 'requirements/ci/dev-env.txt'
 BAD_FIXTURE: Final[Path] = REPO_ROOT / 'governance/tests/fixtures/lint/bad_imports.py'
 RUFF_VERSION: Final[str] = '0.15.11'
 EXPECTED_RUFF_POLICY: Final[dict[str, object]] = {
-    'exclude': [
-        '.git',
-        '__pycache__',
-        'build',
-        'dist',
-        'demo',
-        'governance/tests/fixtures',
+    "exclude": [
+        ".git",
+        "__pycache__",
+        "build",
+        "dist",
+        "demo",
+        "governance/tests/fixtures"
     ],
-    'select': [
-        'E',
-        'F',
-        'I',
-        'UP',
-        'RUF',
-        'BLE',
-        'ANN',
-        'C901',
-        'PLR0912',
-        'PLR0913',
-        'PLR0915',
-        'T201',
-        'FIX001',
-        'FIX002',
-        'FIX003',
-        'FIX004',
-        'ERA001',
-        'D200',
-        'D205',
-        'D415',
-        'PIE790',
+    "select": [
+        "E",
+        "F",
+        "I",
+        "UP",
+        "RUF",
+        "BLE",
+        "ANN",
+        "C901",
+        "PLR0912",
+        "PLR0913",
+        "PLR0915",
+        "T201",
+        "FIX001",
+        "FIX002",
+        "FIX003",
+        "FIX004",
+        "ERA001",
+        "D200",
+        "D205",
+        "D415",
+        "PIE790"
     ],
-    'ignore': ['E501'],
-    'per-file-ignores': {
-        'tests/**/*.py': [
-            'S101', 'ANN', 'BLE001',
-            'PLR0912', 'PLR0913', 'PLR0915',
-            'D200', 'D205', 'D415',
+    "ignore": [
+        "E501"
+    ],
+    "per-file-ignores": {
+        "tests/**/*.py": [
+            "S101",
+            "ANN",
+            "BLE001",
+            "PLR0912",
+            "PLR0913",
+            "PLR0915",
+            "D200",
+            "D205",
+            "D415"
         ],
-        'governance/*.py': [
-            'C901', 'PLR0912', 'PLR0913', 'PLR0915',
-            'T201',
-            'FIX001', 'FIX002', 'FIX003', 'FIX004',
-            'ERA001', 'D200', 'D205', 'D415',
+        "governance/*.py": [
+            "C901",
+            "PLR0912",
+            "PLR0913",
+            "PLR0915",
+            "T201",
+            "FIX001",
+            "FIX002",
+            "FIX003",
+            "FIX004",
+            "ERA001",
+            "D200",
+            "D205",
+            "D415"
         ],
-        'governance/tests/**/*.py': [
-            'S101', 'ANN', 'BLE001',
-            'PLR0912', 'PLR0913', 'PLR0915',
-            'D200', 'D205', 'D415',
+        "scripts/*.py": [
+            "C901",
+            "PLR0912",
+            "PLR0913",
+            "PLR0915",
+            "T201",
+            "D200",
+            "D205",
+            "D415"
         ],
-    },
+        "governance/tests/**/*.py": [
+            "S101",
+            "ANN",
+            "BLE001",
+            "PLR0912",
+            "PLR0913",
+            "PLR0915",
+            "D200",
+            "D205",
+            "D415"
+        ]
+    }
 }
 
 

@@ -67,6 +67,11 @@ def _required_status_contexts() -> list[str]:
     raise AssertionError('required_status_checks rule missing from ruleset snapshot')
 
 
+# The packaging gate builds on the pinned interpreter and then proves the
+# wheel installs on every supported one. Every other workflow pins.
+MULTI_INTERPRETER_WORKFLOWS: frozenset[str] = frozenset({'pr_checks_packaging.yml'})
+
+
 def _setup_python_versions() -> dict[str, list[str]]:
     versions: dict[str, list[str]] = {}
     for workflow in sorted(WORKFLOWS_DIR.glob('*.yml')):
@@ -145,6 +150,14 @@ def test_workflow_runtime_and_tooling_match_config() -> None:
 
     assert _setup_python_versions()
     for workflow_name, versions in _setup_python_versions().items():
+        if workflow_name in MULTI_INTERPRETER_WORKFLOWS:
+            # The install matrix exists to prove the wheel imports on every
+            # supported interpreter, so it cannot pin one. Matrix expressions
+            # are not literals; every literal that remains must still be the
+            # version governance.yml names.
+            literals = [v for v in versions if not v.startswith('${{')]
+            assert literals == [python_version] * len(literals), (workflow_name, literals)
+            continue
         assert versions == [python_version] * len(versions), workflow_name
     assert _requirement_pins('ruff') == [ruff_version]
     assert _requirement_pins('pyright') == [pyright_version]
