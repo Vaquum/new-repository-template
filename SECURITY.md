@@ -23,7 +23,15 @@ Reporters are credited in the release notes and `CHANGELOG.md` entry of the fix 
 
 ## Verifying Release Artifacts
 
-Every release attaches the wheel, sdist, a CycloneDX `sbom.json`, and a `provenance.intoto.jsonl` attestation bundle, with SHA-256 digests in the release body. Verify a downloaded artifact with `gh attestation verify <artifact> --repo {REPOSITORY_OWNER}/{REPOSITORY_NAME}`; the verification contract is documented in [Release Policy](docs/Developer/Release-Policy.md). Report verification mismatches through the private channel above.
+Distributions published to PyPI carry GitHub build-provenance attestations, served by the GitHub attestation API. Verify a downloaded artifact with:
+
+```bash
+gh attestation verify <artifact> --repo {REPOSITORY_OWNER}/{REPOSITORY_NAME}
+```
+
+SHA-256 digests of every built artifact are recorded in the publish run's job summary. The verification contract is documented in [Release Policy](docs/Developer/Release-Policy.md). Report verification mismatches through the private channel above.
+
+A CycloneDX SBOM and an offline `provenance.intoto.jsonl` bundle are **not** produced today; verification is against the attestation API rather than a downloaded bundle.
 
 ## Scope
 

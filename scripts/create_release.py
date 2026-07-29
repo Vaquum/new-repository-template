@@ -12,8 +12,10 @@ release title and body. That is deliberately not done here: it adds an API
 dependency and a review surface to a step whose entire job is to publish what
 the changelog already says.
 
-Idempotent by design: an existing tag is a no-op, not an error, so re-running
-after a partial failure is safe.
+Idempotent by design, and keyed on both the tag and the release rather than
+the tag alone. A run that pushed the tag and then failed leaves a tag with no
+release; keying only on the tag would make every re-run exit green while the
+release stayed missing. Re-running resumes instead.
 """
 from __future__ import annotations
 
@@ -115,6 +117,15 @@ def tag_exists(tag: str) -> bool:
     return bool(local) or bool(run('git', 'ls-remote', '--tags', 'origin', tag))
 
 
+def release_exists(tag: str) -> bool:
+    """Whether a GitHub release already exists for this tag."""
+    result = subprocess.run(
+        ['gh', 'release', 'view', tag, '--json', 'tagName'],
+        capture_output=True, text=True, check=False,
+    )
+    return result.returncode == 0
+
+
 def main() -> int:
     """Tag the current version and publish its GitHub release."""
     repo = os.environ.get('GITHUB_REPOSITORY')
@@ -124,17 +135,26 @@ def main() -> int:
     version = current_version()
     tag = compute_tag(version)
 
-    if tag_exists(tag):
-        print(f'{BANNER} -- SKIP ({tag} already exists)')
+    tagged = tag_exists(tag)
+    released = release_exists(tag)
+    if tagged and released:
+        print(f'{BANNER} -- SKIP ({tag} is already tagged and released)')
         return 0
+    if tagged and not released:
+        # The tag was pushed and the release step then failed. Resuming here
+        # rather than skipping is the whole point of the split check: keying
+        # only on the tag would make every re-run exit green while the release
+        # stayed missing, which is exactly what the docs promise is safe.
+        print(f'{BANNER}: {tag} is tagged but has no release; creating it')
 
     notes = newest_changelog_section(version)
     if not notes:
         raise SystemExit(f'{BANNER}: changelog section for {version} is empty')
     body = notes + '\n' + traceability(repo, tag, previous_tag(tag))
 
-    run('git', 'tag', '-a', tag, '-m', tag)
-    run('git', 'push', 'origin', tag)
+    if not tagged:
+        run('git', 'tag', '-a', tag, '-m', tag)
+        run('git', 'push', 'origin', tag)
 
     notes_path = Path('release-notes.md')
     notes_path.write_text(body, encoding='utf-8')

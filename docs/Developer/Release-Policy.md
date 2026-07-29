@@ -52,8 +52,14 @@ written at release time.
 Every release carries:
 
 - the wheel and sdist that PyPI serves
-- GitHub build-provenance attestations for both
-- SHA-256 digests of every artifact, in the run summary
+- GitHub build-provenance attestations for both, served by the attestation API
+- SHA-256 digests of every artifact, in the publish run's job summary
+
+Deliberately **not** produced: a CycloneDX SBOM, an offline
+`provenance.intoto.jsonl` bundle, or release-attached asset files. Each is a
+real capability and none is claimed here — a policy page that lists artifacts
+the pipeline does not build sends a consumer looking for something that was
+never there.
 
 Consumers verify with:
 

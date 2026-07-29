@@ -90,10 +90,11 @@ independently.
 
 **Evidence.** Distributions build under a fixed `SOURCE_DATE_EPOCH` and
 `pr_checks_packaging` asserts two builds are byte-identical — the sdist only
-because `build_backend.py` normalises its archive metadata. Releases are
-attested with `actions/attest-build-provenance`; PyPI publication uses trusted
-publishing (OIDC) from the `pypi` environment with no long-lived token, and is
-inert unless a repository variable enables it. A pre-build guard rejects a
+because `build_backend.py` normalises its archive metadata. Releases are attested with `actions/attest-build-provenance`, verifiable
+through the GitHub attestation API; PyPI publication uses trusted publishing
+(OIDC) from the `pypi` environment with no long-lived token, and is inert
+unless a repository variable enables it. No SBOM or offline provenance bundle
+is produced, and neither the policy nor this page claims one. A pre-build guard rejects a
 version PyPI has already served.
 
 ## Requirement 6: untrusted input cannot crash a required gate

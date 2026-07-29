@@ -50,10 +50,11 @@ CHECKOUT_RE = re.compile(r'^\s*(?:- )?uses: actions/checkout@')
 NEXT_STEP_RE = re.compile(r'^\s*- (?:name|uses|run|env|id|if):')
 PERMISSIONS_RE = re.compile(r'^(?:permissions:|    permissions:)', re.MULTILINE)
 PERSIST_LINE_RE = re.compile(r'^\s*persist-credentials: false\s*$')
-# The release workflow pushes the version tag, so its checkout must keep
-# credentials. It is the one documented exception, named here so the exception
-# is a recorded decision rather than an unchecked gap.
-CREDENTIALED_CHECKOUT_WORKFLOWS: frozenset[str] = frozenset({'pr_post_release.yml'})
+# The release workflow pushes the version tag, so exactly one checkout in it
+# must keep credentials. Keyed with a count rather than by filename: waiving
+# the whole file would let a second checkout added later inherit the
+# credential-persistence waiver silently.
+CREDENTIALED_CHECKOUTS: dict[str, int] = {'pr_post_release.yml': 1}
 # Deliberately exempts exactly one canonical spelling: like the byte-equal
 # title rule, the law pins the form itself, so a differently-formatted
 # compliant fetch fails loud and gets rewritten to canon rather than
@@ -101,6 +102,7 @@ def test_every_action_reference_is_sha_pinned() -> None:
 
 def test_every_checkout_disables_credential_persistence() -> None:
     violations: list[str] = []
+    waived: dict[str, int] = {}
     for path in _workflow_files():
         lines = path.read_text(encoding='utf-8').splitlines()
         for lineno, line in enumerate(lines, start=1):
@@ -110,7 +112,9 @@ def test_every_checkout_disables_credential_persistence() -> None:
             while step_end < len(lines) and not NEXT_STEP_RE.match(lines[step_end]):
                 step_end += 1
             if not any(PERSIST_LINE_RE.match(entry) for entry in lines[lineno - 1:step_end]):
-                if path.name in CREDENTIALED_CHECKOUT_WORKFLOWS:
+                allowance = CREDENTIALED_CHECKOUTS.get(path.name, 0)
+                if allowance and waived.get(path.name, 0) < allowance:
+                    waived[path.name] = waived.get(path.name, 0) + 1
                     continue
                 violations.append(f'{path.name}:{lineno}: checkout without persist-credentials: false')
     assert not violations, '\n'.join(violations)

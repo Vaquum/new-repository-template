@@ -38,6 +38,16 @@ DIST: Final[Path] = REPO_ROOT / 'dist'
 # bound there is, not an absent one.
 BOUNDED_RE: Final[re.Pattern[str]] = re.compile(r'>=[^,;]+,\s*<[^,;]+|==[^,;]+')
 
+
+def version_part(spec: str) -> str:
+    """Return the requirement without its PEP 508 environment marker.
+
+    A marker carries its own `==`, so matching bounds against the whole
+    string reports `pkg; python_version==\"3.12\"` as bounded -- the exact
+    class of unbounded dependency this check exists to catch.
+    """
+    return spec.split(';', 1)[0].strip()
+
 REQUIRED_SDIST_PATHS: Final[frozenset[str]] = frozenset({
     'README.md',
     'LICENSE',
@@ -67,6 +77,16 @@ def wheel_members(path: Path) -> set[str]:
         return set(zf.namelist())
 
 
+def unbounded(specs: list[str]) -> list[str]:
+    """Return the specs that carry neither a two-ended range nor an exact pin.
+
+    Split from the pyproject reader so the rule itself is testable without a
+    project on disk -- a test that reimplements the check instead of calling
+    it proves nothing about the call site.
+    """
+    return [spec for spec in specs if not BOUNDED_RE.search(version_part(spec))]
+
+
 def unbounded_dependencies() -> list[str]:
     """Return declared dependencies missing a lower or an upper bound."""
     data = tomllib.loads((REPO_ROOT / 'pyproject.toml').read_text(encoding='utf-8'))
@@ -74,7 +94,7 @@ def unbounded_dependencies() -> list[str]:
     declared: list[str] = list(project.get('dependencies', []))
     for extra in (project.get('optional-dependencies') or {}).values():
         declared.extend(extra)
-    return [spec for spec in declared if not BOUNDED_RE.search(spec)]
+    return unbounded(declared)
 
 
 def main() -> int:
