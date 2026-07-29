@@ -44,6 +44,9 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Install gate toolchain
+        run: pip install --require-hashes -r requirements/ci/gate-tools.txt
+
       - name: Fetch PR title and body
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
