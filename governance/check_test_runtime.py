@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Final
@@ -26,6 +28,10 @@ BANNER: Final[str] = 'TEST RUNTIME GATE'
 BUDGET_PATH: Final[Path] = REPO_ROOT / '.github' / 'budgets.json'
 BUDGET_SECTION: Final[str] = 'runtime'
 DEFAULT_SLOWEST_TESTS_LIMIT: Final[int] = 10
+RAISE_MARKER_RE: Final[re.Pattern[str]] = re.compile(
+    r'^\[runtime-raise:\s*(?P<reason>.*?\S)\s*\]\s*$',
+    re.MULTILINE,
+)
 
 
 def load_json(path: Path, what: str) -> dict[str, Any]:
@@ -39,6 +45,51 @@ def load_json(path: Path, what: str) -> dict[str, Any]:
     if not isinstance(data, dict):
         fail_setup(BANNER, f'{what} at {path} is not a JSON object')
     return data
+
+
+def base_ceiling(base_ref: str | None, base_file: str | None) -> float | None:
+    """The ceiling recorded on the base ref, or None when there is none.
+
+    None means the base ref carries no runtime budget at all -- the commit
+    introducing it. A base ref that has one but cannot be read is a setup
+    failure rather than a None, because a silently absent base ceiling would
+    make every raise look like a first commit.
+    """
+    if base_ref is not None:
+        result = subprocess.run(
+            ['git', 'show', f'{base_ref}:.github/budgets.json'],
+            check=False, capture_output=True, text=True,
+        )
+        if result.returncode != 0:
+            return None
+        text = result.stdout
+    elif base_file is not None and Path(base_file).is_file():
+        text = Path(base_file).read_text(encoding='utf-8')
+    else:
+        return None
+    if not text.strip():
+        return None
+    try:
+        section = json.loads(text).get(BUDGET_SECTION, {})
+    except json.JSONDecodeError as exc:
+        fail_setup(BANNER, f'cannot parse base budgets.json: {exc}')
+    if not isinstance(section, dict):
+        fail_setup(BANNER, 'base budgets.json runtime section is not an object')
+    value = section.get('max_total_seconds')
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
+        fail_setup(BANNER, f'base max_total_seconds must be positive, got {value!r}')
+    return float(value)
+
+
+def raise_is_declared(pr_body: str) -> bool:
+    """Whether the PR body carries a `[runtime-raise: <reason>]` line.
+
+    The ceiling is a ceiling, so *raising* it is the loosening that needs a
+    reason. Lowering needs no marker -- that is the ratchet working.
+    """
+    return RAISE_MARKER_RE.search(pr_body) is not None
 
 
 def slowest(profile: dict[str, Any], limit: int) -> list[tuple[str, float]]:
@@ -63,6 +114,9 @@ def main() -> int:
     parser.add_argument('--profile', required=True, help='runtime profile JSON')
     parser.add_argument('--enforce', action='store_true',
                         help='exit non-zero when the suite exceeds its ceiling')
+    parser.add_argument('--base-ref', help='protected base ref to compare the ceiling against')
+    parser.add_argument('--base-file', help='path to the base budgets.json (local/test mode)')
+    parser.add_argument('--pr-body-file', help='file holding the PR body, for the raise marker')
     args = parser.parse_args()
 
     budget = load_json(BUDGET_PATH, 'runtime budget').get(BUDGET_SECTION, {})
@@ -74,6 +128,31 @@ def main() -> int:
     limit = gate_setting(
         'runtime_budget', 'slowest_tests_limit', DEFAULT_SLOWEST_TESTS_LIMIT, BANNER
     )
+
+    base = base_ceiling(args.base_ref, args.base_file)
+    if base is not None and float(ceiling) > base:
+        body_path = args.pr_body_file
+        pr_body = (
+            Path(body_path).read_text(encoding='utf-8')
+            if body_path is not None and Path(body_path).is_file()
+            else ''
+        )
+        if not raise_is_declared(pr_body):
+            print(f'{BANNER} -- FAIL', file=sys.stderr)
+            print('', file=sys.stderr)
+            print(
+                f'  raised without marker: max_total_seconds '
+                f'(base={base:g}, head={float(ceiling):g}, +{float(ceiling) - base:g})',
+                file=sys.stderr,
+            )
+            print('', file=sys.stderr)
+            print(
+                '  PR body must contain `[runtime-raise: <reason>]` on its own line. '
+                'A ceiling raised by the PR it gates is not a ceiling.',
+                file=sys.stderr,
+            )
+            print('Merge blocked.', file=sys.stderr)
+            return 1
 
     total = profile.get('total_seconds')
     if isinstance(total, bool) or not isinstance(total, (int, float)):
