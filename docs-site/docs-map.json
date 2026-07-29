@@ -85,6 +85,55 @@
       "slug": "/packages/python-package",
       "sidebarPosition": 1,
       "sidebarLabel": "Python package"
+    },
+    {
+      "source": "docs/Developer/Writing-Docstrings.md",
+      "dest": "developer/writing-docstrings.md",
+      "slug": "/developer/writing-docstrings",
+      "sidebarPosition": 3,
+      "sidebarLabel": "Writing docstrings"
+    },
+    {
+      "source": "docs/Developer/Technical-Debt.md",
+      "dest": "developer/technical-debt.md",
+      "slug": "/developer/technical-debt",
+      "sidebarPosition": 4,
+      "sidebarLabel": "Technical debt"
+    },
+    {
+      "source": "docs/Developer/Packaging.md",
+      "dest": "developer/packaging.md",
+      "slug": "/developer/packaging",
+      "sidebarPosition": 5,
+      "sidebarLabel": "Packaging"
+    },
+    {
+      "source": "docs/Developer/Release-Policy.md",
+      "dest": "developer/release-policy.md",
+      "slug": "/developer/release-policy",
+      "sidebarPosition": 6,
+      "sidebarLabel": "Release policy"
+    },
+    {
+      "source": "docs/Developer/Making-Release.md",
+      "dest": "developer/making-release.md",
+      "slug": "/developer/making-release",
+      "sidebarPosition": 7,
+      "sidebarLabel": "Making a release"
+    },
+    {
+      "source": "docs/Developer/Semantic-Versioning.md",
+      "dest": "developer/semantic-versioning.md",
+      "slug": "/developer/semantic-versioning",
+      "sidebarPosition": 8,
+      "sidebarLabel": "Semantic versioning"
+    },
+    {
+      "source": "docs/Developer/Security-Assurance-Case.md",
+      "dest": "developer/security-assurance-case.md",
+      "slug": "/developer/security-assurance-case",
+      "sidebarPosition": 9,
+      "sidebarLabel": "Security assurance case"
     }
   ]
 }
