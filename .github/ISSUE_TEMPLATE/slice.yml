@@ -42,6 +42,22 @@ body:
     validations:
       required: true
 
+  - type: dropdown
+    id: primary_task_type
+    attributes:
+      label: Primary Task Type
+      options:
+        - proof
+        - planning
+        - issue_authoring
+        - operator_surface
+        - runtime_env
+        - correctness
+        - performance
+        - capability
+    validations:
+      required: true
+
   - type: textarea
     id: routing
     attributes:
@@ -138,6 +154,34 @@ body:
         -
         -
         -
+    validations:
+      required: true
+
+  - type: textarea
+    id: design
+    attributes:
+      label: Design
+      value: |
+        > **Significance.** Design is the end-to-end shape of the solution. Name
+        > the concrete files, commands, interfaces, and data flow that make the
+        > capability true. Do not restate the objective.
+
+        Design:
+    validations:
+      required: true
+
+  - type: textarea
+    id: runtime_observability_scope
+    attributes:
+      label: Runtime and Observability Scope
+      value: |
+        > **Significance.** Runtime and observability scope states whether this
+        > slice changes execution behavior, environment, telemetry, logs, metrics,
+        > alerts, or operational proof. If there is no runtime touch, say so.
+
+        Runtime touch:
+        Observability touch:
+        Operational proof:
     validations:
       required: true
 
@@ -245,6 +289,22 @@ body:
         Workflow file:
         Job name:
         Specific failing command the job runs:
+    validations:
+      required: true
+
+  - type: textarea
+    id: step_register
+    attributes:
+      label: Step Register
+      value: |
+        > **Significance.** Step Register is the ordered execution backlog for
+        > this slice. Each step must name a concrete edit, command, or GitHub
+        > action. It is not a narrative plan.
+
+        Steps:
+        -
+        -
+        -
     validations:
       required: true
 

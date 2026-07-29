@@ -462,6 +462,30 @@ def gate_pyright_errors(
     pyright_json_path: str | None,
     budget: dict[str, object],
 ) -> list[str]:
+    """Ratchet both pyright severities against their budgets.
+
+    Errors alone leave a real class of defect ungated: under strict mode
+    pyright reports plenty as warnings, and a repository could accumulate
+    them indefinitely while the gate stayed green.
+    """
+    failures: list[str] = []
+    for severity, summary_key, section in (
+        ('error', 'errorCount', 'pyright_errors'),
+        ('warning', 'warningCount', 'pyright_warnings'),
+    ):
+        failures.extend(
+            _gate_pyright_severity(pyright_json_path, budget, severity, summary_key, section)
+        )
+    return failures
+
+
+def _gate_pyright_severity(
+    pyright_json_path: str | None,
+    budget: dict[str, object],
+    severity: str,
+    summary_key: str,
+    section: str,
+) -> list[str]:
     if pyright_json_path is None:
         return []
     path = Path(pyright_json_path)
@@ -481,29 +505,29 @@ def gate_pyright_errors(
     summary = data.get('summary', {})
     if not isinstance(summary, dict):
         return ['pyright output .summary must be an object']
-    raw_current = summary.get('errorCount', 0)
+    raw_current = summary.get(summary_key, 0)
     if isinstance(raw_current, bool) or not isinstance(raw_current, int):
         return [
-            f'pyright output .summary.errorCount must be an integer '
+            f'pyright output .summary.{summary_key} must be an integer '
             f'(got {raw_current!r})'
         ]
     current_errors = raw_current
 
-    py_budget_raw = budget.get('pyright_errors')
+    py_budget_raw = budget.get(section)
     if not isinstance(py_budget_raw, dict):
         return [
-            'typing_budget.json must include a pyright_errors section '
+            f'typing_budget.json must include a {section} section '
             "with {'total': <int>}"
         ]
     raw_budget_total = py_budget_raw.get('total', 0)
     if isinstance(raw_budget_total, bool) or not isinstance(raw_budget_total, int):
         return [
-            f'typing_budget.json: pyright_errors.total must be a '
+            f'typing_budget.json: {section}.total must be a '
             f'non-negative integer (got {raw_budget_total!r})'
         ]
     if raw_budget_total < 0:
         return [
-            f'typing_budget.json: pyright_errors.total must be '
+            f'typing_budget.json: {section}.total must be '
             f'non-negative (got {raw_budget_total})'
         ]
     budget_total = raw_budget_total
@@ -516,14 +540,14 @@ def gate_pyright_errors(
             for diag in diagnostics:
                 if not isinstance(diag, dict):
                     continue
-                if diag.get('severity') != 'error':
+                if diag.get('severity') != severity:
                     continue
                 rule = str(diag.get('rule', '<no-rule>'))
                 per_rule[rule] = per_rule.get(rule, 0) + 1
         top = sorted(per_rule.items(), key=lambda kv: -kv[1])[:5]
         top_str = '; '.join(f'{r}={n}' for r, n in top)
         return [
-            f'pyright errors: budget={budget_total} current={current_errors} '
+            f'pyright {severity}s: budget={budget_total} current={current_errors} '
             f'(delta={current_errors - budget_total}). Top rules: {top_str}'
         ]
 
@@ -655,7 +679,7 @@ def gate_budget_source(
             )
 
     # Top-level integer-ceiling sections (pyright_errors, any_references).
-    for section in ('pyright_errors', 'any_references'):
+    for section in ('pyright_errors', 'pyright_warnings', 'any_references'):
         base_sec = base_budget.get(section)
         head_sec = head_budget.get(section)
         if not isinstance(base_sec, dict):
@@ -800,6 +824,7 @@ def update_budget(pyright_json_path: str | None) -> None:
             'patterns': {k: dict(v) for k, v in DEFAULT_PATTERNS.items()},
             'any_references': {'total': 0},
             'pyright_errors': {'total': 0},
+            'pyright_warnings': {'total': 0},
         }
 
     # Migrate schema v1 -> v2 (add any_references if missing)
@@ -821,6 +846,8 @@ def update_budget(pyright_json_path: str | None) -> None:
             data = json.loads(Path(pyright_json_path).read_text(encoding='utf-8'))
             summary = data.get('summary', {})
             budget['pyright_errors']['total'] = int(summary.get('errorCount', 0))
+            budget.setdefault('pyright_warnings', {'total': 0})
+            budget['pyright_warnings']['total'] = int(summary.get('warningCount', 0))
         except (OSError, json.JSONDecodeError) as e:
             print(f'warning: could not read pyright output: {e}', file=sys.stderr)
 
