@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -208,13 +209,10 @@ def test_multiple_closing_references_fail_before_api_call(tmp_path: Path) -> Non
     ]
 
 
-def test_rule_9_counts_non_slice_children_as_open_siblings(
+def test_rule_9_rejects_prd_close_with_open_siblings(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    # #77 is an unpromoted backlog item with no `slice` label. Counting only
-    # slice-labelled children made it invisible, so the gate concluded #9 was
-    # the last open child and demanded the PRD close with it.
     issues = {
         9: _issue(_body()),
         12: _issue(_body(), labels=['planning']),
@@ -233,6 +231,32 @@ def test_rule_9_counts_non_slice_children_as_open_siblings(
         'closing set {#9, #12} must be exactly {#9} because parent PRD #12 still has '
         'other open sub-issues (#10, #77) (rule 9).'
     ]
+
+
+def test_open_sub_issue_query_counts_every_open_child(monkeypatch) -> None:
+    """The sub-issue query must not filter on the `slice` label.
+
+    The rule-9 cases above stub this helper, so they exercise the decision
+    logic and never the query. That leaves the changed line -- the jq filter
+    -- uncovered, which is how it stayed wrong: the count and the wording
+    disagreed about what "sub-issue" meant. This asserts the query directly.
+    """
+    captured: dict[str, list[str]] = {}
+
+    def fake_run(cmd, **_kwargs):
+        captured['cmd'] = cmd
+        return subprocess.CompletedProcess(cmd, 0, stdout='7\n8\n', stderr='')
+
+    monkeypatch.setattr(slice_gate.subprocess, 'run', fake_run)
+    numbers = slice_gate.fetch_open_sub_issue_numbers('Vaquum/x', 12)
+
+    assert numbers == [7, 8]
+    jq = captured['cmd'][captured['cmd'].index('--jq') + 1]
+    assert 'select(.state == "open")' in jq
+    assert 'slice' not in jq, jq
+    assert 'labels' not in jq, jq
+    assert 'repos/Vaquum/x/issues/12/sub_issues' in captured['cmd']
+    assert '--paginate' in captured['cmd']
 
 
 def test_rule_9_sibling_message_enumerates_every_counted_child(
