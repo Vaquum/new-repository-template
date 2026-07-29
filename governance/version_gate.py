@@ -53,7 +53,7 @@ import sys
 from pathlib import Path
 from typing import Final
 
-from _common import CC_RE, TOMLDecodeError, loads_toml
+from _common import CC_RE, TOMLDecodeError, fail_setup, gate_config, loads_toml
 
 # Strict `MAJOR.MINOR.PATCH` only. We explicitly reject prerelease
 # and build-metadata forms because this gate compares as integer
@@ -144,9 +144,71 @@ def required_bump_level(pr_title: str) -> str:
     return 'patch'
 
 
-_VERSION_HEADER_RE: Final[re.Pattern[str]] = re.compile(
-    r'^#\s+v([0-9A-Za-z.+\-]+)\b'
-)
+BANNER: Final[str] = 'VERSION GATE'
+DEFAULT_HEADER: Final[str] = '# v{version}'
+DEFAULT_NEWEST: Final[str] = 'first'
+_VERSION_TOKEN: Final[str] = '([0-9A-Za-z.+\\-]+)'
+
+
+def _header_re() -> re.Pattern[str]:
+    """Compile the configured changelog header form into a matcher.
+
+    The form is a template carrying `{version}` -- `# v{version}` here,
+    `## [{version}] - ` in a Keep-a-Changelog repository. Literal runs are
+    escaped so a form containing regex metacharacters (`[`, `]`, `.`) is
+    matched literally, and runs of spaces become `\\s+` so header spacing is
+    not load-bearing.
+    """
+    form = str(gate_config('changelog', BANNER).get('header', DEFAULT_HEADER))
+    if '{version}' not in form:
+        fail_setup(BANNER, f"changelog.header must contain '{{version}}', got {form!r}")
+    before, _, after = form.partition('{version}')
+    pattern = '^' + _escape_form(before) + _VERSION_TOKEN
+    pattern += _escape_form(after) if after.strip() else '\\b'
+    return re.compile(pattern)
+
+
+def _escape_form(part: str) -> str:
+    """Escape a literal run of the header form, turning every run of spaces
+    into flexible whitespace -- including one adjacent to the version
+    placeholder.
+
+    Splitting on spaces and dropping empty chunks would silently delete the
+    whitespace either side of `{version}`, so a form like `## {version}`
+    compiled to a pattern demanding the version immediately after `##` and
+    matched none of that repository's own headers.
+    """
+    out: list[str] = []
+    for chunk in re.split(r'( +)', part):
+        if not chunk:
+            continue
+        out.append(r'\s+' if chunk.isspace() else re.escape(chunk))
+    return ''.join(out)
+
+
+def _newest_first() -> bool:
+    """Whether the newest entry sits at the top of the changelog.
+
+    Both orderings are in use: this repository prepends, Keep-a-Changelog
+    style repositories append. The gate checks the *new* section, so it has
+    to know which end that is.
+    """
+    raw = gate_config('changelog', BANNER).get('newest', DEFAULT_NEWEST)
+    if raw not in ('first', 'last'):
+        fail_setup(BANNER, f"changelog.newest must be 'first' or 'last', got {raw!r}")
+    return raw == 'first'
+
+
+def _header_indices(lines: list[str], header_re: re.Pattern[str]) -> list[int]:
+    return [i for i, line in enumerate(lines) if header_re.match(line)]
+
+
+def _newest_index(lines: list[str], header_re: re.Pattern[str]) -> int | None:
+    """Index of the header for the newest entry, per the configured order."""
+    idx = _header_indices(lines, header_re)
+    if not idx:
+        return None
+    return idx[0] if _newest_first() else idx[-1]
 
 # Changelog writing conventions, the mechanizable subset: entries are
 # imperative ("Add", not "Added"), and carry no leftover template
@@ -165,62 +227,48 @@ _PLACEHOLDER_RE: Final[re.Pattern[str]] = re.compile(
 
 
 def first_version_header(changelog_text: str) -> str | None:
-    """Return the version string from the first `# v<X.Y.Z>` header
-    line in the changelog, or None if no such line exists."""
-    for raw in changelog_text.splitlines():
-        match = _VERSION_HEADER_RE.match(raw)
-        if match:
-            return match.group(1)
-    return None
-
+    """Return the version string from the newest entry's header, or None if
+    the changelog carries no header. Which end is newest is configured."""
+    header_re = _header_re()
+    lines = changelog_text.splitlines()
+    i = _newest_index(lines, header_re)
+    if i is None:
+        return None
+    match = header_re.match(lines[i])
+    return match.group(1) if match else None
 
 def top_section_is_empty(changelog_text: str) -> bool:
-    """True if the first `# v<X.Y.Z>` section is empty -- i.e. there is
-    no non-empty, non-header line between the top version header and
-    the next version header (or end of file).
-
-    A header-only entry satisfies the surface form of rule 4 but
-    carries no trail. Rule 6 requires at least one line of content
-    before the next version header.
-    """
+    """True if the newest entry's section carries no content line -- i.e.
+    nothing between its header and the adjacent header or the end of file."""
+    header_re = _header_re()
     lines = changelog_text.splitlines()
-    i = 0
-    # Advance to the first version header.
-    while i < len(lines) and not _VERSION_HEADER_RE.match(lines[i]):
-        i += 1
-    if i >= len(lines):
-        # No header at all. Rule 4 already flags this; treat as empty
-        # for completeness.
+    start = _newest_index(lines, header_re)
+    if start is None:
+        # No header at all. Rule 4 already flags this; treat as empty for
+        # completeness.
         return True
-    # Scan from the line after the header until the next version
-    # header or end of file. Any non-empty non-header line is content.
-    i += 1
-    while i < len(lines):
-        line = lines[i]
-        if _VERSION_HEADER_RE.match(line):
-            return True  # hit next section without finding content
+    for line in lines[start + 1:]:
+        if header_re.match(line):
+            return True  # adjacent section reached without finding content
         if line.strip():
             return False
-        i += 1
-    return True  # reached EOF without finding content
-
+    return True  # reached the end without finding content
 
 def top_section_lines(changelog_text: str) -> list[str]:
-    """Return the content lines of the first `# v<X.Y.Z>` section: every
-    line between the top version header and the next version header (or
-    end of file). Used to check the new entry's writing conventions
-    without re-litigating older sections."""
+    """The newest entry's content lines, up to the adjacent header or the end
+    of file. Used to check the new entry's writing conventions without
+    re-litigating older sections."""
+    header_re = _header_re()
     lines = changelog_text.splitlines()
-    i = 0
-    while i < len(lines) and not _VERSION_HEADER_RE.match(lines[i]):
-        i += 1
+    start = _newest_index(lines, header_re)
+    if start is None:
+        return []
     out: list[str] = []
-    i += 1
-    while i < len(lines) and not _VERSION_HEADER_RE.match(lines[i]):
-        out.append(lines[i])
-        i += 1
+    for line in lines[start + 1:]:
+        if header_re.match(line):
+            break
+        out.append(line)
     return out
-
 
 def gate(
     pr_title: str,

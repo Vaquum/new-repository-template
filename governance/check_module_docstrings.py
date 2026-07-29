@@ -1,12 +1,29 @@
 #!/usr/bin/env python3
-"""Module-level docstring gate: one line, required on every non-empty module."""
+"""Module-level docstring gate: one line, required on every non-empty module.
+
+Exemptions exist because a docstring can only restate what the reader
+already has. In a package built on one public symbol per file with the
+filename matching that symbol, the module docstring says what the filename
+says -- and the constitution rejects docstrings that restate. Configured
+under `module_docstrings` in `.github/gate_config.json`; all exemptions
+default off, so this repository is unchanged.
+"""
 from __future__ import annotations
 
 import ast
 import sys
 from pathlib import Path
 
-from _common import REPO_ROOT, resolve_package_dir
+from _common import (
+    REPO_ROOT,
+    fail_setup,
+    find_python_files,
+    gate_config,
+    resolve_package_dir,
+    significant_lines,
+)
+
+BANNER = 'MODULE DOCSTRING GATE'
 
 
 def first_statement_docstring(source: str) -> ast.Constant | None:
@@ -21,8 +38,12 @@ def first_statement_docstring(source: str) -> ast.Constant | None:
     return None
 
 
-def check_file(path: Path) -> str | None:
+def check_file(path: Path, *, require_docstring: bool = True) -> str | None:
     # Returns a human-readable violation message, or None on pass.
+    #
+    # `require_docstring=False` waives only the requirement to carry one; an
+    # exempt module that has a docstring is still held to the one-line
+    # convention, which is what law 6 says.
     source = path.read_text(encoding='utf-8')
     stripped = source.strip()
     if not stripped:
@@ -32,21 +53,82 @@ def check_file(path: Path) -> str | None:
     except SyntaxError as exc:
         return f'cannot parse as Python (SyntaxError: {exc.msg})'
     if docstring is None:
-        return 'first stmt is not a string literal'
+        return None if not require_docstring else 'first stmt is not a string literal'
     value = docstring.value
     if not isinstance(value, str):
-        return 'first stmt is not a string literal'
+        return None if not require_docstring else 'first stmt is not a string literal'
     if '\n' in value:
         line_count = value.count('\n') + 1
         return f'module docstring spans {line_count} lines'
     return None
 
 
+def _public_symbols(tree: ast.Module) -> list[str]:
+    """Top-level names a reader would import from this module."""
+    names: list[str] = []
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if not node.name.startswith('_'):
+                names.append(node.name)
+    return names
+
+
+def _is_exempt(path: Path, source: str, config: dict[str, object]) -> bool:
+    """Whether this module is exempt from needing a docstring.
+
+    Two rules, both off by default: a module below a line threshold is too
+    small to hold a claim a docstring could add, and a module exporting one
+    public symbol named after the file can only repeat the filename -- the
+    restatement the stance forbids.
+    """
+    threshold = config.get('exempt_below_significant_lines', 0)
+    if isinstance(threshold, int) and not isinstance(threshold, bool) and threshold > 0:
+        if significant_lines(path) < threshold:
+            return True
+    if config.get('exempt_filename_matching_single_symbol', False):
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            return False
+        symbols = _public_symbols(tree)
+        if len(symbols) == 1 and symbols[0] == path.stem:
+            return True
+    return False
+
+
+def _config() -> dict[str, object]:
+    """The module_docstrings section, with every value validated."""
+    cfg = gate_config('module_docstrings', BANNER)
+    threshold = cfg.get('exempt_below_significant_lines', 0)
+    if isinstance(threshold, bool) or not isinstance(threshold, int) or threshold < 0:
+        fail_setup(
+            BANNER,
+            f'module_docstrings.exempt_below_significant_lines must be a '
+            f'non-negative integer, got {threshold!r}',
+        )
+    flag = cfg.get('exempt_filename_matching_single_symbol', False)
+    if not isinstance(flag, bool):
+        fail_setup(
+            BANNER,
+            f'module_docstrings.exempt_filename_matching_single_symbol must be '
+            f'a boolean, got {flag!r}',
+        )
+    excludes = cfg.get('excludes', [])
+    if not isinstance(excludes, list) or not all(isinstance(x, str) for x in excludes):
+        fail_setup(BANNER, f'module_docstrings.excludes must be a list of strings, got {excludes!r}')
+    return cfg
+
+
 def main() -> int:
-    source_dir = resolve_package_dir('MODULE DOCSTRING GATE')
+    source_dir = resolve_package_dir(BANNER)
+    # Read before the scan so an unreadable config blocks on every path.
+    config = _config()
+    excludes = [*config.get('excludes', []), '__pycache__']
     violations: list[tuple[Path, str]] = []
-    for path in sorted(source_dir.rglob('*.py')):
-        msg = check_file(path)
+    for path in find_python_files(source_dir, excludes):
+        source = path.read_text(encoding='utf-8')
+        exempt = _is_exempt(path, source, config)
+        msg = check_file(path, require_docstring=not exempt)
         if msg is not None:
             violations.append((path, msg))
     if violations:

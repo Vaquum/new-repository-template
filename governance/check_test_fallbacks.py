@@ -1,14 +1,31 @@
 #!/usr/bin/env python3
-"""Test fallback gate: tests must not use try/except (use pytest.raises)."""
+"""Test fallback gate: tests must not use try/except (use pytest.raises).
+
+Scans every module under the test directories. Test *infrastructure* is not
+a test -- a runner, a fixture factory, a profiling plugin -- and a
+`try`/`finally` there restores state rather than swallowing an assertion.
+Paths listed under `test_fallbacks.excludes` in `.github/gate_config.json`
+are skipped; the default excludes nothing, so this repository is unchanged.
+"""
 from __future__ import annotations
 
 import ast
 import sys
 from pathlib import Path
 
-from _common import REPO_ROOT
+from _common import REPO_ROOT, fail_setup, find_python_files, gate_config
 
+BANNER = 'TEST FALLBACK GATE'
 TEST_DIRS = (REPO_ROOT / 'tests', REPO_ROOT / 'governance' / 'tests')
+
+
+def _excludes() -> list[str]:
+    """Configured infrastructure paths, or none. Fails closed on a value
+    that is not a list of strings: a gate cannot skip what it cannot read."""
+    raw = gate_config('test_fallbacks', BANNER).get('excludes', [])
+    if not isinstance(raw, list) or not all(isinstance(x, str) for x in raw):
+        fail_setup(BANNER, f'test_fallbacks.excludes must be a list of strings, got {raw!r}')
+    return raw
 
 
 def find_try_statements(source: str) -> list[int]:
@@ -24,13 +41,14 @@ def find_try_statements(source: str) -> list[int]:
 
 
 def main() -> int:
+    # Read before the scan so an unreadable config blocks even when no test
+    # directory exists.
+    excludes = _excludes()
     violations: list[tuple[Path, int]] = []
     for test_dir in TEST_DIRS:
         if not test_dir.is_dir():
             continue
-        for path in sorted(test_dir.rglob('*.py')):
-            if '__pycache__' in path.parts:
-                continue
+        for path in find_python_files(test_dir, [*excludes, '__pycache__']):
             for lineno in find_try_statements(path.read_text(encoding='utf-8')):
                 violations.append((path.relative_to(REPO_ROOT), lineno))
     if violations:
