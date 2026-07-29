@@ -38,8 +38,12 @@ def first_statement_docstring(source: str) -> ast.Constant | None:
     return None
 
 
-def check_file(path: Path) -> str | None:
+def check_file(path: Path, *, require_docstring: bool = True) -> str | None:
     # Returns a human-readable violation message, or None on pass.
+    #
+    # `require_docstring=False` waives only the requirement to carry one; an
+    # exempt module that has a docstring is still held to the one-line
+    # convention, which is what law 6 says.
     source = path.read_text(encoding='utf-8')
     stripped = source.strip()
     if not stripped:
@@ -49,10 +53,10 @@ def check_file(path: Path) -> str | None:
     except SyntaxError as exc:
         return f'cannot parse as Python (SyntaxError: {exc.msg})'
     if docstring is None:
-        return 'first stmt is not a string literal'
+        return None if not require_docstring else 'first stmt is not a string literal'
     value = docstring.value
     if not isinstance(value, str):
-        return 'first stmt is not a string literal'
+        return None if not require_docstring else 'first stmt is not a string literal'
     if '\n' in value:
         line_count = value.count('\n') + 1
         return f'module docstring spans {line_count} lines'
@@ -72,20 +76,16 @@ def _public_symbols(tree: ast.Module) -> list[str]:
 def _is_exempt(path: Path, source: str, config: dict[str, object]) -> bool:
     """Whether this module is exempt from needing a docstring.
 
-    Two independent rules, both off by default:
-
-    `exempt_below_significant_lines` -- a module too small to hold a claim a
-    docstring could add. Set to 0 to disable.
-
-    `exempt_filename_matching_single_symbol` -- a module exporting exactly one
-    public symbol whose name matches the filename. Here the docstring can only
-    repeat the filename, which is the restatement the stance forbids.
+    Two rules, both off by default: a module below a line threshold is too
+    small to hold a claim a docstring could add, and a module exporting one
+    public symbol named after the file can only repeat the filename -- the
+    restatement the stance forbids.
     """
     threshold = config.get('exempt_below_significant_lines', 0)
     if isinstance(threshold, int) and not isinstance(threshold, bool) and threshold > 0:
         if significant_lines(path) < threshold:
             return True
-    if config.get('exempt_filename_matching_single_symbol') is True:
+    if config.get('exempt_filename_matching_single_symbol', False):
         try:
             tree = ast.parse(source)
         except SyntaxError:
@@ -97,8 +97,7 @@ def _is_exempt(path: Path, source: str, config: dict[str, object]) -> bool:
 
 
 def _config() -> dict[str, object]:
-    """The module_docstrings section, validated. Fails closed on a threshold
-    that is not a non-negative integer."""
+    """The module_docstrings section, with every value validated."""
     cfg = gate_config('module_docstrings', BANNER)
     threshold = cfg.get('exempt_below_significant_lines', 0)
     if isinstance(threshold, bool) or not isinstance(threshold, int) or threshold < 0:
@@ -106,6 +105,13 @@ def _config() -> dict[str, object]:
             BANNER,
             f'module_docstrings.exempt_below_significant_lines must be a '
             f'non-negative integer, got {threshold!r}',
+        )
+    flag = cfg.get('exempt_filename_matching_single_symbol', False)
+    if not isinstance(flag, bool):
+        fail_setup(
+            BANNER,
+            f'module_docstrings.exempt_filename_matching_single_symbol must be '
+            f'a boolean, got {flag!r}',
         )
     excludes = cfg.get('excludes', [])
     if not isinstance(excludes, list) or not all(isinstance(x, str) for x in excludes):
@@ -121,9 +127,8 @@ def main() -> int:
     violations: list[tuple[Path, str]] = []
     for path in find_python_files(source_dir, excludes):
         source = path.read_text(encoding='utf-8')
-        if _is_exempt(path, source, config):
-            continue
-        msg = check_file(path)
+        exempt = _is_exempt(path, source, config)
+        msg = check_file(path, require_docstring=not exempt)
         if msg is not None:
             violations.append((path, msg))
     if violations:

@@ -169,9 +169,21 @@ def _header_re() -> re.Pattern[str]:
 
 
 def _escape_form(part: str) -> str:
-    """Escape a literal run of the header form, treating runs of spaces as
-    flexible whitespace."""
-    return r'\s+'.join(re.escape(chunk) for chunk in part.split(' ') if chunk)
+    """Escape a literal run of the header form, turning every run of spaces
+    into flexible whitespace -- including one adjacent to the version
+    placeholder.
+
+    Splitting on spaces and dropping empty chunks would silently delete the
+    whitespace either side of `{version}`, so a form like `## {version}`
+    compiled to a pattern demanding the version immediately after `##` and
+    matched none of that repository's own headers.
+    """
+    out: list[str] = []
+    for chunk in re.split(r'( +)', part):
+        if not chunk:
+            continue
+        out.append(r'\s+' if chunk.isspace() else re.escape(chunk))
+    return ''.join(out)
 
 
 def _newest_first() -> bool:

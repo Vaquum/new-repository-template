@@ -94,3 +94,23 @@ def test_gate_accepts_imperative_changelog_bullet() -> None:
         _changelog('1.2.4', body='- Fix the broken parser path.\n'),
     )
     assert failures == []
+
+
+def test_header_form_whitespace_survives_next_to_the_placeholder() -> None:
+    """Whitespace adjacent to `{version}` must become flexible whitespace.
+
+    Splitting the literal on spaces and dropping empty chunks deleted the run
+    either side of the placeholder, so `## {version}` compiled to a pattern
+    demanding the version immediately after `##`. A repository configured that
+    way matched none of its own headers and the gate reported a missing
+    changelog header on every PR.
+    """
+    import re as _re
+
+    for form in ('# v{version}', '## {version}', '## Version {version}',
+                 '## [{version}] - ', '### v{version}:'):
+        before, _, after = form.partition('{version}')
+        pattern = '^' + version_gate._escape_form(before) + version_gate._VERSION_TOKEN
+        pattern += version_gate._escape_form(after) if after.strip() else r'\b'
+        sample = form.replace('{version}', '1.2.3')
+        assert _re.match(pattern, sample), f'{form!r} does not match its own header {sample!r}'
