@@ -21,11 +21,12 @@ This gate blocks a PR that:
   8.  Has a diff that touches any file matched by a glob in the cited
       issue's ``Out of Scope`` section.
   9.  Has a closing set that violates PRD closure: while the cited
-      slice's parent PRD (native sub-issue parent) has other open
-      slice sub-issues, the set must be exactly {slice}; when the
-      cited slice is the parent's last open slice sub-issue, exactly
-      {slice, parent PRD}; a slice with no parent PRD requires exactly
-      {slice}.
+      slice's parent PRD (native sub-issue parent) has any other open
+      sub-issue, the set must be exactly {slice}; when the cited slice
+      is the parent's last open sub-issue, exactly {slice, parent PRD};
+      a slice with no parent PRD requires exactly {slice}. Every open
+      child counts, whatever it is labelled -- a PRD with open children
+      is not done.
   10. Cites a slice with a Done Means checkbox neither checked
       (``- [x]``) nor overruled (``OVERRULED: <reason>``). The
       post-merge evidence fields (Merge SHA, Merged PR number, the
@@ -346,19 +347,23 @@ def fetch_parent_issue_number(repo: str, number: int) -> int | None:
     return int(stdout) if stdout and stdout != 'null' else None
 
 
-def fetch_open_slice_sub_issue_numbers(repo: str, parent_number: int) -> list[int]:
-    """List the parent PRD's OPEN sub-issue numbers that carry the
-    ``slice`` label, via the paginated native sub-issues API. Any gh
-    failure raises SystemExit(2)."""
+def fetch_open_sub_issue_numbers(repo: str, parent_number: int) -> list[int]:
+    """List the parent PRD's OPEN sub-issue numbers, via the paginated
+    native sub-issues API. Any gh failure raises SystemExit(2).
+
+    Every open child counts, not just ``slice``-labelled ones: a PRD with
+    open children is not done, whatever they are labelled. Counting only
+    slices let rule 9 declare a partially-promoted programme complete --
+    PRD #93 had 24 open backlog items and one promoted slice, and the gate
+    demanded the PR close the PRD.
+    """
     try:
         result = subprocess.run(
             [
                 'gh', 'api',
                 f'repos/{repo}/issues/{parent_number}/sub_issues',
                 '--paginate',
-                '--jq', '.[] | select(.state == "open") '
-                        '| select(any(.labels[]; .name == "slice")) '
-                        '| .number',
+                '--jq', '.[] | select(.state == "open") | .number',
             ],
             check=False,
             capture_output=True,
@@ -423,7 +428,7 @@ def _closing_reference_failures(refs: list[int]) -> list[str]:
             f'PR body has {len(refs)} closing references '
             f'({", ".join(f"#{n}" for n in refs)}). The closing set must '
             f'be exactly the slice issue, plus its parent PRD only when '
-            f'the slice is the parent\'s last open slice sub-issue '
+            f'the slice is the parent\'s last open sub-issue '
             f'(rule 9).'
         ]
     return []
@@ -599,20 +604,20 @@ def _prd_closure_failures(
 ) -> list[str]:
     """Rule 9: the closing set must match the PRD-closure contract. The
     parent PRD is the slice's native sub-issue parent; siblings are the
-    parent's other OPEN slice-labelled sub-issues."""
+    parent's other OPEN sub-issues, whatever they are labelled."""
     parent_number = fetch_parent_issue_number(repo, issue_number)
     if parent_number is None:
         expected = {issue_number}
         reason = f'slice #{issue_number} has no parent PRD'
     else:
         open_siblings = [
-            n for n in fetch_open_slice_sub_issue_numbers(repo, parent_number)
+            n for n in fetch_open_sub_issue_numbers(repo, parent_number)
             if n != issue_number
         ]
         if open_siblings:
             expected = {issue_number}
             reason = (
-                f'parent PRD #{parent_number} still has other open slice '
+                f'parent PRD #{parent_number} still has other open '
                 f'sub-issues '
                 f'({", ".join(f"#{n}" for n in sorted(open_siblings))})'
             )
@@ -620,7 +625,7 @@ def _prd_closure_failures(
             expected = {issue_number, parent_number}
             reason = (
                 f'slice #{issue_number} is parent PRD #{parent_number}\'s '
-                f'last open slice sub-issue'
+                f'last open sub-issue (no other open children)'
             )
     closing_set = set(refs)
     if closing_set != expected:

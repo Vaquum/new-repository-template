@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -68,15 +69,15 @@ def _body(
 def _patch_graph(
     monkeypatch: pytest.MonkeyPatch,
     parent: int | None = None,
-    open_slices: list[int] | None = None,
+    open_children: list[int] | None = None,
 ) -> None:
     monkeypatch.setattr(
         slice_gate, 'fetch_parent_issue_number', lambda _repo, _number: parent
     )
     monkeypatch.setattr(
         slice_gate,
-        'fetch_open_slice_sub_issue_numbers',
-        lambda _repo, _number: list(open_slices or []),
+        'fetch_open_sub_issue_numbers',
+        lambda _repo, _number: list(open_children or []),
     )
 
 
@@ -204,7 +205,7 @@ def test_multiple_closing_references_fail_before_api_call(tmp_path: Path) -> Non
     assert failures == [
         'PR body has 3 closing references (#9, #10, #11). The closing set must be exactly '
         'the slice issue, plus its parent PRD only when the slice is the parent\'s last '
-        'open slice sub-issue (rule 9).'
+        'open sub-issue (rule 9).'
     ]
 
 
@@ -217,7 +218,7 @@ def test_rule_9_rejects_prd_close_with_open_siblings(
         12: _issue(_body(), labels=['planning']),
     }
     monkeypatch.setattr(slice_gate, 'fetch_issue', lambda _repo, number: issues[number])
-    _patch_graph(monkeypatch, parent=12, open_slices=[9, 10])
+    _patch_graph(monkeypatch, parent=12, open_children=[9, 10, 77])
 
     failures = slice_gate.gate(
         'feat: add law template',
@@ -228,8 +229,66 @@ def test_rule_9_rejects_prd_close_with_open_siblings(
     )
     assert failures == [
         'closing set {#9, #12} must be exactly {#9} because parent PRD #12 still has '
-        'other open slice sub-issues (#10) (rule 9).'
+        'other open sub-issues (#10, #77) (rule 9).'
     ]
+
+
+def test_open_sub_issue_query_counts_every_open_child(monkeypatch) -> None:
+    """The sub-issue query must not filter on the `slice` label.
+
+    The rule-9 cases above stub this helper, so they exercise the decision
+    logic and never the query. That leaves the changed line -- the jq filter
+    -- uncovered, which is how it stayed wrong: the count and the wording
+    disagreed about what "sub-issue" meant. This asserts the query directly.
+    """
+    captured: dict[str, list[str]] = {}
+
+    def fake_run(cmd, **_kwargs):
+        captured['cmd'] = cmd
+        return subprocess.CompletedProcess(cmd, 0, stdout='7\n8\n', stderr='')
+
+    monkeypatch.setattr(slice_gate.subprocess, 'run', fake_run)
+    numbers = slice_gate.fetch_open_sub_issue_numbers('Vaquum/x', 12)
+
+    assert numbers == [7, 8]
+    jq = captured['cmd'][captured['cmd'].index('--jq') + 1]
+    assert 'select(.state == "open")' in jq
+    assert 'slice' not in jq, jq
+    assert 'labels' not in jq, jq
+    assert 'repos/Vaquum/x/issues/12/sub_issues' in captured['cmd']
+    assert '--paginate' in captured['cmd']
+
+
+def test_rule_9_sibling_message_enumerates_every_counted_child(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    """Pin that the open-siblings message lists the children it counted.
+
+    This is pre-existing behaviour, not a contract this change introduces:
+    the siblings branch already enumerated them. It is pinned here because
+    the enumeration is now the only place the gate discloses what it
+    counted, and dropping it would leave a maintainer unable to tell a red
+    gate from a wrong one -- which is how the label-filter defect presented
+    on #121.
+    """
+    issues = {
+        9: _issue(_body()),
+        12: _issue(_body(), labels=['planning']),
+    }
+    monkeypatch.setattr(slice_gate, 'fetch_issue', lambda _repo, number: issues[number])
+    _patch_graph(monkeypatch, parent=12, open_children=[9, 31, 40])
+
+    failures = slice_gate.gate(
+        'feat: add law template',
+        'Closes #9\nCloses #12',
+        ['governance/version_gate.py'],
+        _template(tmp_path),
+        'Vaquum/new-repository-template',
+    )
+    assert len(failures) == 1
+    assert '#31' in failures[0]
+    assert '#40' in failures[0]
 
 
 def test_rule_9_requires_prd_close_on_last_slice(
@@ -237,7 +296,7 @@ def test_rule_9_requires_prd_close_on_last_slice(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(slice_gate, 'fetch_issue', lambda _repo, _number: _issue(_body()))
-    _patch_graph(monkeypatch, parent=12, open_slices=[9])
+    _patch_graph(monkeypatch, parent=12, open_children=[9])
 
     failures = slice_gate.gate(
         'feat: add law template',
@@ -248,7 +307,7 @@ def test_rule_9_requires_prd_close_on_last_slice(
     )
     assert failures == [
         'closing set {#9} must be exactly {#9, #12} because slice #9 is parent PRD '
-        '#12\'s last open slice sub-issue (rule 9).'
+        '#12\'s last open sub-issue (no other open children) (rule 9).'
     ]
 
 
@@ -262,7 +321,7 @@ def test_rule_9_accepts_correct_closing_sets(
     }
     monkeypatch.setattr(slice_gate, 'fetch_issue', lambda _repo, number: issues[number])
 
-    _patch_graph(monkeypatch, parent=12, open_slices=[9, 10])
+    _patch_graph(monkeypatch, parent=12, open_children=[9, 10, 77])
     assert slice_gate.gate(
         'feat: add law template',
         'Closes #9',
@@ -271,7 +330,7 @@ def test_rule_9_accepts_correct_closing_sets(
         'Vaquum/new-repository-template',
     ) == []
 
-    _patch_graph(monkeypatch, parent=12, open_slices=[9])
+    _patch_graph(monkeypatch, parent=12, open_children=[9])
     assert slice_gate.gate(
         'feat: add law template',
         'Closes #9\nCloses #12',
@@ -341,7 +400,7 @@ def test_rule_9_rejects_closed_parent_prd(
         12: prd,
     }
     monkeypatch.setattr(slice_gate, 'fetch_issue', lambda _repo, number: issues[number])
-    _patch_graph(monkeypatch, parent=12, open_slices=[9])
+    _patch_graph(monkeypatch, parent=12, open_children=[9])
 
     failures = slice_gate.gate(
         'feat: add law template',
