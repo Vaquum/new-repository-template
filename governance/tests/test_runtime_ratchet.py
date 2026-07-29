@@ -109,3 +109,33 @@ def test_marker_must_carry_a_reason(tmp_path: Path) -> None:
     result = _run(tmp_path, head_ceiling=600, base_ceiling=120, pr_body='[runtime-raise: ]')
     assert result.returncode == 1, result.stdout + result.stderr
     assert 'raised without marker' in result.stderr
+
+
+def test_unreachable_base_ref_blocks(tmp_path: Path) -> None:
+    """An unfetched base ref is a setup failure, not an absent ceiling.
+
+    `git show REF:path` fails the same way for "no file at REF" and "no such
+    REF". Conflating them would silently disable the ratchet in exactly the
+    case where it cannot be evaluated -- a CI job that forgot to fetch the
+    base ref would report PASS.
+    """
+    (tmp_path / '.github').mkdir(parents=True, exist_ok=True)
+    (tmp_path / 'governance').mkdir(parents=True, exist_ok=True)
+    (tmp_path / '.github' / 'budgets.json').write_text(
+        json.dumps({'runtime': {'max_total_seconds': 9999}}), encoding='utf-8',
+    )
+    profile = tmp_path / 'profile.json'
+    profile.write_text(json.dumps({'total_seconds': 1.0, 'tests': []}), encoding='utf-8')
+    for module in ('_common.py', 'check_test_runtime.py'):
+        (tmp_path / 'governance' / module).write_text(
+            (REPO_ROOT / 'governance' / module).read_text(encoding='utf-8'), encoding='utf-8',
+        )
+    result = subprocess.run(
+        [
+            sys.executable, str(tmp_path / 'governance' / 'check_test_runtime.py'),
+            '--profile', str(profile), '--base-ref', 'origin/no-such-ref-exists',
+        ],
+        capture_output=True, text=True, check=False, cwd=REPO_ROOT,
+    )
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert 'unreachable' in result.stderr

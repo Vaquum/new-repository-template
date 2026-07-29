@@ -56,6 +56,16 @@ def base_ceiling(base_ref: str | None, base_file: str | None) -> float | None:
     make every raise look like a first commit.
     """
     if base_ref is not None:
+        # `git show REF:path` fails both when the file is absent at REF and
+        # when REF itself is unreachable. Those must not be conflated: the
+        # first is the commit introducing the budget, the second is a base ref
+        # that was never fetched -- and treating that as "no base ceiling"
+        # would silently disable the ratchet exactly when it cannot be checked.
+        if subprocess.run(
+            ['git', 'rev-parse', '--verify', '--quiet', f'{base_ref}^{{commit}}'],
+            check=False, capture_output=True, text=True,
+        ).returncode != 0:
+            fail_setup(BANNER, f'base ref {base_ref!r} is unreachable; fetch it before the gate runs')
         result = subprocess.run(
             ['git', 'show', f'{base_ref}:.github/budgets.json'],
             check=False, capture_output=True, text=True,
