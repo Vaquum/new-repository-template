@@ -72,7 +72,20 @@ def test_module_budgets_covers_every_package_path() -> None:
         f'extra={sorted(package_paths - actual_paths)}, '
         f'missing={sorted(actual_paths - package_paths)}'
     )
-    assert len(script_paths) == 14, f'expected 14 scripts paths, got {len(script_paths)}'
+    # Two invariants, rather than a count that has to be edited whenever a
+    # helper is added: no `check_*` gate may escape the budget, and no budget
+    # entry may point at a file that no longer exists. Which helpers besides
+    # the gates carry a budget is a judgement already made per module, so it
+    # is not re-derived here.
+    gates = {
+        f'governance/{q.name}'
+        for q in (REPO_ROOT / 'governance').glob('*.py')
+        if q.name.startswith('check_')
+    }
+    assert gates <= script_paths, f'ungated: {sorted(gates - script_paths)}'
+    stale = {q for q in script_paths if not (REPO_ROOT / q).is_file()}
+    assert not stale, f'budget entries with no file: {sorted(stale)}'
+
 
 
 def _actual_package_paths() -> set[str]:

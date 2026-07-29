@@ -12,6 +12,7 @@
   "governance/check_no_swallowed_violations.py": 120,
   "governance/check_test_code_ratio.py": 120,
   "governance/check_test_fallbacks.py": 120,
+  "governance/check_test_runtime.py": 100,
   "governance/closeout_evidence.py": 120,
   "new_repository_template/__init__.py": 22
 }
