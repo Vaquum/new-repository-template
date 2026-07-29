@@ -65,7 +65,7 @@ def main() -> int:
                         help='exit non-zero when the suite exceeds its ceiling')
     args = parser.parse_args()
 
-    budget = load_json(BUDGET_PATH, 'runtime budget')
+    budget = load_json(BUDGET_PATH, 'runtime budget').get(BUDGET_SECTION, {})
     profile = load_json(Path(args.profile), 'runtime profile')
 
     ceiling = budget.get('max_total_seconds')

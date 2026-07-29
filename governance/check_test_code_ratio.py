@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Final
 
 from _common import (
-    REPO_ROOT,
     gate_setting,
     resolve_package_dir,
     resolve_paths,

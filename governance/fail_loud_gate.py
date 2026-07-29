@@ -56,6 +56,7 @@ from _common import (
 
 BUDGET_PATH: Final[Path] = REPO_ROOT / '.github' / 'budgets.json'
 BUDGET_SECTION: Final[str] = 'fail_loud'
+BANNER: Final[str] = 'FAIL LOUD GATE'
 
 CATEGORIES: Final[tuple[str, ...]] = (
     'bare_except',

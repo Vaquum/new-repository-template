@@ -14,9 +14,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Any, Final, NoReturn, TypeVar, cast
-
-_T = TypeVar('_T')
+from typing import Any, Final, NoReturn, cast
 
 # `tomllib` is stdlib only from 3.11. Guarded once, here, rather than at
 # each of the six call sites: a derived repository with a lower floor needs
@@ -117,7 +115,7 @@ def gate_enabled(name: str, banner: str = 'CONFIG') -> bool:
     return gate_config(name, banner).get('enabled', True) is not False
 
 
-def gate_setting(gate: str, key: str, default: _T, banner: str) -> _T:
+def gate_setting[T](gate: str, key: str, default: T, banner: str) -> T:
     """Read one typed setting from a gate's section, failing closed.
 
     Fails on a value of the wrong type or a non-positive number where the
@@ -129,20 +127,20 @@ def gate_setting(gate: str, key: str, default: _T, banner: str) -> _T:
     if isinstance(default, bool):
         if not isinstance(value, bool):
             fail_setup(banner, f'gates.{gate}.{key} must be a boolean, got {value!r}')
-        return cast('_T', value)
+        return cast('T', value)
     if isinstance(default, (int, float)):
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             fail_setup(banner, f'gates.{gate}.{key} must be a number, got {value!r}')
         if default > 0 and value <= 0:
             fail_setup(banner, f'gates.{gate}.{key} must be positive, got {value!r}')
-        return cast('_T', type(default)(value))
+        return cast('T', type(default)(value))
     if isinstance(default, (list, tuple, frozenset, set)):
         if not isinstance(value, (list, tuple)) or not all(isinstance(e, str) for e in value):
             fail_setup(banner, f'gates.{gate}.{key} must be a list of strings, got {value!r}')
-        return cast('_T', type(default)(value))
+        return cast('T', type(default)(value))
     if not isinstance(value, type(default)):
         fail_setup(banner, f'gates.{gate}.{key} must be {type(default).__name__}, got {value!r}')
-    return cast('_T', value)
+    return cast('T', value)
 
 
 def section(name: str, banner: str = 'CONFIG') -> dict[str, Any]:

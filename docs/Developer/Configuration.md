@@ -1,0 +1,155 @@
+# Configuration
+
+Everything a repository can change about how its gates behave lives in two
+files. This page is the canonical description of both: what each one holds,
+why the split exists, and what happens when a value is absent or wrong.
+
+## The two files
+
+| File | Holds | May move |
+| --- | --- | --- |
+| [`governance.yml`](../../governance.yml) | Shape: what the repository is, where things live, which gates run, and the policy numbers they enforce | Either direction |
+| `.github/budgets.json` | Ratchets: the typing, fail-loud, module, coverage, and runtime budgets | One direction only |
+
+The split is what lets `check_budget_ratchet` tell a configuration edit from a
+budget raise. When both lived in the same file, a PR loosening a ratchet and a
+PR renaming a package looked identical to the gate that guards the ratchets.
+
+## Prerequisites
+
+- `governance.yml` is read by `governance/_common.py`, which every gate imports
+- PyYAML is already pinned in `requirements/ci/gate-tools.txt`; no extra install
+
+## Absent, present, and malformed
+
+These three states are deliberately different:
+
+- **Absent** — the repository configured nothing, so every gate enforces the
+  default it documents. This is what lets a repository adopt one gate without
+  authoring a whole config file.
+- **Present** — the declared value wins.
+- **Malformed** — the repository tried to say something the gate cannot read.
+  The gate blocks. Guessing here would enforce something nobody asked for.
+
+One class of value is exempt from the "absent means default" rule: values with
+no honest default. `layout.package_root` is the main one — a gate that cannot
+find its scan target blocks rather than passing over an empty tree, so a
+half-finished package rename cannot silently disable it.
+
+## `layout` — where things live
+
+```yaml
+layout:
+  package_root: new_repository_template
+  test_paths:
+    - tests/package
+  gate_test_paths:
+    - governance/tests
+  coverage_source: new_repository_template
+  excludes:
+    - __pycache__
+    - build
+    - dist
+```
+
+Every gate that scans a tree resolves it from here rather than hardcoding a
+path, so a repository that names its package differently changes one line
+instead of five files.
+
+`excludes` is repo-wide. A gate's own `excludes` **extend** this list rather
+than replace it, so no per-gate setting can re-admit build output that the
+repository declared out of scope for everything.
+
+`package_root` and `excludes` are additionally protected against being
+narrowed by the PR that they gate. `_common.scan_surface_failures` compares
+them against the base ref for both ratcheting gates: without it, a PR could
+point a ratchet at a smaller subtree, or exclude the very files carrying its
+new escape hatches, and pass on a count taken over less code than the base ref
+was measured against.
+
+## `gates` — the control surface
+
+Each gate carries two independent switches:
+
+```yaml
+gates:
+  typing:
+    enabled: true       # does this gate run at all
+    required: true      # is its check required on `main`
+    context: pr_checks_typing
+```
+
+They are separate because a gate can legitimately run without blocking —
+packaging and the install matrix do exactly that today.
+
+`required: true` is a claim with consequences. `pr_checks_honesty` holds a
+three-way bijection between the gates configured to run *and* block, the laws
+in [`CLAUDE.md`](../../CLAUDE.md), and the required status checks in
+`.github/rulesets/main.json`. Any single-file edit that moves one of those
+three away from the other two fails, and the failure names both sides.
+
+To adopt this template partially, set `enabled: false` on the gates you do not
+want — that withdraws the gate from all three descriptions at once.
+
+### Policy settings
+
+Gates that enforce a number read it from their own section. Every one of these
+defaults is the literal that used to be hardcoded in the gate module, and
+`test_config_defaults_reproduce_the_previous_constants` pins each against that
+literal rather than against the config file:
+
+| Setting | Default | Gate |
+| --- | --- | --- |
+| `slice.max_closing_references` | `2` | `slice_gate` |
+| `gates.file_size_balance.max_ratio` | `16.0` | `check_file_size_balance` |
+| `gates.file_size_balance.min_files` | `3` | `check_file_size_balance` |
+| `gates.test_code_ratio.min` / `.max` | `0.60` / `2.00` | `check_test_code_ratio` |
+| `gates.test_code_ratio.min_source_sloc` | `50` | `check_test_code_ratio` |
+| `gates.coverage.diff_floor` | `80.0` | `check_diff_coverage` |
+| `gates.coverage.min_statements_for_track` | `50` | `check_coverage_floor` |
+| `gates.coverage.min_branches_for_track` | `20` | `check_coverage_floor` |
+| `gates.coverage.track_slack` | `2` | `check_coverage_floor` |
+| `gates.docstrings.forbidden_title_verbs` | `calculate, generate, make, build` | `check_docstrings` |
+| `gates.module_docstrings.exempt_below_significant_lines` | `0` | `check_module_docstrings` |
+| `gates.module_docstrings.exempt_filename_matching_single_symbol` | `false` | `check_module_docstrings` |
+| `gates.runtime_budget.slowest_tests_limit` | `10` | `check_test_runtime` |
+| `gates.packaging.pyroma_min` | `9` | `pr_checks_packaging` |
+
+The lint plane's sub-checks are individually switchable, so a repository can
+run part of it without forking the workflow:
+
+```yaml
+gates:
+  lint:
+    ruff: true
+    module_budgets: true
+    dead_code: true
+    dependency_vulnerabilities: true
+    no_swallowed_violations: true
+```
+
+## What stays duplicated, and why
+
+Two things cannot be pointed at `governance.yml`:
+
+- **ruff and pyright** read `pyproject.toml`
+- **GitHub** reads workflow YAML
+
+These are mirrors, not second sources of truth.
+`governance/tests/test_governance_config.py` fails when a mirror disagrees with
+`governance.yml` — the Python version, the ruff and pyright pins, and the
+`requires-python` floor are all checked against it.
+
+## Adding a setting
+
+A setting that nothing reads is decoration, and the tests treat it as a
+failure rather than a harmless extra:
+
+- `test_every_gate_section_is_read_by_a_gate` fails on a `gates.*` section
+  carrying policy no gate or workflow reads
+- `test_every_layout_key_is_read_by_a_gate` does the same for `layout`
+
+So add the reader in the same change as the key. Read it through
+`_common.gate_setting`, which validates the type and rejects a non-positive
+number where the default is positive — a gate cannot check against a bound it
+cannot parse.
