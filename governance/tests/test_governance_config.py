@@ -186,3 +186,42 @@ def test_bootstrap_review_and_slice_settings_match_config() -> None:
     assert _str(secrets, 'ruleset_audit_token') in setup
     assert _str(review, 'approving_authority') in laws
     assert _str(review, 'approving_authority') in setup
+
+
+def test_gate_config_sections_are_all_read_by_a_gate() -> None:
+    """Every section in gate_config.json must be one a gate actually reads.
+
+    A typo'd or orphaned section is worse than a missing one: it looks like
+    configuration and changes nothing, so a repository believes it has tuned
+    a gate that is still running its default.
+    """
+    config_path = REPO_ROOT / '.github/gate_config.json'
+    config = json.loads(config_path.read_text(encoding='utf-8'))
+    sections = {k for k in config if k != 'schema_version'}
+
+    governance_source = '\n'.join(
+        p.read_text(encoding='utf-8')
+        for p in sorted((REPO_ROOT / 'governance').glob('*.py'))
+    )
+    for section in sorted(sections):
+        assert f"gate_config('{section}'" in governance_source, (
+            f'{section} is configured but no gate reads it'
+        )
+
+
+def test_gate_config_defaults_reproduce_the_previous_constants() -> None:
+    """The shipped defaults must equal the values that were hardcoded.
+
+    This slice's whole claim is that behaviour here does not change. Only a
+    test pinning the defaults can hold that claim, so it is pinned against
+    the literal previous constants rather than against the config file --
+    which would just be asserting the file equals itself.
+    """
+    config = json.loads((REPO_ROOT / '.github/gate_config.json').read_text(encoding='utf-8'))
+    assert config['file_size_balance']['max_ratio'] == 16.00
+    assert config['test_fallbacks']['excludes'] == []
+    assert config['module_docstrings']['excludes'] == []
+    assert config['module_docstrings']['exempt_below_significant_lines'] == 0
+    assert config['module_docstrings']['exempt_filename_matching_single_symbol'] is False
+    assert config['changelog']['header'] == '# v{version}'
+    assert config['changelog']['newest'] == 'first'
