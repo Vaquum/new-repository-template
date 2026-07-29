@@ -63,6 +63,13 @@ HASHED_INSTALL_RE = re.compile(
     INSTALL_PREFIX
     + r'pip install (?:--python \S+ )?--require-hashes -r requirements/ci/[a-z-]+\.txt'
 )
+# Installing a distribution the workflow just built is not a dependency
+# resolution: the artifact comes from `dist/`, not an index, and proving it
+# installs and imports is exactly what the packaging job exists for. There is
+# nothing to hash-lock.
+BUILT_ARTIFACT_INSTALL_RE = re.compile(
+    INSTALL_PREFIX + r'pip install (?:--no-deps )?dist/\*\.whl'
+)
 EDITABLE_INSTALL_RE = re.compile(
     INSTALL_PREFIX
     + r'pip install (?:--python \S+ )?--no-build-isolation --no-deps -e \.'
@@ -134,7 +141,11 @@ def test_every_workflow_install_is_hash_locked() -> None:
             if 'pip install' not in line or line.lstrip().startswith('#'):
                 continue
             stripped = line.strip()
-            if HASHED_INSTALL_RE.fullmatch(stripped) or EDITABLE_INSTALL_RE.fullmatch(stripped):
+            if (
+                HASHED_INSTALL_RE.fullmatch(stripped)
+                or EDITABLE_INSTALL_RE.fullmatch(stripped)
+                or BUILT_ARTIFACT_INSTALL_RE.fullmatch(stripped)
+            ):
                 continue
             violations.append(f'{path.name}:{lineno}: {stripped}')
     assert not violations, (
