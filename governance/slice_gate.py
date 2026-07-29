@@ -21,11 +21,12 @@ This gate blocks a PR that:
   8.  Has a diff that touches any file matched by a glob in the cited
       issue's ``Out of Scope`` section.
   9.  Has a closing set that violates PRD closure: while the cited
-      slice's parent PRD (native sub-issue parent) has other open
-      slice sub-issues, the set must be exactly {slice}; when the
-      cited slice is the parent's last open sub-issue, exactly
-      {slice, parent PRD}; a slice with no parent PRD requires exactly
-      {slice}.
+      slice's parent PRD (native sub-issue parent) has any other open
+      sub-issue, the set must be exactly {slice}; when the cited slice
+      is the parent's last open sub-issue, exactly {slice, parent PRD};
+      a slice with no parent PRD requires exactly {slice}. Every open
+      child counts, whatever it is labelled -- a PRD with open children
+      is not done.
   10. Cites a slice with a Done Means checkbox neither checked
       (``- [x]``) nor overruled (``OVERRULED: <reason>``). The
       post-merge evidence fields (Merge SHA, Merged PR number, the

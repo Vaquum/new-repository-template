@@ -235,15 +235,18 @@ def test_rule_9_counts_non_slice_children_as_open_siblings(
     ]
 
 
-def test_rule_9_failure_names_the_children_it_counted(
+def test_rule_9_sibling_message_enumerates_every_counted_child(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    """A wrong closing set must be diagnosable from the message alone.
+    """Pin that the open-siblings message lists the children it counted.
 
-    The old message asserted a conclusion -- "last open slice sub-issue" --
-    without naming the children behind it, so a red gate could not be told
-    apart from a wrong gate without querying the sub-issue graph by hand.
+    This is pre-existing behaviour, not a contract this change introduces:
+    the siblings branch already enumerated them. It is pinned here because
+    the enumeration is now the only place the gate discloses what it
+    counted, and dropping it would leave a maintainer unable to tell a red
+    gate from a wrong one -- which is how the label-filter defect presented
+    on #121.
     """
     issues = {
         9: _issue(_body()),
