@@ -1,13 +1,56 @@
-# Central governance config: the single declaration of this repo's gate list,
-# tool versions, secrets/variables, and review authority. It is a CONTRACT
-# ANCHOR, not a runtime source or generator — nothing reads it at run time.
-# The contract tests (governance/tests/test_governance_config.py) pin the
-# workflows, the ruleset, pyproject.toml, and CLAUDE.md to these values, so a
-# value here and the file it mirrors must change together or the test fails.
-schema_version: 1
+# The repository's configuration, in one file.
+#
+# Read at run time by every gate through `governance/_common.py`. A gate that
+# cannot read it blocks rather than falling back to a default nobody asked for,
+# because a silently-defaulted gate is one that stopped checking what the
+# repository declared.
+#
+# This file carries SHAPE: what the repository is, where things live, which
+# gates run, and the policy numbers they enforce. Ratchets -- values that may
+# only move one way -- live in `.github/budgets.json`, so `check_budget_ratchet`
+# can tell a configuration edit from a budget raise.
+#
+# Adopting this template partially means setting `enabled: false` on the gates
+# you do not want. `pr_checks_honesty` then requires the enabled-and-required
+# gates, the laws in CLAUDE.md, and the required status checks on `main` to
+# agree exactly, and names both sides when they do not.
+#
+# Two things deliberately stay duplicated: ruff and pyright read
+# `pyproject.toml`, and GitHub reads workflow YAML. Neither can be pointed here.
+# They are mirrors, and `governance/tests/test_governance_config.py` fails when
+# a mirror disagrees with this file.
+schema_version: 2
+
+repository:
+  owner: Vaquum
+  name: new-repository-template
+  display_name: New Repository Template
+  description: Gate-enforced Python repository template.
+
+# Where things live. Every gate that scans a tree resolves it from here rather
+# than hardcoding a path, so a repository that names its package differently
+# changes one line instead of five files.
+layout:
+  package_root: new_repository_template
+  test_paths:
+    - tests/package
+  gate_test_paths:
+    - governance/tests
+  coverage_source: new_repository_template
+  # Never scanned, by any gate. A gate's own `excludes` extend this rather
+  # than replace it, so no gate can accidentally re-include build output.
+  excludes:
+    - __pycache__
+    - build
+    - dist
 
 runtime:
   python_version: "3.12"
+  # The interpreters the built wheel must install and import on.
+  supported_pythons:
+    - "3.12"
+    - "3.13"
+  runner: ubuntu-latest
 
 toolchain:
   ruff_version: "0.15.11"
@@ -15,10 +58,43 @@ toolchain:
 
 review:
   approving_authority: zero-bang
+  required_approvals: 1
 
 slice:
   label: slice
+  planning_label: planning
   issue_template: .github/ISSUE_TEMPLATE/slice.yml
+  # A PR closes its slice, plus the parent PRD when the slice is the PRD's
+  # last open sub-issue. Nothing legitimate needs a third reference.
+  max_closing_references: 2
+
+commits:
+  types:
+    - feat
+    - fix
+    - docs
+    - style
+    - refactor
+    - perf
+    - test
+    - build
+    - ci
+    - chore
+    - revert
+
+changelog:
+  # A template carrying `{version}`. `## [{version}] - ` is the other common
+  # form; `newest` says which end of the file the new section sits at.
+  header: "# v{version}"
+  newest: first
+
+release:
+  enabled: true
+  tag_pattern: '^v\d+\.\d+\.\d+$'
+  # Inert until a PyPI project with trusted publishing exists. A publish path
+  # that fires by default is one that fires by accident.
+  publish_to_pypi: false
+  source_date_epoch: 1704067200
 
 bootstrap:
   timeout_minutes: 30
@@ -32,14 +108,107 @@ bootstrap:
 
 ruleset:
   name: Protect-Main
-  required_status_checks:
-    - PR Checks CodeQL (python)
-    - pr_checks_cc
-    - pr_checks_lint
-    - pr_checks_ruleset
-    - pr_checks_slice
-    - pr_checks_fail_loud
-    - pr_checks_typing
-    - pr_checks_version
-    - pr_checks_tests
-    - pr_checks_honesty
+
+# The control surface.
+#
+#   enabled  -- does this gate run at all
+#   required -- is its check required on `main`, and therefore owed a law
+#
+# The two are separate because a gate can legitimately run without blocking:
+# packaging and the install matrix do exactly that today.
+gates:
+  slice:
+    enabled: true
+    required: true
+    context: pr_checks_slice
+  cc:
+    enabled: true
+    required: true
+    context: pr_checks_cc
+  typing:
+    enabled: true
+    required: true
+    context: pr_checks_typing
+  fail_loud:
+    enabled: true
+    required: true
+    context: pr_checks_fail_loud
+  version:
+    enabled: true
+    required: true
+    context: pr_checks_version
+  honesty:
+    enabled: true
+    required: true
+    context: pr_checks_honesty
+  ruleset:
+    enabled: true
+    required: true
+    context: pr_checks_ruleset
+  tests:
+    enabled: true
+    required: true
+    context: pr_checks_tests
+  codeql:
+    enabled: true
+    required: true
+    context: PR Checks CodeQL (python)
+
+  lint:
+    enabled: true
+    required: true
+    context: pr_checks_lint
+    # Each sub-check of the lint plane, individually switchable.
+    ruff: true
+    module_budgets: true
+    dead_code: true
+    dependency_vulnerabilities: true
+    no_swallowed_violations: true
+
+  packaging:
+    enabled: true
+    required: false
+    context: pr_checks_packaging
+    pyroma_min: 9
+  package_install:
+    enabled: true
+    required: false
+    context: pr_checks_package_install
+
+  module_docstrings:
+    enabled: true
+    excludes: []
+    # A module below this many significant lines is too small to hold a claim
+    # a docstring could add. 0 disables the rule.
+    exempt_below_significant_lines: 0
+    # A module exporting one public symbol named after the file can only
+    # repeat the filename, which the stance forbids.
+    exempt_filename_matching_single_symbol: false
+  docstrings:
+    enabled: true
+    forbidden_title_verbs:
+      - calculate
+      - generate
+      - make
+      - build
+  test_fallbacks:
+    enabled: true
+    excludes: []
+  test_code_ratio:
+    enabled: true
+    min: 0.60
+    max: 2.00
+    min_source_sloc: 50
+  file_size_balance:
+    enabled: true
+    max_ratio: 16.0
+    min_files: 3
+  coverage:
+    enabled: true
+    diff_floor: 80.0
+    min_statements_for_track: 50
+    min_branches_for_track: 20
+    track_slack: 2
+  runtime_budget:
+    enabled: true
+    slowest_tests_limit: 10

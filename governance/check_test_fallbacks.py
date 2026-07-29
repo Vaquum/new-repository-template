@@ -4,7 +4,7 @@
 Scans every module under the test directories. Test *infrastructure* is not
 a test -- a runner, a fixture factory, a profiling plugin -- and a
 `try`/`finally` there restores state rather than swallowing an assertion.
-Paths listed under `test_fallbacks.excludes` in `.github/gate_config.json`
+Paths listed under `gates.test_fallbacks.excludes` in `governance.yml`
 are skipped; the default excludes nothing, so this repository is unchanged.
 """
 from __future__ import annotations
@@ -13,10 +13,9 @@ import ast
 import sys
 from pathlib import Path
 
-from _common import REPO_ROOT, fail_setup, find_python_files, gate_config
+from _common import REPO_ROOT, fail_setup, find_python_files, gate_config, resolve_paths
 
 BANNER = 'TEST FALLBACK GATE'
-TEST_DIRS = (REPO_ROOT / 'tests', REPO_ROOT / 'governance' / 'tests')
 
 
 def _excludes() -> list[str]:
@@ -45,7 +44,10 @@ def main() -> int:
     # directory exists.
     excludes = _excludes()
     violations: list[tuple[Path, int]] = []
-    for test_dir in TEST_DIRS:
+    for test_dir in [
+        *resolve_paths('test_paths', BANNER),
+        *resolve_paths('gate_test_paths', BANNER),
+    ]:
         if not test_dir.is_dir():
             continue
         for path in find_python_files(test_dir, [*excludes, '__pycache__']):

@@ -8,7 +8,8 @@ from pathlib import Path
 
 from _common import REPO_ROOT, fail_setup, resolve_package_dir, significant_lines
 
-BUDGET_PATH = REPO_ROOT / '.github' / 'module_budgets.json'
+BUDGET_PATH = REPO_ROOT / '.github' / 'budgets.json'
+BUDGET_SECTION = 'modules'
 BANNER = 'MODULE BUDGET GATE'
 
 
@@ -16,7 +17,7 @@ def load_budgets() -> dict[str, int]:
     if not BUDGET_PATH.is_file():
         fail_setup(BANNER, f'missing budget file: {BUDGET_PATH}')
     try:
-        raw = json.loads(BUDGET_PATH.read_text(encoding='utf-8'))
+        raw = json.loads(BUDGET_PATH.read_text(encoding='utf-8')).get(BUDGET_SECTION, {})
     except (json.JSONDecodeError, OSError) as exc:
         fail_setup(BANNER, f'cannot read {BUDGET_PATH}: {exc}')
     if not isinstance(raw, dict):
@@ -31,7 +32,7 @@ def load_budgets() -> dict[str, int]:
 
 def check(budgets: dict[str, int], source_dir: Path) -> tuple[list[tuple[str, int, int]], list[str]]:
     # Returns (over_budget, unbudgeted_source_paths). Any path under the
-    # package root that is NOT declared in module_budgets.json is a
+    # package root that is NOT declared under `modules` in budgets.json is a
     # violation -- otherwise a new module could silently escape the gate.
     over: list[tuple[str, int, int]] = []
     for rel_path, budget in budgets.items():
@@ -68,7 +69,7 @@ def main() -> int:
         for rel_path in unbudgeted:
             print(
                 f'  - {rel_path}: undeclared module; '
-                f'add an entry to .github/module_budgets.json',
+                f'add an entry under "modules" in .github/budgets.json',
                 file=sys.stderr,
             )
         print('', file=sys.stderr)

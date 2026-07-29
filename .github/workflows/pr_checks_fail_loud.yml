@@ -1,7 +1,7 @@
 name: pr_checks_fail_loud
 
 # Mechanical fail-loud gate. Seven silent-fallback categories
-# ratcheted against .github/fail_loud_budget.json. Every PR that
+# ratcheted against .github/budgets.json. Every PR that
 # raises any category's total fails and is blocked from merge.
 #
 # Categories enforced (governance/fail_loud_gate.py for the exact AST):
@@ -65,7 +65,9 @@ jobs:
           git -c "http.https://github.com/.extraheader=$AUTH" fetch origin "${{ github.base_ref }}" --depth=1
           git rev-parse --verify "$BASE_REV" >/dev/null
 
-          if git show "$BASE_REV:.github/fail_loud_budget.json" > base_budget.json 2>/dev/null; then
+          git show "$BASE_REV:governance.yml" > base_governance.yml 2>/dev/null || true
+
+          if git show "$BASE_REV:.github/budgets.json" > base_budget.json 2>/dev/null; then
             if git show "$BASE_REV:pyproject.toml" > base_pyproject.toml 2>/dev/null; then
               mode="$(REPOSITORY_NAME="${{ github.event.repository.name }}" python - <<'PY'
           import os
@@ -88,11 +90,11 @@ jobs:
           else
             rm -f base_budget.json
             CHANGED="$(git diff --name-only "$BASE_REV"...HEAD)"
-            if echo "$CHANGED" | grep -qx '.github/fail_loud_budget.json'; then
+            if echo "$CHANGED" | grep -qx '.github/budgets.json'; then
               echo "mode=bootstrap" >> "$GITHUB_OUTPUT"
-              echo "::warning::bootstrap commit: base ref has no fail_loud_budget.json; HEAD introduces it."
+              echo "::warning::bootstrap commit: base ref has no budgets.json; HEAD introduces it."
             else
-              echo "::error::base ref has no .github/fail_loud_budget.json and this commit does not introduce it. The budget was deleted from the protected base ref; restore it before merging."
+              echo "::error::base ref has no .github/budgets.json and this commit does not introduce it. The budget was deleted from the protected base ref; restore it before merging."
               exit 1
             fi
           fi
@@ -102,7 +104,8 @@ jobs:
           set -euo pipefail
           case "${{ steps.base.outputs.mode }}" in
             compare)
-              python governance/fail_loud_gate.py --base-budget base_budget.json
+              python governance/fail_loud_gate.py --base-budget base_budget.json \
+                --base-config base_governance.yml
               ;;
             bootstrap)
               python governance/fail_loud_gate.py --bootstrap

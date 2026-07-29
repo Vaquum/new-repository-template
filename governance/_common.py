@@ -14,7 +14,9 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Any, Final, NoReturn
+from typing import Any, Final, NoReturn, TypeVar, cast
+
+_T = TypeVar('_T')
 
 # `tomllib` is stdlib only from 3.11. Guarded once, here, rather than at
 # each of the six call sites: a derived repository with a lower floor needs
@@ -26,7 +28,6 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10 fallback
     import tomli as tomllib
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
-TYPING_BUDGET: Final[Path] = REPO_ROOT / '.github' / 'typing_budget.json'
 
 # The Conventional Commits subject regex: type, optional scope (without
 # parens), optional breaking marker, description. Shared by cc_gate and
@@ -57,57 +58,209 @@ def fail_setup(banner: str, message: str) -> NoReturn:
     sys.exit(2)
 
 
-GATE_CONFIG: Final[Path] = REPO_ROOT / '.github' / 'gate_config.json'
+GOVERNANCE_CONFIG: Final[Path] = REPO_ROOT / 'governance.yml'
+BUDGETS: Final[Path] = REPO_ROOT / '.github' / 'budgets.json'
 
 
-def gate_config(section: str, banner: str) -> dict[str, Any]:
-    """Read one section of `.github/gate_config.json`, failing closed.
+def config(banner: str = 'CONFIG') -> dict[str, Any]:
+    """Read `governance.yml`, the repository's configuration.
 
-    Carries per-repository *shape* -- the assumptions a gate makes about the
-    repository it runs in, which differ between this template and anything
-    derived from it. Distinct from the `*_budget.json` files, which carry
-    ratchets: values that may only move one way. A gate that cannot read its
-    configuration blocks rather than falling back to a default nobody asked
-    for, because a silently-defaulted gate is one that stopped checking what
-    the repository declared.
+    Carries per-repository shape -- what the repository is, where things live,
+    which gates run, and the policy numbers they enforce. Distinct from
+    `.github/budgets.json`, which carries ratchets: values that may only move
+    one way.
 
-    A missing file, or a missing section within it, is an empty mapping: the
-    repository configures nothing and every gate keeps the default it
-    documents. A file that exists but cannot be parsed is different -- the
-    repository tried to say something the gate cannot read -- and that fails
-    closed, because guessing which setting was intended is how a gate stops
-    checking what it was told to check.
+    Absent and malformed are deliberately different. An absent file means the
+    repository configured nothing, so every gate enforces the default it
+    documents -- which is what lets a repository adopt one gate without
+    authoring a whole config. A malformed file means the repository tried to
+    say something the gate cannot read, and guessing there would enforce
+    something nobody asked for, so it blocks.
+
+    The values with no honest default -- `layout.package_root` above all --
+    are not covered by this. `resolve_package_dir` blocks on its own when the
+    package root is missing, so an absent config cannot silently point a gate
+    at nothing.
     """
-    if not GATE_CONFIG.is_file():
+    if not GOVERNANCE_CONFIG.is_file():
         return {}
     try:
-        raw = json.loads(GATE_CONFIG.read_text(encoding='utf-8'))
-    except (OSError, json.JSONDecodeError) as exc:
-        fail_setup(banner, f'cannot read {GATE_CONFIG.relative_to(REPO_ROOT)}: {exc}')
+        import yaml
+    except ImportError as exc:  # pragma: no cover - gate-tools always installs it
+        fail_setup(banner, f'PyYAML is required to read governance.yml: {exc}')
+    try:
+        raw = yaml.safe_load(GOVERNANCE_CONFIG.read_text(encoding='utf-8'))
+    except (OSError, yaml.YAMLError) as exc:
+        fail_setup(banner, f'cannot read {GOVERNANCE_CONFIG.relative_to(REPO_ROOT)}: {exc}')
     if not isinstance(raw, dict):
-        fail_setup(banner, f'{GATE_CONFIG.relative_to(REPO_ROOT)} is not a JSON object')
-    value = raw.get(section, {})
+        fail_setup(banner, f'{GOVERNANCE_CONFIG.relative_to(REPO_ROOT)} is not a mapping')
+    return raw
+
+
+def gate_config(name: str, banner: str) -> dict[str, Any]:
+    """Read one gate's section from `gates`, failing closed on a bad shape.
+
+    A missing section is an empty mapping, so a gate keeps the defaults it
+    documents and a repository configures only what it needs to change.
+    """
+    gates = config(banner).get('gates', {})
+    if not isinstance(gates, dict):
+        fail_setup(banner, 'governance.yml: `gates` must be a mapping')
+    value = gates.get(name, {})
     if not isinstance(value, dict):
-        fail_setup(banner, f'{GATE_CONFIG.relative_to(REPO_ROOT)}["{section}"] must be an object')
+        fail_setup(banner, f'governance.yml: gates.{name} must be a mapping')
     return value
 
 
+def gate_enabled(name: str, banner: str = 'CONFIG') -> bool:
+    """Whether a gate is switched on. Absent means on."""
+    return gate_config(name, banner).get('enabled', True) is not False
+
+
+def gate_setting(gate: str, key: str, default: _T, banner: str) -> _T:
+    """Read one typed setting from a gate's section, failing closed.
+
+    Fails on a value of the wrong type or a non-positive number where the
+    default is positive: a gate cannot check against a bound it cannot parse,
+    and silently substituting the default would enforce something the
+    repository did not ask for.
+    """
+    value = gate_config(gate, banner).get(key, default)
+    if isinstance(default, bool):
+        if not isinstance(value, bool):
+            fail_setup(banner, f'gates.{gate}.{key} must be a boolean, got {value!r}')
+        return cast('_T', value)
+    if isinstance(default, (int, float)):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            fail_setup(banner, f'gates.{gate}.{key} must be a number, got {value!r}')
+        if default > 0 and value <= 0:
+            fail_setup(banner, f'gates.{gate}.{key} must be positive, got {value!r}')
+        return cast('_T', type(default)(value))
+    if isinstance(default, (list, tuple, frozenset, set)):
+        if not isinstance(value, (list, tuple)) or not all(isinstance(e, str) for e in value):
+            fail_setup(banner, f'gates.{gate}.{key} must be a list of strings, got {value!r}')
+        return cast('_T', type(default)(value))
+    if not isinstance(value, type(default)):
+        fail_setup(banner, f'gates.{gate}.{key} must be {type(default).__name__}, got {value!r}')
+    return cast('_T', value)
+
+
+def section(name: str, banner: str = 'CONFIG') -> dict[str, Any]:
+    """Read one top-level section, failing closed when it is not a mapping."""
+    value = config(banner).get(name, {})
+    if not isinstance(value, dict):
+        fail_setup(banner, f'governance.yml: `{name}` must be a mapping')
+    return value
+
+
+def budgets(banner: str) -> dict[str, Any]:
+    """Read `.github/budgets.json`, the ratcheting values, failing closed."""
+    if not BUDGETS.is_file():
+        fail_setup(banner, f'missing {BUDGETS.relative_to(REPO_ROOT)}')
+    try:
+        raw = json.loads(BUDGETS.read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError) as exc:
+        fail_setup(banner, f'cannot read {BUDGETS.relative_to(REPO_ROOT)}: {exc}')
+    if not isinstance(raw, dict):
+        fail_setup(banner, f'{BUDGETS.relative_to(REPO_ROOT)} is not a JSON object')
+    return raw
+
+
 def resolve_package_dir(banner: str) -> Path:
-    """Resolve the package directory from `typing_budget.json`'s single
-    `package_root`, failing closed under `banner` if it cannot be resolved.
+    """Resolve the package directory from `layout.package_root`.
 
     A gate that cannot find its scan target must block the merge instead of
     passing over an empty tree, so a half-finished package rename cannot
     silently disable it.
     """
-    if not TYPING_BUDGET.is_file():
-        fail_setup(banner, f'missing {TYPING_BUDGET.relative_to(REPO_ROOT)} (cannot resolve package_root)')
-    data = json.loads(TYPING_BUDGET.read_text(encoding='utf-8'))
-    root = data.get('package_root') if isinstance(data, dict) else None
+    root = section('layout', banner).get('package_root')
     path = REPO_ROOT / root if isinstance(root, str) and root else None
     if path is None or not path.is_dir():
-        fail_setup(banner, f'package_root {root!r} is not a directory under the repo root')
+        fail_setup(banner, f'layout.package_root {root!r} is not a directory under the repo root')
     return path
+
+
+def resolve_paths(key: str, banner: str) -> list[Path]:
+    """Resolve one `layout` path list, keeping only the entries that exist.
+
+    A configured path that is absent is not an error: a repository may declare
+    `gate_test_paths` it has not created yet. A configured list that is not a
+    list of strings is an error, because the gate cannot tell what to scan.
+    """
+    raw = section('layout', banner).get(key, [])
+    if not isinstance(raw, list) or not all(isinstance(entry, str) for entry in raw):
+        fail_setup(banner, f'layout.{key} must be a list of strings, got {raw!r}')
+    return [REPO_ROOT / entry for entry in raw if (REPO_ROOT / entry).exists()]
+
+
+def layout_excludes(gate: str, banner: str) -> list[str]:
+    """The repo-wide excludes plus the ones this gate adds, validated.
+
+    Extending rather than replacing means a per-gate list cannot re-admit
+    build output that the repository declared out of scope for everything.
+    """
+    merged: list[str] = []
+    for where, raw in (
+        ('layout.excludes', section('layout', banner).get('excludes', [])),
+        (f'gates.{gate}.excludes', gate_config(gate, banner).get('excludes', [])),
+    ):
+        if not isinstance(raw, list) or not all(isinstance(entry, str) for entry in raw):
+            fail_setup(banner, f'{where} must be a list of strings, got {raw!r}')
+        merged.extend(entry for entry in raw if entry not in merged)
+    return merged
+
+
+def scan_surface_failures(base_config_path: str | None, banner: str) -> list[str]:
+    """Report any way the PR narrows the tree its own ratchets are measured over.
+
+    `package_root` and `excludes` live in `governance.yml`, so a PR editing
+    that file could point a ratchet at a smaller subtree, or exclude the very
+    files carrying its new escape hatches, and pass on a count taken over
+    less code than the base ref was measured against. Both ratcheting gates
+    call this, so the two cannot drift apart.
+    """
+    if base_config_path is None:
+        return []
+    base_path = Path(base_config_path)
+    if not base_path.is_file():
+        return [
+            f'{banner}: base-ref governance.yml not found at {base_path}. The scan '
+            f'surface cannot be compared, so the ratchet cannot be trusted. '
+            f'Restore it on the base ref.'
+        ]
+    import yaml  # type: ignore[import-untyped]
+
+    try:
+        base_raw = yaml.safe_load(base_path.read_text(encoding='utf-8'))
+    except (OSError, yaml.YAMLError) as exc:
+        return [f'{banner}: cannot read base governance.yml {base_path}: {exc}']
+    if not isinstance(base_raw, dict):
+        return [f'{banner}: base governance.yml {base_path} is not a mapping']
+    base_layout = base_raw.get('layout', {})
+    if not isinstance(base_layout, dict):
+        return [f'{banner}: base governance.yml {base_path} has a non-mapping `layout`']
+
+    failures: list[str] = []
+    head_layout = section('layout', banner)
+    base_root = base_layout.get('package_root')
+    head_root = head_layout.get('package_root')
+    if base_root != head_root:
+        failures.append(
+            f'layout.package_root changed from {base_root!r} (base) to {head_root!r} '
+            f'(head). The scan surface cannot be narrowed by the PR it gates.'
+        )
+    base_excludes = base_layout.get('excludes', [])
+    head_excludes = head_layout.get('excludes', [])
+    added = set(head_excludes if isinstance(head_excludes, list) else []) - set(
+        base_excludes if isinstance(base_excludes, list) else []
+    )
+    if added:
+        failures.append(
+            f'layout.excludes added in head that are not in base: {sorted(added)!r}. '
+            f'New excludes hide files from the ratchet; add them in a separate PR '
+            f'that ratchets the totals first.'
+        )
+    return failures
 
 
 def significant_lines(path: Path) -> int:

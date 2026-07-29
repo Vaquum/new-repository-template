@@ -119,16 +119,12 @@ def _package_roots_from_config(pyproject: dict[str, object]) -> set[str]:
             if isinstance(include, list):
                 roots.update(str(item) for item in include if isinstance(item, str))
 
-    for budget_name in ('typing_budget.json', 'fail_loud_budget.json'):
-        path = REPO_ROOT / '.github' / budget_name
-        if not path.is_file():
-            continue
-        try:
-            payload = json.loads(path.read_text(encoding='utf-8'))
-        except json.JSONDecodeError:
-            continue
-        if isinstance(payload, dict):
-            root = payload.get('package_root')
+    config_path = REPO_ROOT / 'governance.yml'
+    if config_path.is_file():
+        import yaml
+        layout = yaml.safe_load(config_path.read_text(encoding='utf-8')).get('layout', {})
+        if isinstance(layout, dict):
+            root = layout.get('package_root')
             if isinstance(root, str) and root:
                 roots.add(root)
 
@@ -288,12 +284,8 @@ def _create_package_baseline(repo_slug: str, package_name: str) -> int:
     return changed
 
 
-def _write_typing_budget(package_name: str) -> bool:
-    path = REPO_ROOT / '.github' / 'typing_budget.json'
-    payload = {
-        'schema_version': 2,
-        'package_root': package_name,
-        'excludes': ['__pycache__', 'build', 'dist'],
+def _typing_budget() -> dict[str, object]:
+    return {
         'patterns': {
             'any_annotation': {'pattern': r':\s*Any\b', 'total': 0},
             'any_return': {'pattern': r'->\s*Any\b', 'total': 0},
@@ -308,12 +300,11 @@ def _write_typing_budget(package_name: str) -> bool:
         },
         'any_references': {'total': 0},
         'pyright_errors': {'total': 0},
+        'pyright_warnings': {'total': 0},
     }
-    return _write_text_if_changed(path, json.dumps(payload, indent=2) + '\n')
 
 
-def _write_fail_loud_budget(package_name: str) -> bool:
-    path = REPO_ROOT / '.github' / 'fail_loud_budget.json'
+def _fail_loud_budget() -> dict[str, object]:
     categories = [
         'bare_except',
         'empty_pass',
@@ -323,17 +314,10 @@ def _write_fail_loud_budget(package_name: str) -> bool:
         'contextlib_suppress',
         'errors_ignore_kwarg',
     ]
-    payload = {
-        'schema_version': 1,
-        'package_root': package_name,
-        'excludes': ['__pycache__', 'build', 'dist'],
-        'categories': {category: {'total': 0} for category in categories},
-    }
-    return _write_text_if_changed(path, json.dumps(payload, indent=2) + '\n')
+    return {'categories': {category: {'total': 0} for category in categories}}
 
 
-def _write_module_budgets(package_name: str) -> bool:
-    path = REPO_ROOT / '.github' / 'module_budgets.json'
+def _module_budgets(package_name: str) -> dict[str, int]:
     payload: dict[str, int] = {}
     package_dir = REPO_ROOT / package_name
     if package_dir.is_dir():
@@ -347,15 +331,23 @@ def _write_module_budgets(package_name: str) -> bool:
         for script in sorted(governance_dir.glob('check_*.py')):
             rel = script.relative_to(REPO_ROOT).as_posix()
             payload[rel] = 120
-    return _write_text_if_changed(path, json.dumps(payload, indent=2) + '\n')
+    return payload
 
 
 def _write_budgets(package_name: str) -> int:
-    changed = 0
-    changed += _write_typing_budget(package_name)
-    changed += _write_fail_loud_budget(package_name)
-    changed += _write_module_budgets(package_name)
-    return changed
+    # One file, one write. The sections that used to be separate files are
+    # composed here so a bootstrap cannot leave them half-rewritten.
+    path = REPO_ROOT / '.github' / 'budgets.json'
+    existing = json.loads(path.read_text(encoding='utf-8')) if path.is_file() else {}
+    payload = {
+        'schema_version': 1,
+        'typing': _typing_budget(),
+        'fail_loud': _fail_loud_budget(),
+        'modules': _module_budgets(package_name),
+        'coverage': existing.get('coverage', {'line': 0, 'branch': 0}),
+        'runtime': existing.get('runtime', {'max_total_seconds': 300}),
+    }
+    return _write_text_if_changed(path, json.dumps(payload, indent=2) + '\n')
 
 
 def _is_baseline_seed_package_dir(path: Path) -> bool:
@@ -445,14 +437,28 @@ def _drop_codeql_context(ruleset: dict[str, object]) -> bool:
 
 
 def _drop_codeql_from_config(text: str) -> str:
-    # Remove the CodeQL required-status-check from governance.yml's list,
-    # preserving the rest of the file's formatting. governance.yml is the
-    # contract anchor the config tests pin the ruleset to, so it must lose
-    # CodeQL alongside the ruleset, the laws, and the workflow.
-    pattern = re.compile(r'^\s*-\s*["\']?' + re.escape(CODEQL_CONTEXT) + r'["\']?\s*$')
-    return ''.join(
-        line for line in text.splitlines(keepends=True) if not pattern.match(line)
-    )
+    # Remove the whole `gates.codeql` block from governance.yml, preserving
+    # the rest of the file's formatting. governance.yml is the contract anchor
+    # the config tests pin the ruleset to, so it must lose CodeQL alongside
+    # the ruleset, the laws, and the workflow. The block is dropped entire
+    # rather than just its `context:` line: a gate left enabled with no
+    # context would still be owed a required check that no longer exists.
+    lines = text.splitlines(keepends=True)
+    kept: list[str] = []
+    dropping = False
+    for line in lines:
+        stripped = line.strip()
+        if re.match(r'^  codeql:\s*$', line.rstrip('\n')):
+            dropping = True
+            continue
+        if dropping:
+            # Blank lines and deeper-indented keys belong to the block; the
+            # next sibling key (two-space indent) ends it.
+            if not stripped or line.startswith('    '):
+                continue
+            dropping = False
+        kept.append(line)
+    return ''.join(kept)
 
 
 def disable_codeql(repo_root: Path = REPO_ROOT) -> int:

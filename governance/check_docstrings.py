@@ -20,21 +20,23 @@ import sys
 from pathlib import Path
 from typing import Final
 
-from _common import REPO_ROOT, resolve_package_dir
+from _common import REPO_ROOT, gate_setting, resolve_package_dir
 
-FORBIDDEN_TITLE_VERBS: Final[frozenset[str]] = frozenset({
+BANNER: Final[str] = 'DOCSTRING GATE'
+DEFAULT_FORBIDDEN_TITLE_VERBS: Final[frozenset[str]] = frozenset({
     'calculate', 'generate', 'make', 'build',
 })
 DEFAULT_IN_DESC_RE: Final[re.Pattern[str]] = re.compile(r'\(default:', re.IGNORECASE)
 NOTE_RE: Final[re.Pattern[str]] = re.compile(r'\bnote:', re.IGNORECASE)
 
 
-def check_docstring(text: str) -> list[str]:
+def check_docstring(text: str, forbidden: frozenset[str] | None = None) -> list[str]:
     # Returns a list of convention-violation messages for one docstring body.
     issues: list[str] = []
     title = text.strip().split('\n', 1)[0].strip()
     first_word = title.split(' ', 1)[0].lower() if title else ''
-    if first_word in FORBIDDEN_TITLE_VERBS:
+    verbs = DEFAULT_FORBIDDEN_TITLE_VERBS if forbidden is None else forbidden
+    if first_word in verbs:
         issues.append(
             f"title verb {first_word!r} is forbidden; open with a precise verb "
             f"(e.g. 'Compute', 'Return', 'Parse', 'Validate') that says what the function does"
@@ -48,7 +50,9 @@ def check_docstring(text: str) -> list[str]:
     return issues
 
 
-def find_violations(source: str) -> list[tuple[int, str, str]]:
+def find_violations(
+    source: str, forbidden: frozenset[str] | None = None
+) -> list[tuple[int, str, str]]:
     # Returns (lineno, function name, message) for every docstring violation.
     out: list[tuple[int, str, str]] = []
     tree = ast.parse(source)
@@ -58,7 +62,7 @@ def find_violations(source: str) -> list[tuple[int, str, str]]:
         doc = ast.get_docstring(node, clean=False)
         if doc is None:
             continue
-        for issue in check_docstring(doc):
+        for issue in check_docstring(doc, forbidden):
             out.append((node.lineno, node.name, issue))
     return out
 
@@ -66,8 +70,12 @@ def find_violations(source: str) -> list[tuple[int, str, str]]:
 def main() -> int:
     source_dir = resolve_package_dir('DOCSTRING CONVENTIONS GATE')
     violations: list[tuple[Path, int, str, str]] = []
+    forbidden = frozenset(
+        gate_setting('docstrings', 'forbidden_title_verbs',
+                     DEFAULT_FORBIDDEN_TITLE_VERBS, BANNER)
+    )
     for path in sorted(source_dir.rglob('*.py')):
-        for lineno, name, msg in find_violations(path.read_text(encoding='utf-8')):
+        for lineno, name, msg in find_violations(path.read_text(encoding='utf-8'), forbidden):
             violations.append((path.relative_to(REPO_ROOT), lineno, name, msg))
     if violations:
         print('DOCSTRING CONVENTIONS GATE -- FAIL', file=sys.stderr)

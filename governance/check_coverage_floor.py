@@ -4,7 +4,7 @@
 Two rules over `new_repository_template/`, read from `coverage.json`:
 
   FLOOR  actual line/branch coverage >= the floor in
-         `.github/coverage_budget.json`. The Limen-style absolute gate.
+         `.github/budgets.json`. The Limen-style absolute gate.
   TRACK  once the package is non-trivial, the floor may not lag actual
          coverage by more than TRACK_SLACK points -- a real improvement
          must be banked into the floor so it cannot silently erode back.
@@ -22,17 +22,19 @@ import sys
 from functools import partial
 from typing import Final
 
-from _common import REPO_ROOT, fail_setup
+from _common import REPO_ROOT, fail_setup, gate_setting
 
 COVERAGE_JSON = REPO_ROOT / 'coverage.json'
-BUDGET_PATH = REPO_ROOT / '.github' / 'coverage_budget.json'
+BUDGET_PATH = REPO_ROOT / '.github' / 'budgets.json'
+BUDGET_SECTION = 'coverage'
 
 # TRACK engages only once there is enough code for the percentage to be a
 # stable signal -- a 1-statement stub at a vacuous 100% must not be forced
 # to a 98% floor that breaks the first real, partially-tested module.
-MIN_STATEMENTS_FOR_TRACK: Final[int] = 50
-MIN_BRANCHES_FOR_TRACK: Final[int] = 20
-TRACK_SLACK: Final[int] = 2
+BANNER: Final[str] = 'COVERAGE FLOOR'
+DEFAULT_MIN_STATEMENTS: Final[int] = 50
+DEFAULT_MIN_BRANCHES: Final[int] = 20
+DEFAULT_TRACK_SLACK: Final[int] = 2
 
 
 # Bind this gate's banner to the shared setup-failure reporter.
@@ -48,7 +50,7 @@ def _load_floor() -> tuple[int, int]:
     if not BUDGET_PATH.is_file():
         _fail_setup(f'missing {BUDGET_PATH.relative_to(REPO_ROOT)} (the coverage floor)')
     try:
-        raw = json.loads(BUDGET_PATH.read_text(encoding='utf-8'))
+        raw = json.loads(BUDGET_PATH.read_text(encoding='utf-8')).get(BUDGET_SECTION, {})
     except (OSError, json.JSONDecodeError) as exc:
         _fail_setup(f'cannot read {BUDGET_PATH}: {exc}')
     if not isinstance(raw, dict):
@@ -74,15 +76,17 @@ def _branch_pct(totals: dict[str, object]) -> float:
     return float(raw) if isinstance(raw, (int, float)) else 0.0
 
 
-def _track_violation(label: str, actual: float, floor: int, units: int, min_units: int) -> str | None:
+def _track_violation(
+    label: str, actual: float, floor: int, units: int, min_units: int, slack: int
+) -> str | None:
     if units < min_units:
         return None
-    banked = math.floor(actual) - TRACK_SLACK
+    banked = math.floor(actual) - slack
     if banked <= floor:
         return None
     return (
         f'{label} coverage is {actual:.1f}% but the floor is still {floor}%. '
-        f'Bank the gain: raise "{label}" in coverage_budget.json to >= {banked}%.'
+        f'Bank the gain: raise coverage."{label}" in budgets.json to >= {banked}%.'
     )
 
 
@@ -105,9 +109,12 @@ def main() -> int:
         failures.append(f'line coverage:   {line_pct:.1f}% (floor {line_floor}%)')
     if branch_pct < branch_floor:
         failures.append(f'branch coverage: {branch_pct:.1f}% (floor {branch_floor}%)')
+    min_stmts = gate_setting('coverage', 'min_statements_for_track', DEFAULT_MIN_STATEMENTS, BANNER)
+    min_brs = gate_setting('coverage', 'min_branches_for_track', DEFAULT_MIN_BRANCHES, BANNER)
+    slack = gate_setting('coverage', 'track_slack', DEFAULT_TRACK_SLACK, BANNER)
     for msg in (
-        _track_violation('line', line_pct, line_floor, num_statements, MIN_STATEMENTS_FOR_TRACK),
-        _track_violation('branch', branch_pct, branch_floor, num_branches, MIN_BRANCHES_FOR_TRACK),
+        _track_violation('line', line_pct, line_floor, num_statements, min_stmts, slack),
+        _track_violation('branch', branch_pct, branch_floor, num_branches, min_brs, slack),
     ):
         if msg is not None:
             failures.append(msg)

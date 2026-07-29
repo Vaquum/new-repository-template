@@ -7,14 +7,20 @@ import subprocess
 import sys
 from typing import Final
 
-from _common import REPO_ROOT, fail_setup, resolve_package_dir
+from _common import (
+    REPO_ROOT,
+    fail_setup,
+    gate_setting,
+    resolve_package_dir,
+)
 
 COVERAGE_JSON = REPO_ROOT / 'coverage.json'
 
 # Floor for CHANGED package lines specifically -- higher than the global
 # coverage floor, because new code must arrive tested. Raise toward 100 as
 # the package matures.
-DIFF_FLOOR_PCT: Final[float] = 80.0
+DEFAULT_DIFF_FLOOR: Final[float] = 80.0
+BANNER = 'DIFF COVERAGE GATE'
 BANNER = 'DIFF COVERAGE GATE'
 
 

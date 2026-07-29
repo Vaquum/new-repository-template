@@ -4,7 +4,7 @@
 The bound is per-repository: a package of many small single-purpose
 modules and a package of a few large ones are different shapes, and a
 ratio that is right for one is arbitrary for the other. Configured under
-`file_size_balance.max_ratio` in `.github/gate_config.json`; the default
+`gates.file_size_balance.max_ratio` in `governance.yml`; the default
 reproduces the previously hardcoded 16.00.
 """
 from __future__ import annotations
@@ -14,7 +14,13 @@ import sys
 from pathlib import Path
 from typing import Final
 
-from _common import REPO_ROOT, fail_setup, gate_config, resolve_package_dir
+from _common import (
+    REPO_ROOT,
+    fail_setup,
+    gate_config,
+    gate_setting,
+    resolve_package_dir,
+)
 
 # A deliberately lenient bootstrap default: 16x lets a young package carry a
 # framework-boundary module or two that must stay physically together, while
@@ -24,7 +30,7 @@ from _common import REPO_ROOT, fail_setup, gate_config, resolve_package_dir
 # exception stops reflecting a real boundary.
 BANNER: Final[str] = 'FILE SIZE BALANCE GATE'
 DEFAULT_MAX_RATIO: Final[float] = 16.00
-MIN_FILES_FOR_GATE: Final[int] = 3
+DEFAULT_MIN_FILES: Final[int] = 3
 
 
 def count_lines(path: Path) -> int:
@@ -52,16 +58,17 @@ def main() -> int:
     # ratio comparison. Otherwise a repository with too few files to balance
     # would pass while its configuration was unreadable.
     max_ratio = _max_ratio()
+    min_files = gate_setting('file_size_balance', 'min_files', DEFAULT_MIN_FILES, BANNER)
     sized: list[tuple[Path, int]] = [
         (p, count_lines(p)) for p in sorted(source_dir.rglob('*.py'))
     ]
-    if len(sized) < MIN_FILES_FOR_GATE:
+    if len(sized) < min_files:
         # Too few files to have a size imbalance. The scan target exists
         # (resolved and checked above); this is a legitimately small
         # package, not a misconfiguration.
         print(
             f'FILE SIZE BALANCE GATE -- PASS '
-            f'(only {len(sized)} source file(s), need >= {MIN_FILES_FOR_GATE} to balance)'
+            f'(only {len(sized)} source file(s), need >= {min_files} to balance)'
         )
         return 0
     # Exclude zero-line files from the median: a package with many
@@ -69,7 +76,7 @@ def main() -> int:
     # ratio=inf for the smallest real file. Empty files don't have a
     # meaningful size to balance against.
     nonzero_sizes = [s for _, s in sized if s > 0]
-    if len(nonzero_sizes) < MIN_FILES_FOR_GATE:
+    if len(nonzero_sizes) < min_files:
         print(
             f'FILE SIZE BALANCE GATE -- PASS '
             f'(only {len(nonzero_sizes)} non-empty source file(s) to balance)'
