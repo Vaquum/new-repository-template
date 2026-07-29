@@ -71,11 +71,15 @@ def gate_config(section: str, banner: str) -> dict[str, Any]:
     for, because a silently-defaulted gate is one that stopped checking what
     the repository declared.
 
-    A missing section is an empty mapping, so a gate keeps its own defaults
-    and a repository configures only what it needs to change.
+    A missing file, or a missing section within it, is an empty mapping: the
+    repository configures nothing and every gate keeps the default it
+    documents. A file that exists but cannot be parsed is different -- the
+    repository tried to say something the gate cannot read -- and that fails
+    closed, because guessing which setting was intended is how a gate stops
+    checking what it was told to check.
     """
     if not GATE_CONFIG.is_file():
-        fail_setup(banner, f'missing {GATE_CONFIG.relative_to(REPO_ROOT)}')
+        return {}
     try:
         raw = json.loads(GATE_CONFIG.read_text(encoding='utf-8'))
     except (OSError, json.JSONDecodeError) as exc:

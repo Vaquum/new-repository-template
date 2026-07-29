@@ -52,7 +52,7 @@ def main() -> int:
             for lineno in find_try_statements(path.read_text(encoding='utf-8')):
                 violations.append((path.relative_to(REPO_ROOT), lineno))
     if violations:
-        print(f'{BANNER} -- FAIL', file=sys.stderr)
+        print('TEST FALLBACK GATE -- FAIL', file=sys.stderr)
         print('', file=sys.stderr)
         for rel, lineno in violations:
             print(
@@ -62,7 +62,7 @@ def main() -> int:
         print('', file=sys.stderr)
         print(f'{len(violations)} violation(s). Merge blocked.', file=sys.stderr)
         return 1
-    print(f'{BANNER} -- PASS')
+    print('TEST FALLBACK GATE -- PASS')
     return 0
 
 

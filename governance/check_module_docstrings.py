@@ -127,7 +127,7 @@ def main() -> int:
         if msg is not None:
             violations.append((path, msg))
     if violations:
-        print(f'{BANNER} -- FAIL', file=sys.stderr)
+        print('MODULE DOCSTRING GATE -- FAIL', file=sys.stderr)
         print('', file=sys.stderr)
         for path, msg in violations:
             rel = path.relative_to(REPO_ROOT)
@@ -135,7 +135,7 @@ def main() -> int:
         print('', file=sys.stderr)
         print(f'{len(violations)} violation(s). Merge blocked.', file=sys.stderr)
         return 1
-    print(f'{BANNER} -- PASS')
+    print('MODULE DOCSTRING GATE -- PASS')
     return 0
 
 
