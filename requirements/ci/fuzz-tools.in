@@ -1,3 +1,0 @@
-# Fuzzing engine for the parser smoke run. Kept out of dev-env: it is a
-# scheduled and PR smoke check, not part of the local gate suite.
-atheris>=2.3,<3

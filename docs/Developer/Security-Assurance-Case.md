@@ -101,10 +101,16 @@ version PyPI has already served.
 **Argument.** The parsers fed arbitrary text always return rather than raise,
 so a malformed issue body is an authoring mistake rather than a broken gate.
 
-**Evidence.** The slice-gate extractors are fuzzed by `fuzz/fuzz_issue_body.py`
-on every PR and weekly. The invariant is narrow and deliberate: what they
-return on nonsense is the gate's business; that they return at all is the
-fuzzer's.
+**Evidence.** `governance/tests/test_issue_body_parsers.py` exercises the
+extractors with Hypothesis on every PR, inside an already required check. The
+invariant is narrow and deliberate: what they return on nonsense is the gate's
+business; that they return at all is the property test's.
+
+Coverage-guided fuzzing (Atheris) was tried first and withdrawn: it ships no
+wheels for Python 3.12 or later and cannot build against this repository's
+floor, so the workflow could not install its own dependency. Property-based
+testing reaches the same invariant, runs as a required check rather than an
+advisory workflow, and shrinks a failure to a minimal reproduction.
 
 ## Requirement 7: static analysis runs on every change
 
@@ -121,8 +127,11 @@ mode with both errors and warnings ratcheted against
 - The template ships no runtime dependencies, so the dependency-vulnerability
   gate is a vacuous pass here. It becomes meaningful only once a derived
   repository declares some — the gate is inherited, the assurance is not.
-- Fuzzing covers the issue-body parsers only. Other parsing surfaces a derived
-  repository adds are not covered by inheritance.
+- The property tests cover the issue-body parsers only. Other parsing surfaces
+  a derived repository adds are not covered by inheritance.
+- Property-based testing explores a generated space; it is not coverage-guided.
+  It is a weaker guarantee than fuzzing against a native harness would give,
+  and it is what is actually installable here.
 - The contributor base is a single organisation; continuity and access rules
   are in [GOVERNANCE.md](../../GOVERNANCE.md) and [MAINTAINERS.md](../../MAINTAINERS.md).
 
