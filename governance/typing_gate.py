@@ -20,7 +20,7 @@ This gate blocks a PR that:
       package root (shrinking the analysis surface is a trivial bypass).
 
 The gate is a ratchet, not a flat hard-fail. The budget file at
-``.github/typing_budget.json`` caps the total count of each escape-hatch
+``.github/budgets.json`` ``typing`` caps the total count of each escape-hatch
 pattern and the pyright error count. Exceeding any cap fails the build.
 Decreasing the cap is allowed — a PR may lower the numbers to lock in
 improvements — but all decreases are checked against the base-ref
@@ -50,9 +50,19 @@ import sys
 from pathlib import Path
 from typing import Final
 
-from _common import REPO_ROOT, TOMLDecodeError, find_python_files, loads_toml
+from _common import (
+    REPO_ROOT,
+    TOMLDecodeError,
+    find_python_files,
+    layout_excludes,
+    loads_toml,
+    resolve_package_dir,
+    scan_surface_failures,
+)
 
-BUDGET_PATH: Final[Path] = REPO_ROOT / '.github' / 'typing_budget.json'
+BANNER: Final[str] = 'TYPING GATE'
+BUDGET_PATH: Final[Path] = REPO_ROOT / '.github' / 'budgets.json'
+BUDGET_SECTION: Final[str] = 'typing'
 PYPROJECT_PATH: Final[Path] = REPO_ROOT / 'pyproject.toml'
 
 
@@ -365,36 +375,30 @@ def gate_pyright_config(config: dict[str, object]) -> list[str]:
 
 def gate_escape_hatch_ratchet(budget: dict[str, object]) -> list[str]:
     failures: list[str] = []
-    package_root_name = str(budget.get('package_root', ''))
-    if not package_root_name:
-        return ['typing_budget.json must set package_root']
-    package_root = REPO_ROOT / package_root_name
-    if not package_root.is_dir():
-        return [f'package_root {package_root_name!r} not found under repo root']
+    package_root = resolve_package_dir(BANNER)
 
-    excludes_raw = budget.get('excludes', [])
-    excludes = [str(x) for x in excludes_raw] if isinstance(excludes_raw, list) else []
+    excludes = layout_excludes('typing', BANNER)
     files = find_python_files(package_root, excludes)
 
     patterns = budget.get('patterns')
     if not isinstance(patterns, dict):
-        return ['typing_budget.json must define patterns']
+        return ['budgets.json "typing" must define patterns']
 
     for name, spec in patterns.items():
         if not isinstance(spec, dict):
-            return [f'typing_budget.json: pattern {name!r} must be an object']
+            return [f'budgets.json "typing": pattern {name!r} must be an object']
         pattern = spec.get('pattern')
         if not isinstance(pattern, str) or not pattern:
-            return [f'typing_budget.json: pattern {name!r} has no regex']
+            return [f'budgets.json "typing": pattern {name!r} has no regex']
         raw_total = spec.get('total', 0)
         if isinstance(raw_total, bool) or not isinstance(raw_total, int):
             return [
-                f'typing_budget.json: pattern {name!r} total must be a '
+                f'budgets.json "typing": pattern {name!r} total must be a '
                 f'non-negative integer (got {raw_total!r})'
             ]
         if raw_total < 0:
             return [
-                f'typing_budget.json: pattern {name!r} total must be '
+                f'budgets.json "typing": pattern {name!r} total must be '
                 f'non-negative (got {raw_total})'
             ]
         current = count_pattern(files, pattern)
@@ -414,32 +418,26 @@ def gate_escape_hatch_ratchet(budget: dict[str, object]) -> list[str]:
 # -------------------------------------------------------------------
 
 def gate_any_references_ast(budget: dict[str, object]) -> list[str]:
-    package_root_name = str(budget.get('package_root', ''))
-    if not package_root_name:
-        return ['typing_budget.json must set package_root']
-    package_root = REPO_ROOT / package_root_name
-    if not package_root.is_dir():
-        return [f'package_root {package_root_name!r} not found under repo root']
+    package_root = resolve_package_dir(BANNER)
 
-    excludes_raw = budget.get('excludes', [])
-    excludes = [str(x) for x in excludes_raw] if isinstance(excludes_raw, list) else []
+    excludes = layout_excludes('typing', BANNER)
     files = find_python_files(package_root, excludes)
 
     spec = budget.get('any_references')
     if not isinstance(spec, dict):
         return [
-            'typing_budget.json must include an any_references section '
+            'budgets.json "typing" must include an any_references section '
             "with {'total': <int>}"
         ]
     raw_total = spec.get('total', 0)
     if isinstance(raw_total, bool) or not isinstance(raw_total, int):
         return [
-            f'typing_budget.json: any_references.total must be a '
+            f'budgets.json "typing": any_references.total must be a '
             f'non-negative integer (got {raw_total!r})'
         ]
     if raw_total < 0:
         return [
-            f'typing_budget.json: any_references.total must be '
+            f'budgets.json "typing": any_references.total must be '
             f'non-negative (got {raw_total})'
         ]
 
@@ -516,18 +514,18 @@ def _gate_pyright_severity(
     py_budget_raw = budget.get(section)
     if not isinstance(py_budget_raw, dict):
         return [
-            f'typing_budget.json must include a {section} section '
+            f'budgets.json "typing" must include a {section} section '
             "with {'total': <int>}"
         ]
     raw_budget_total = py_budget_raw.get('total', 0)
     if isinstance(raw_budget_total, bool) or not isinstance(raw_budget_total, int):
         return [
-            f'typing_budget.json: {section}.total must be a '
+            f'budgets.json "typing": {section}.total must be a '
             f'non-negative integer (got {raw_budget_total!r})'
         ]
     if raw_budget_total < 0:
         return [
-            f'typing_budget.json: {section}.total must be '
+            f'budgets.json "typing": {section}.total must be '
             f'non-negative (got {raw_budget_total})'
         ]
     budget_total = raw_budget_total
@@ -563,6 +561,7 @@ def _gate_pyright_severity(
 
 def gate_budget_source(
     base_budget_path: str | None,
+    base_config_path: str | None,
     bootstrap: bool,
     head_budget: dict[str, object],
 ) -> list[str]:
@@ -572,7 +571,7 @@ def gate_budget_source(
       * ``--base-budget PATH`` with PATH existing and valid JSON: do the
         base-vs-head comparison.
       * ``--bootstrap``: explicit first-commit override for the PR that
-        introduces ``.github/typing_budget.json`` to main. The workflow
+        introduces ``.github/budgets.json`` to main. The workflow
         selects this mode mechanically by diffing against the base ref.
 
     Any other state -- including a missing ``--base-budget`` file
@@ -590,7 +589,7 @@ def gate_budget_source(
             ]
         # Bootstrap mode: the PR introduces the budget to main. The
         # workflow confirmed this by checking that the head commit adds
-        # .github/typing_budget.json. No base-vs-head comparison in this
+        # .github/budgets.json. No base-vs-head comparison in this
         # case -- there is no base.
         return []
 
@@ -613,7 +612,7 @@ def gate_budget_source(
         ]
 
     try:
-        base_budget = json.loads(base_path.read_text(encoding='utf-8'))
+        base_budget = json.loads(base_path.read_text(encoding='utf-8')).get(BUDGET_SECTION, {})
     except (OSError, json.JSONDecodeError) as exc:
         return [f'typing_gate: cannot read base budget {base_path}: {exc}']
 
@@ -627,27 +626,7 @@ def gate_budget_source(
     # * package_root identical: cannot point the gate at a smaller subtree.
     # * excludes: head must be a subset of base (can remove, never add).
     #   Adding an exclude hides files from the ratchet.
-    base_root = base_budget.get('package_root')
-    head_root = head_budget.get('package_root')
-    if base_root != head_root:
-        failures.append(
-            f'package_root changed from {base_root!r} (base) to '
-            f'{head_root!r} (head). The scan surface cannot be narrowed '
-            f'by the PR it gates.'
-        )
-
-    base_excludes_raw = base_budget.get('excludes', [])
-    head_excludes_raw = head_budget.get('excludes', [])
-    base_excludes = set(base_excludes_raw) if isinstance(base_excludes_raw, list) else set()
-    head_excludes = set(head_excludes_raw) if isinstance(head_excludes_raw, list) else set()
-    added_excludes = head_excludes - base_excludes
-    if added_excludes:
-        failures.append(
-            f'excludes added in head that are not in base: '
-            f'{sorted(added_excludes)!r}. New excludes hide files from '
-            f'the escape-hatch ratchet; add them in a separate PR that '
-            f'ratchets the totals first.'
-        )
+    failures.extend(scan_surface_failures(base_config_path, BANNER))
 
     # Per-pattern regex identity: a regex in head for a key present in
     # base must be the exact same regex. Otherwise a PR could rewrite
@@ -777,12 +756,8 @@ def gate_files_analyzed(
         ]
     analyzed = raw_analyzed
 
-    package_root_name = str(budget.get('package_root', ''))
-    if not package_root_name:
-        return ['typing_budget.json must set package_root']
-    package_root = REPO_ROOT / package_root_name
-    excludes_raw = budget.get('excludes', [])
-    excludes = [str(x) for x in excludes_raw] if isinstance(excludes_raw, list) else []
+    package_root = resolve_package_dir(BANNER)
+    excludes = layout_excludes('typing', BANNER)
     expected = len(find_python_files(package_root, excludes))
 
     if analyzed < expected:
@@ -815,7 +790,7 @@ DEFAULT_PATTERNS: Final[dict[str, dict[str, object]]] = {
 
 def update_budget(pyright_json_path: str | None) -> None:
     if BUDGET_PATH.exists():
-        budget = json.loads(BUDGET_PATH.read_text(encoding='utf-8'))
+        budget = json.loads(BUDGET_PATH.read_text(encoding='utf-8')).get(BUDGET_SECTION, {})
     else:
         budget = {
             'schema_version': 2,
@@ -887,7 +862,7 @@ def load_budget() -> dict[str, object]:
             f'is missing. Run with --update-budget to create it.'
         )
     try:
-        return json.loads(BUDGET_PATH.read_text(encoding='utf-8'))
+        return json.loads(BUDGET_PATH.read_text(encoding='utf-8')).get(BUDGET_SECTION, {})
     except OSError as exc:
         _setup_failure(
             f'typing_gate: cannot read {BUDGET_PATH.relative_to(REPO_ROOT)}: {exc}'
@@ -912,6 +887,10 @@ def main() -> int:
         ),
     )
     parser.add_argument(
+        '--base-config',
+        help='path to governance.yml at the protected base ref',
+    )
+    parser.add_argument(
         '--base-budget',
         default=None,
         help=(
@@ -934,7 +913,7 @@ def main() -> int:
     parser.add_argument(
         '--update-budget',
         action='store_true',
-        help='Regenerate .github/typing_budget.json from current repo state',
+        help='Regenerate .github/budgets.json from current repo state',
     )
     args = parser.parse_args()
 
@@ -967,7 +946,9 @@ def main() -> int:
     for msg in gate_pyright_config(config):
         failures.append(('pyright-config', msg))
 
-    for msg in gate_budget_source(args.base_budget, args.bootstrap, budget):
+    for msg in gate_budget_source(
+        args.base_budget, args.base_config, args.bootstrap, budget
+    ):
         failures.append(('budget-source-ratchet', msg))
 
     for msg in gate_escape_hatch_ratchet(budget):

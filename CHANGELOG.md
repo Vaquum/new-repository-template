@@ -1,3 +1,11 @@
+# v0.24.0
+
+- Move every hardcoded gate assumption into `governance.yml`, so adopting this template partially or fully is a config edit rather than a source edit. Thirteen constants that were literals in gate modules — the file-size ratio, the test/code ratio bounds, the coverage track thresholds and slack, the diff-coverage floor, the forbidden docstring verbs, the closing-reference cap, the pyroma score, the slowest-test count — are now read from one file, each still carrying the literal it replaced as its documented default.
+- Merge the six per-gate config files into two. `.github/budgets.json` holds the ratchets (typing, fail-loud, modules, coverage, runtime); `governance.yml` holds the shape. The split is the point: `check_budget_ratchet` can now tell a configuration edit from a budget raise, which it could not when both lived in the same file.
+- Move the scan surface (`layout.package_root`, `layout.excludes`) out of the budget files into `governance.yml`, and move the base-vs-head check that protects it into `_common.scan_surface_failures`, shared by the typing and fail-loud ratchets. Without that move a PR could have narrowed the tree its own ratchets are measured over and passed on a count taken across less code than the base ref.
+- Make an absent `governance.yml` mean the documented defaults and a malformed one block. A repository adopting one gate should not have to author a whole config; a repository that wrote something unreadable should not have a gate guess at it. Values with no honest default — `layout.package_root` above all — still fail closed.
+- Add `gates.*.enabled` and `gates.lint.*` switches, wired into the workflows, so a derived repository can run part of the lint plane without forking it.
+
 # v0.23.0
 
 - Add the release path: `Automated Release` derives the tag from `[project].version`, validates it against `^v\d+\.\d+\.\d+$`, takes the changelog's newest section as the notes verbatim, and appends merged pull requests, the compare link and the changelog anchor computed from git. Nothing is authored at release time — the changelog is already the release notes, and an authoring step would add an API dependency and a review surface to a step whose job is publishing what was already reviewed. Idempotent: an existing tag is a skip, so re-running after a partial failure is safe.

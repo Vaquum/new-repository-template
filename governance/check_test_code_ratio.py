@@ -6,13 +6,17 @@ import sys
 from pathlib import Path
 from typing import Final
 
-from _common import REPO_ROOT, resolve_package_dir, significant_lines
+from _common import (
+    gate_setting,
+    resolve_package_dir,
+    resolve_paths,
+    significant_lines,
+)
 
-TEST_DIR = REPO_ROOT / 'tests'
-
-MIN_RATIO: Final[float] = 0.60
-MAX_RATIO: Final[float] = 2.00
-MIN_SOURCE_SLOC_FOR_GATE: Final[int] = 50
+BANNER = 'TEST/CODE RATIO GATE'
+DEFAULT_MIN_RATIO: Final[float] = 0.60
+DEFAULT_MAX_RATIO: Final[float] = 2.00
+DEFAULT_MIN_SOURCE_SLOC: Final[int] = 50
 
 
 def count_py_sloc(root: Path) -> int:
@@ -24,21 +28,24 @@ def count_py_sloc(root: Path) -> int:
 def main() -> int:
     source_dir = resolve_package_dir('TEST/CODE RATIO GATE')
     source = count_py_sloc(source_dir)
-    test = count_py_sloc(TEST_DIR)
-    if source < MIN_SOURCE_SLOC_FOR_GATE:
+    test = sum(count_py_sloc(path) for path in resolve_paths('test_paths', BANNER))
+    min_ratio = gate_setting('test_code_ratio', 'min', DEFAULT_MIN_RATIO, BANNER)
+    max_ratio = gate_setting('test_code_ratio', 'max', DEFAULT_MAX_RATIO, BANNER)
+    min_sloc = gate_setting('test_code_ratio', 'min_source_sloc', DEFAULT_MIN_SOURCE_SLOC, BANNER)
+    if source < min_sloc:
         # The scan target exists (resolved and checked above); there is
         # just not yet enough source for a ratio to be meaningful.
-        print(f'TEST/CODE RATIO GATE -- PASS (source {source} SLOC < {MIN_SOURCE_SLOC_FOR_GATE}, ratio not yet meaningful)')
+        print(f'TEST/CODE RATIO GATE -- PASS (source {source} SLOC < {min_sloc}, ratio not yet meaningful)')
         return 0
     ratio = test / source if source > 0 else 0.0
-    if ratio < MIN_RATIO or ratio > MAX_RATIO:
+    if ratio < min_ratio or ratio > max_ratio:
         print('TEST/CODE RATIO GATE -- FAIL', file=sys.stderr)
         print('', file=sys.stderr)
         print(f'  source SLOC: {source} ({source_dir.name}/)', file=sys.stderr)
         print(f'  test   SLOC: {test} (tests/)', file=sys.stderr)
         print(
             f'  ratio:       {ratio:.2f} '
-            f'(required: [{MIN_RATIO:.2f}, {MAX_RATIO:.2f}])',
+            f'(required: [{min_ratio:.2f}, {max_ratio:.2f}])',
             file=sys.stderr,
         )
         print('', file=sys.stderr)

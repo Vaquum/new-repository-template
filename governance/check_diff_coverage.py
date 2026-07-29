@@ -7,14 +7,19 @@ import subprocess
 import sys
 from typing import Final
 
-from _common import REPO_ROOT, fail_setup, resolve_package_dir
+from _common import (
+    REPO_ROOT,
+    fail_setup,
+    gate_setting,
+    resolve_package_dir,
+)
 
 COVERAGE_JSON = REPO_ROOT / 'coverage.json'
 
 # Floor for CHANGED package lines specifically -- higher than the global
 # coverage floor, because new code must arrive tested. Raise toward 100 as
 # the package matures.
-DIFF_FLOOR_PCT: Final[float] = 80.0
+DEFAULT_DIFF_FLOOR: Final[float] = 80.0
 BANNER = 'DIFF COVERAGE GATE'
 
 
@@ -90,9 +95,10 @@ def main() -> int:
         print('DIFF COVERAGE GATE -- PASS (no changed executable lines in the package)')
         return 0
     pct = 100.0 * covered / total
-    if pct < DIFF_FLOOR_PCT:
+    floor = gate_setting('coverage', 'diff_floor', DEFAULT_DIFF_FLOOR, BANNER)
+    if pct < floor:
         print('DIFF COVERAGE GATE -- FAIL', file=sys.stderr)
-        print(f'  changed-line coverage {pct:.1f}% (required >= {DIFF_FLOOR_PCT}%)', file=sys.stderr)
+        print(f'  changed-line coverage {pct:.1f}% (required >= {floor}%)', file=sys.stderr)
         for rel, miss in uncovered:
             preview = ','.join(str(n) for n in miss[:8])
             print(f'    {rel}: uncovered changed lines {preview}', file=sys.stderr)

@@ -38,28 +38,28 @@ def test_branch_pct_uses_branch_key_when_branches_exist() -> None:
 
 def test_track_dormant_below_min_statements() -> None:
     # 100% actual, 50% floor, but only 10 statements -> no demand to bank.
-    assert floor._track_violation('line', 100.0, 50, 10, floor.MIN_STATEMENTS_FOR_TRACK) is None
+    assert floor._track_violation('line', 100.0, 50, 10, floor.DEFAULT_MIN_STATEMENTS, floor.DEFAULT_TRACK_SLACK) is None
 
 
 def test_track_fires_when_floor_lags_actual() -> None:
-    msg = floor._track_violation('line', 90.0, 50, 200, floor.MIN_STATEMENTS_FOR_TRACK)
+    msg = floor._track_violation('line', 90.0, 50, 200, floor.DEFAULT_MIN_STATEMENTS, floor.DEFAULT_TRACK_SLACK)
     assert msg is not None
     assert '>= 88%' in msg  # floor(90) - TRACK_SLACK(2)
 
 
 def test_track_silent_within_slack() -> None:
     # actual 89, floor 88 -> lag 1 <= slack 2 -> satisfied.
-    assert floor._track_violation('line', 89.0, 88, 200, floor.MIN_STATEMENTS_FOR_TRACK) is None
+    assert floor._track_violation('line', 89.0, 88, 200, floor.DEFAULT_MIN_STATEMENTS, floor.DEFAULT_TRACK_SLACK) is None
 
 
 def test_track_branch_dormant_below_min_branches() -> None:
-    assert floor._track_violation('branch', 100.0, 45, 5, floor.MIN_BRANCHES_FOR_TRACK) is None
+    assert floor._track_violation('branch', 100.0, 45, 5, floor.DEFAULT_MIN_BRANCHES, floor.DEFAULT_TRACK_SLACK) is None
 
 
 # --- RATCHET gate: floor parsing ----------------------------------------
 
 def test_parse_floor_reads_line_and_branch() -> None:
-    assert ratchet._parse_floor('{"line": 80, "branch": 70}') == {'line': 80, 'branch': 70}
+    assert ratchet._parse_floor('{\"coverage\": {\"line\": 80, \"branch\": 70}}') == {'line': 80, 'branch': 70}
 
 
 def test_parse_floor_empty_text_is_empty_dict() -> None:
@@ -68,17 +68,17 @@ def test_parse_floor_empty_text_is_empty_dict() -> None:
 
 def test_parse_floor_rejects_out_of_range() -> None:
     with pytest.raises(SystemExit):
-        ratchet._parse_floor('{"line": 150, "branch": 70}')
+        ratchet._parse_floor('{\"coverage\": {\"line\": 150, \"branch\": 70}}')
 
 
 def test_parse_floor_rejects_non_int() -> None:
     with pytest.raises(SystemExit):
-        ratchet._parse_floor('{"line": 80.5, "branch": 70}')
+        ratchet._parse_floor('{\"coverage\": {\"line\": 80.5, \"branch\": 70}}')
 
 
 def test_parse_floor_rejects_bool() -> None:
     with pytest.raises(SystemExit):
-        ratchet._parse_floor('{"line": true, "branch": 70}')
+        ratchet._parse_floor('{\"coverage\": {\"line\": true, \"branch\": 70}}')
 
 
 # --- RATCHET gate: lowering detection -----------------------------------

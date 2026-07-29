@@ -77,7 +77,24 @@ jobs:
           set -euo pipefail
           python -m twine check dist/*
           python -m check_manifest
-          python -m pyroma --min=9 .
+          min_score="$(python - <<'PY'
+          import sys
+          from pathlib import Path
+
+          import yaml
+
+          # gates.packaging.pyroma_min -- the metadata score this repository
+          # holds itself to. Absent means the template's own 9.
+          value = (
+              yaml.safe_load(Path('governance.yml').read_text())
+              .get('gates', {}).get('packaging', {}).get('pyroma_min', 9)
+          )
+          if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= 10:
+              sys.exit(f'governance.yml: gates.packaging.pyroma_min must be 1-10, got {value!r}')
+          print(value)
+          PY
+          )"
+          python -m pyroma --min="$min_score" .
 
       - name: Upload distributions
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1

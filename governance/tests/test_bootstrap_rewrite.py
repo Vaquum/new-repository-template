@@ -112,9 +112,9 @@ def test_file_bootstrap_is_idempotent(tmp_path: Path) -> None:
 
     # Tune a module budget the way a real slice does -- the exact value the
     # un-guarded re-run used to revert, opening a spurious bootstrap PR.
-    budget_path = repo / '.github' / 'module_budgets.json'
+    budget_path = repo / '.github' / 'budgets.json'
     budgets = json.loads(budget_path.read_text(encoding='utf-8'))
-    budgets['my_new_app/__init__.py'] = 999
+    budgets['modules']['my_new_app/__init__.py'] = 999
     budget_path.write_text(json.dumps(budgets, indent=2) + '\n', encoding='utf-8')
 
     before = _tree_hashes(repo)
@@ -123,4 +123,5 @@ def test_file_bootstrap_is_idempotent(tmp_path: Path) -> None:
     assert 'already specialized' in second.stdout
     assert _tree_hashes(repo) == before, 'second bootstrap run must change nothing'
     # The tuned budget survived: the re-run did not regenerate it.
-    assert json.loads(budget_path.read_text(encoding='utf-8'))['my_new_app/__init__.py'] == 999
+    reread = json.loads(budget_path.read_text(encoding='utf-8'))
+    assert reread['modules']['my_new_app/__init__.py'] == 999

@@ -87,52 +87,59 @@
       "sidebarLabel": "Python package"
     },
     {
+      "source": "docs/Developer/Configuration.md",
+      "dest": "developer/configuration.md",
+      "slug": "/developer/configuration",
+      "sidebarPosition": 3,
+      "sidebarLabel": "Configuration"
+    },
+    {
       "source": "docs/Developer/Writing-Docstrings.md",
       "dest": "developer/writing-docstrings.md",
       "slug": "/developer/writing-docstrings",
-      "sidebarPosition": 3,
+      "sidebarPosition": 4,
       "sidebarLabel": "Writing docstrings"
     },
     {
       "source": "docs/Developer/Technical-Debt.md",
       "dest": "developer/technical-debt.md",
       "slug": "/developer/technical-debt",
-      "sidebarPosition": 4,
+      "sidebarPosition": 5,
       "sidebarLabel": "Technical debt"
     },
     {
       "source": "docs/Developer/Packaging.md",
       "dest": "developer/packaging.md",
       "slug": "/developer/packaging",
-      "sidebarPosition": 5,
+      "sidebarPosition": 6,
       "sidebarLabel": "Packaging"
     },
     {
       "source": "docs/Developer/Release-Policy.md",
       "dest": "developer/release-policy.md",
       "slug": "/developer/release-policy",
-      "sidebarPosition": 6,
+      "sidebarPosition": 7,
       "sidebarLabel": "Release policy"
     },
     {
       "source": "docs/Developer/Making-Release.md",
       "dest": "developer/making-release.md",
       "slug": "/developer/making-release",
-      "sidebarPosition": 7,
+      "sidebarPosition": 8,
       "sidebarLabel": "Making a release"
     },
     {
       "source": "docs/Developer/Semantic-Versioning.md",
       "dest": "developer/semantic-versioning.md",
       "slug": "/developer/semantic-versioning",
-      "sidebarPosition": 8,
+      "sidebarPosition": 9,
       "sidebarLabel": "Semantic versioning"
     },
     {
       "source": "docs/Developer/Security-Assurance-Case.md",
       "dest": "developer/security-assurance-case.md",
       "slug": "/developer/security-assurance-case",
-      "sidebarPosition": 9,
+      "sidebarPosition": 10,
       "sidebarLabel": "Security assurance case"
     }
   ]

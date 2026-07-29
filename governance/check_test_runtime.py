@@ -6,7 +6,7 @@ its profile reported, not merely tolerated. This gate is that stance made
 mechanical: the suite writes a runtime profile, and the profile is checked
 against a committed ceiling.
 
-The ceiling is per-repository, in `.github/runtime_budget.json`. The template's
+The ceiling is per-repository, in `.github/budgets.json`. The template's
 own suite is trivial, so its ceiling is loose scaffolding a derived repository
 recalibrates against its own observed spread -- the shape of the budget file
 records the observation window so a later reader can tell a measured ceiling
@@ -20,10 +20,12 @@ import sys
 from pathlib import Path
 from typing import Any, Final
 
-from _common import REPO_ROOT, fail_setup
+from _common import REPO_ROOT, fail_setup, gate_setting
 
 BANNER: Final[str] = 'TEST RUNTIME GATE'
-BUDGET_PATH: Final[Path] = REPO_ROOT / '.github' / 'runtime_budget.json'
+BUDGET_PATH: Final[Path] = REPO_ROOT / '.github' / 'budgets.json'
+BUDGET_SECTION: Final[str] = 'runtime'
+DEFAULT_SLOWEST_TESTS_LIMIT: Final[int] = 10
 
 
 def load_json(path: Path, what: str) -> dict[str, Any]:
@@ -63,15 +65,15 @@ def main() -> int:
                         help='exit non-zero when the suite exceeds its ceiling')
     args = parser.parse_args()
 
-    budget = load_json(BUDGET_PATH, 'runtime budget')
+    budget = load_json(BUDGET_PATH, 'runtime budget').get(BUDGET_SECTION, {})
     profile = load_json(Path(args.profile), 'runtime profile')
 
     ceiling = budget.get('max_total_seconds')
     if isinstance(ceiling, bool) or not isinstance(ceiling, (int, float)) or ceiling <= 0:
         fail_setup(BANNER, f'max_total_seconds must be a positive number, got {ceiling!r}')
-    limit = budget.get('slowest_tests_limit', 10)
-    if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
-        fail_setup(BANNER, f'slowest_tests_limit must be a positive integer, got {limit!r}')
+    limit = gate_setting(
+        'runtime_budget', 'slowest_tests_limit', DEFAULT_SLOWEST_TESTS_LIMIT, BANNER
+    )
 
     total = profile.get('total_seconds')
     if isinstance(total, bool) or not isinstance(total, (int, float)):

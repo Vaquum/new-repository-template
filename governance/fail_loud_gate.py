@@ -26,7 +26,7 @@ Categories enforced:
 Usage:
 
   python governance/fail_loud_gate.py \\
-    --base-budget <path>         # .github/fail_loud_budget.json at BASE
+    --base-budget <path>         # .github/budgets.json at BASE
     [--update-budget]            # regenerate the committed budget
     [--bootstrap]                # first-commit override, mirrors typing_gate
 
@@ -46,9 +46,17 @@ import sys
 from pathlib import Path
 from typing import Final
 
-from _common import REPO_ROOT, find_python_files
+from _common import (
+    REPO_ROOT,
+    find_python_files,
+    layout_excludes,
+    resolve_package_dir,
+    scan_surface_failures,
+)
 
-BUDGET_PATH: Final[Path] = REPO_ROOT / '.github' / 'fail_loud_budget.json'
+BUDGET_PATH: Final[Path] = REPO_ROOT / '.github' / 'budgets.json'
+BUDGET_SECTION: Final[str] = 'fail_loud'
+BANNER: Final[str] = 'FAIL LOUD GATE'
 
 CATEGORIES: Final[tuple[str, ...]] = (
     'bare_except',
@@ -239,7 +247,7 @@ def _load_json(path: Path, label: str) -> dict[str, object]:
     except OSError as exc:
         raise SystemExit(f'fail_loud_gate: cannot read {label} {path}: {exc}') from exc
     try:
-        data = json.loads(text)
+        data = json.loads(text).get(BUDGET_SECTION, {})
     except json.JSONDecodeError as exc:
         raise SystemExit(f'fail_loud_gate: {label} {path} is not valid JSON: {exc}') from exc
     if not isinstance(data, dict):
@@ -287,26 +295,14 @@ def _category_total(budget: dict[str, object], cat: str) -> int:
 def gate(
     budget_head: dict[str, object],
     budget_base: dict[str, object] | None,
+    base_config_path: str | None = None,
 ) -> list[str]:
     failures: list[str] = []
 
-    # Structural: head must preserve package_root, must not add excludes,
-    # must preserve every category key, must not raise any total.
+    # Structural: head must not narrow the scan surface, must preserve
+    # every category key, and must not raise any total.
     if budget_base is not None:
-        if budget_head.get('package_root') != budget_base.get('package_root'):
-            failures.append(
-                f'package_root changed from {budget_base.get("package_root")!r} '
-                f'(base) to {budget_head.get("package_root")!r} (head). The scan '
-                f'surface cannot be narrowed in the same PR that gates.'
-            )
-        base_excl = set(budget_base.get('excludes', []) or [])
-        head_excl = set(budget_head.get('excludes', []) or [])
-        added = head_excl - base_excl
-        if added:
-            failures.append(
-                f'excludes added in head that are not in base: {sorted(added)!r}. '
-                f'New excludes hide files from the scan.'
-            )
+        failures.extend(scan_surface_failures(base_config_path, BANNER))
         base_cats = set((budget_base.get('categories') or {}).keys())
         head_cats = set((budget_head.get('categories') or {}).keys())
         for missing in base_cats - head_cats:
@@ -325,16 +321,8 @@ def gate(
                     )
 
     # Actual violation count vs head budget.
-    root_name = budget_head.get('package_root')
-    if not isinstance(root_name, str) or not root_name:
-        return [*failures, 'fail_loud_gate: budget must set `package_root`']
-    package_root = REPO_ROOT / root_name
-    if not package_root.is_dir():
-        return [
-            *failures,
-            f'fail_loud_gate: package_root {root_name!r} not found under repo root',
-        ]
-    excludes = [str(x) for x in (budget_head.get('excludes') or [])]
+    package_root = resolve_package_dir(BANNER)
+    excludes = layout_excludes('fail_loud', BANNER)
     files = find_python_files(package_root, excludes)
     current = count_violations(files)
 
@@ -356,8 +344,6 @@ def gate(
 
 DEFAULT_BUDGET: Final[dict[str, object]] = {
     'schema_version': 1,
-    'package_root': 'new_repository_template',
-    'excludes': ['__pycache__', 'build', 'dist'],
     'categories': {cat: {'total': 0} for cat in CATEGORIES},
 }
 
@@ -368,11 +354,8 @@ def update_budget() -> None:
     else:
         budget = json.loads(json.dumps(DEFAULT_BUDGET))
 
-    root_name = str(budget.get('package_root', ''))
-    if not root_name:
-        raise SystemExit('fail_loud_gate: --update-budget needs package_root set')
-    package_root = REPO_ROOT / root_name
-    excludes = [str(x) for x in (budget.get('excludes') or [])]
+    package_root = resolve_package_dir(BANNER)
+    excludes = layout_excludes('fail_loud', BANNER)
     files = find_python_files(package_root, excludes)
     current = count_violations(files)
 
@@ -397,6 +380,10 @@ def update_budget() -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description='Fail-loud gate')
     parser.add_argument(
+        '--base-config',
+        help='path to governance.yml at the protected base ref',
+    )
+    parser.add_argument(
         '--base-budget',
         default=None,
         help='Path to the fail-loud budget at the protected base ref.',
@@ -409,7 +396,7 @@ def main() -> int:
     parser.add_argument(
         '--update-budget',
         action='store_true',
-        help='Regenerate .github/fail_loud_budget.json from current repo state',
+        help='Regenerate the fail_loud section of .github/budgets.json',
     )
     args = parser.parse_args()
 
@@ -460,7 +447,7 @@ def main() -> int:
         )
         return 2
 
-    failures = gate(budget_head, budget_base)
+    failures = gate(budget_head, budget_base, args.base_config)
     if failures:
         print('FAIL-LOUD GATE -- FAIL')
         print()

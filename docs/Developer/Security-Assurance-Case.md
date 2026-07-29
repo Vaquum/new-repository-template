@@ -120,7 +120,7 @@ checks, so common defect classes are caught before merge.
 
 **Evidence.** CodeQL and ruff run as required checks; pyright runs in strict
 mode with both errors and warnings ratcheted against
-`.github/typing_budget.json`; OpenSSF Scorecard re-analyses every push to
+the `typing` budget in `.github/budgets.json`; OpenSSF Scorecard re-analyses every push to
 `main` and publishes the result.
 
 ## Residual risks

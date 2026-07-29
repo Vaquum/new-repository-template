@@ -11,7 +11,8 @@ from typing import Final
 from _common import loads_toml
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
-BUDGET_JSON: Final[Path] = REPO_ROOT / '.github/module_budgets.json'
+BUDGET_JSON: Final[Path] = REPO_ROOT / '.github/budgets.json'
+BUDGET_SECTION: Final[str] = 'modules'
 LINT_WORKFLOW: Final[Path] = REPO_ROOT / '.github/workflows/pr_checks_lint.yml'
 GOVERNANCE_DIR: Final[Path] = REPO_ROOT / 'governance'
 PYPROJECT: Final[Path] = REPO_ROOT / 'pyproject.toml'
@@ -53,22 +54,22 @@ def _run(script: str, *args: str, cwd: Path | None = None) -> subprocess.Complet
 
 
 def test_module_budgets_is_valid_json() -> None:
-    data = json.loads(BUDGET_JSON.read_text(encoding='utf-8'))
+    data = json.loads(BUDGET_JSON.read_text(encoding='utf-8'))[BUDGET_SECTION]
     assert isinstance(data, dict)
     assert all(isinstance(k, str) for k in data)
     assert all(isinstance(v, int) and v > 0 for v in data.values())
 
 
 def test_module_budgets_covers_every_package_path() -> None:
-    data = json.loads(BUDGET_JSON.read_text(encoding='utf-8'))
+    data = json.loads(BUDGET_JSON.read_text(encoding='utf-8'))[BUDGET_SECTION]
     package_paths = {p for p in data if p.startswith('new_repository_template/')}
     script_paths = {p for p in data if p.startswith('governance/')}
     # Every .py under the package root is declared in
-    # module_budgets.json. Otherwise a new module could silently escape
+    # budgets.json "modules". Otherwise a new module could silently escape
     # the line-count budget gate.
     actual_paths = _actual_package_paths()
     assert package_paths == actual_paths, (
-        f'module_budgets.json paths diverge from actual source tree: '
+        f'budgets.json "modules" paths diverge from actual source tree: '
         f'extra={sorted(package_paths - actual_paths)}, '
         f'missing={sorted(actual_paths - package_paths)}'
     )
@@ -151,10 +152,10 @@ def test_no_soft_fail_pathway_in_workflow() -> None:
 
 
 def test_scripts_are_self_budgeted() -> None:
-    data = json.loads(BUDGET_JSON.read_text(encoding='utf-8'))
+    data = json.loads(BUDGET_JSON.read_text(encoding='utf-8'))[BUDGET_SECTION]
     for name in GATE_SCRIPTS:
         key = f'governance/{name}'
-        assert key in data, f'{key} missing from module_budgets.json'
+        assert key in data, f'{key} missing from budgets.json "modules"'
         assert data[key] <= 120, f'{key} budget {data[key]} exceeds the 120-line self-limit'
 
 
@@ -182,7 +183,8 @@ def test_budget_ratchet_accepts_marker(tmp_path: Path) -> None:
     (tmp_path / '.github').mkdir()
     head = {'new_repository_template/foo.py': 200}
     base = {'new_repository_template/foo.py': 100}
-    (tmp_path / '.github' / 'module_budgets.json').write_text(json.dumps(head), encoding='utf-8')
+    (tmp_path / '.github' / 'budgets.json').write_text(
+        json.dumps({BUDGET_SECTION: head}), encoding='utf-8')
     base_file = tmp_path / 'base.json'
     base_file.write_text(json.dumps(base), encoding='utf-8')
     body_file = tmp_path / 'body.txt'

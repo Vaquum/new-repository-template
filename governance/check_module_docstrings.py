@@ -5,7 +5,7 @@ Exemptions exist because a docstring can only restate what the reader
 already has. In a package built on one public symbol per file with the
 filename matching that symbol, the module docstring says what the filename
 says -- and the constitution rejects docstrings that restate. Configured
-under `module_docstrings` in `.github/gate_config.json`; all exemptions
+under `gates.module_docstrings` in `governance.yml`; all exemptions
 default off, so this repository is unchanged.
 """
 from __future__ import annotations

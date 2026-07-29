@@ -3,7 +3,7 @@
 
 The mechanical twin of `check_budget_ratchet.py`, inverted. A module
 budget is a ceiling, so *raising* it is the loosening that needs a marker;
-the coverage floor in `.github/coverage_budget.json` is a floor, so
+the coverage floor in `.github/budgets.json` is a floor, so
 *lowering* it is the loosening. Either field (`line`, `branch`) that drops
 below its value at the PR base must be authorised by a PR-body line:
 
@@ -28,7 +28,8 @@ from typing import Final
 
 from _common import REPO_ROOT, fail_setup
 
-HEAD_BUDGET_PATH = REPO_ROOT / '.github' / 'coverage_budget.json'
+HEAD_BUDGET_PATH = REPO_ROOT / '.github' / 'budgets.json'
+BUDGET_SECTION = 'coverage'
 FIELDS: Final[tuple[str, ...]] = ('line', 'branch')
 
 LOWER_MARKER_RE: Final[re.Pattern[str]] = re.compile(
@@ -45,7 +46,7 @@ def _parse_floor(text: str) -> dict[str, int]:
     if not text.strip():
         return {}
     try:
-        data = json.loads(text)
+        data = json.loads(text).get(BUDGET_SECTION, {})
     except json.JSONDecodeError as exc:
         _fail_setup(f'cannot parse coverage_budget JSON: {exc}')
     if not isinstance(data, dict):
@@ -60,7 +61,7 @@ def _parse_floor(text: str) -> dict[str, int]:
 
 
 def _base_floor_from_ref(base_ref: str) -> dict[str, int]:
-    cmd = ['git', 'show', f'{base_ref}:.github/coverage_budget.json']
+    cmd = ['git', 'show', f'{base_ref}:.github/budgets.json']
     try:
         result = subprocess.run(cmd, check=False, capture_output=True, text=True)
     except FileNotFoundError:

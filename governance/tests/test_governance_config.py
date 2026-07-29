@@ -120,24 +120,51 @@ def _requirement_pins(package: str) -> list[str]:
 def test_governance_config_schema_is_minimal() -> None:
     config = _config()
 
-    assert config['schema_version'] == 1
+    assert config['schema_version'] == 2
     assert set(config) == {
         'schema_version',
+        'repository',
+        'layout',
         'runtime',
         'toolchain',
         'review',
         'slice',
+        'commits',
+        'changelog',
+        'release',
         'bootstrap',
         'ruleset',
+        'gates',
     }
 
 
+def _gates() -> dict[str, dict[str, object]]:
+    return {
+        name: _mapping(body, f'gates.{name}')
+        for name, body in _section('gates').items()
+    }
+
+
+def _required_contexts_from_config() -> list[str]:
+    # A gate owes a required status check only when it both runs and blocks.
+    return sorted(
+        _str(body, 'context')
+        for body in _gates().values()
+        if body.get('enabled', True) is not False and body.get('required') is True
+    )
+
+
 def test_ruleset_required_checks_match_config() -> None:
-    ruleset_config = _section('ruleset')
+    """The ruleset snapshot lists exactly the gates configured to block.
+
+    The snapshot is what `pr_checks_ruleset` holds live branch protection to,
+    so letting it drift from `gates.*.required` would let a gate be marked
+    blocking in config while nothing on `main` actually required it.
+    """
     ruleset_snapshot = json.loads(RULESET_PATH.read_text(encoding='utf-8'))
 
-    assert ruleset_snapshot['name'] == _str(ruleset_config, 'name')
-    assert _required_status_contexts() == _str_list(ruleset_config, 'required_status_checks')
+    assert ruleset_snapshot['name'] == _str(_section('ruleset'), 'name')
+    assert sorted(_required_status_contexts()) == _required_contexts_from_config()
 
 
 def test_workflow_runtime_and_tooling_match_config() -> None:
@@ -201,28 +228,49 @@ def test_bootstrap_review_and_slice_settings_match_config() -> None:
     assert _str(review, 'approving_authority') in setup
 
 
-def test_gate_config_sections_are_all_read_by_a_gate() -> None:
-    """Every section in gate_config.json must be one a gate actually reads.
+def test_every_gate_section_is_read_by_a_gate() -> None:
+    """Every gate section must be one some gate actually reads.
 
     A typo'd or orphaned section is worse than a missing one: it looks like
     configuration and changes nothing, so a repository believes it has tuned
     a gate that is still running its default.
     """
-    config_path = REPO_ROOT / '.github/gate_config.json'
-    config = json.loads(config_path.read_text(encoding='utf-8'))
-    sections = {k for k in config if k != 'schema_version'}
-
     governance_source = '\n'.join(
-        p.read_text(encoding='utf-8')
-        for p in sorted((REPO_ROOT / 'governance').glob('*.py'))
+        path.read_text(encoding='utf-8')
+        for path in sorted((REPO_ROOT / 'governance').glob('*.py'))
     )
-    for section in sorted(sections):
-        assert f"gate_config('{section}'" in governance_source, (
-            f'{section} is configured but no gate reads it'
+    workflow_source = '\n'.join(
+        path.read_text(encoding='utf-8') for path in sorted(WORKFLOWS_DIR.glob('*.yml'))
+    )
+    control = {'enabled', 'required', 'context'}
+    for name, body in sorted(_gates().items()):
+        if not set(body) - control:
+            # Control-surface-only: consumed generically by the honesty gate
+            # and the workflows, so there is no by-name reader to look for.
+            continue
+        # Matched on the quoted gate name rather than on a specific call
+        # form: the readers wrap across lines, and a grep for one spelling
+        # would pass by accident the day someone reformats the call.
+        read_by = f"'{name}'" in governance_source or f'gates.{name}.' in workflow_source
+        assert read_by, f'gates.{name} sets policy but nothing reads it'
+
+
+def test_every_layout_key_is_read_by_a_gate() -> None:
+    """Same rule for `layout`: a path nobody resolves is decoration."""
+    governance_source = '\n'.join(
+        path.read_text(encoding='utf-8')
+        for path in sorted((REPO_ROOT / 'governance').glob('*.py'))
+    )
+    workflow_source = '\n'.join(
+        path.read_text(encoding='utf-8') for path in sorted(WORKFLOWS_DIR.glob('*.yml'))
+    )
+    for key in sorted(_section('layout')):
+        assert key in governance_source or key in workflow_source, (
+            f'layout.{key} is configured but nothing reads it'
         )
 
 
-def test_gate_config_defaults_reproduce_the_previous_constants() -> None:
+def test_config_defaults_reproduce_the_previous_constants() -> None:
     """The shipped defaults must equal the values that were hardcoded.
 
     This slice's whole claim is that behaviour here does not change. Only a
@@ -230,11 +278,26 @@ def test_gate_config_defaults_reproduce_the_previous_constants() -> None:
     the literal previous constants rather than against the config file --
     which would just be asserting the file equals itself.
     """
-    config = json.loads((REPO_ROOT / '.github/gate_config.json').read_text(encoding='utf-8'))
-    assert config['file_size_balance']['max_ratio'] == 16.00
-    assert config['test_fallbacks']['excludes'] == []
-    assert config['module_docstrings']['excludes'] == []
-    assert config['module_docstrings']['exempt_below_significant_lines'] == 0
-    assert config['module_docstrings']['exempt_filename_matching_single_symbol'] is False
-    assert config['changelog']['header'] == '# v{version}'
-    assert config['changelog']['newest'] == 'first'
+    gates = _gates()
+    assert gates['file_size_balance']['max_ratio'] == 16.00
+    assert gates['file_size_balance']['min_files'] == 3
+    assert gates['test_fallbacks']['excludes'] == []
+    assert gates['module_docstrings']['excludes'] == []
+    assert gates['module_docstrings']['exempt_below_significant_lines'] == 0
+    assert gates['module_docstrings']['exempt_filename_matching_single_symbol'] is False
+    assert gates['test_code_ratio']['min'] == 0.60
+    assert gates['test_code_ratio']['max'] == 2.00
+    assert gates['test_code_ratio']['min_source_sloc'] == 50
+    assert gates['coverage']['diff_floor'] == 80.0
+    assert gates['coverage']['min_statements_for_track'] == 50
+    assert gates['coverage']['min_branches_for_track'] == 20
+    assert gates['coverage']['track_slack'] == 2
+    assert gates['runtime_budget']['slowest_tests_limit'] == 10
+    assert gates['packaging']['pyroma_min'] == 9
+    assert gates['docstrings']['forbidden_title_verbs'] == [
+        'calculate', 'generate', 'make', 'build',
+    ]
+    assert _int(_section('slice'), 'max_closing_references') == 2
+    assert _section('changelog')['header'] == '# v{version}'
+    assert _section('changelog')['newest'] == 'first'
+    assert _str_list(_section('layout'), 'excludes') == ['__pycache__', 'build', 'dist']

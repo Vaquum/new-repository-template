@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import importlib
-import json
 import shutil
 import subprocess
 import sys
 import types
 from pathlib import Path
+
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -51,10 +52,13 @@ def _pkg(tmp_path: Path, files: dict[str, str], config: dict[str, object]) -> su
     (tmp_path / 'pkg').mkdir()
     for name, body in files.items():
         (tmp_path / 'pkg' / name).write_text(body, encoding='utf-8')
-    (tmp_path / '.github' / 'typing_budget.json').write_text(
-        json.dumps({'schema_version': 2, 'package_root': 'pkg', 'excludes': []}), encoding='utf-8')
-    (tmp_path / '.github' / 'gate_config.json').write_text(
-        json.dumps({'schema_version': 1, 'module_docstrings': config}), encoding='utf-8')
+    (tmp_path / 'governance.yml').write_text(
+        yaml.safe_dump({
+            'schema_version': 2,
+            'layout': {'package_root': 'pkg', 'excludes': []},
+            'gates': {'module_docstrings': config},
+        }),
+        encoding='utf-8')
     for mod in ('_common.py', 'check_module_docstrings.py'):
         shutil.copy(REPO_ROOT / 'governance' / mod, tmp_path / 'governance' / mod)
     return subprocess.run(

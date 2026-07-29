@@ -9,6 +9,8 @@ import textwrap
 from pathlib import Path
 from typing import Final
 
+import yaml
+
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 GOVERNANCE_DIR: Final[Path] = REPO_ROOT / 'governance'
 
@@ -35,13 +37,22 @@ def _run(script: Path, *args: str, cwd: Path) -> subprocess.CompletedProcess[str
     )
 
 
+def _write_budget(root: Path, section: str, value: object) -> None:
+    # The budgets share one file now, so each helper merges its own section
+    # instead of writing the file whole and clobbering the others.
+    github = root / '.github'
+    github.mkdir(parents=True, exist_ok=True)
+    path = github / 'budgets.json'
+    data = json.loads(path.read_text(encoding='utf-8')) if path.is_file() else {}
+    data[section] = value
+    path.write_text(json.dumps(data), encoding='utf-8')
+
+
 def _write_typing_budget(root: Path, package: str = 'new_repository_template') -> None:
     # The bloat gates resolve their scan target from this single source
     # and fail closed without it. A synthetic repo must declare it.
-    github = root / '.github'
-    github.mkdir(parents=True, exist_ok=True)
-    (github / 'typing_budget.json').write_text(
-        json.dumps({'package_root': package}), encoding='utf-8',
+    (root / 'governance.yml').write_text(
+        yaml.safe_dump({'layout': {'package_root': package}}), encoding='utf-8',
     )
 
 
@@ -50,7 +61,7 @@ def test_module_budget_mutation_fires(tmp_path: Path) -> None:
     (tmp_path / 'new_repository_template').mkdir()
     _write_typing_budget(tmp_path)
     budget = {'new_repository_template/oversized.py': 5}
-    (tmp_path / '.github' / 'module_budgets.json').write_text(json.dumps(budget), encoding='utf-8')
+    _write_budget(tmp_path, 'modules', budget)
     (tmp_path / 'new_repository_template' / 'oversized.py').write_text(
         'a = 1\nb = 2\nc = 3\nd = 4\ne = 5\nf = 6\n',  # 6 SLOC > 5 budget
         encoding='utf-8',
@@ -120,11 +131,7 @@ def test_test_code_ratio_mutation_fires(tmp_path: Path) -> None:
 
 
 def _write_coverage_budget(root: Path, line: int = 50, branch: int = 45) -> None:
-    github = root / '.github'
-    github.mkdir(parents=True, exist_ok=True)
-    (github / 'coverage_budget.json').write_text(
-        json.dumps({'line': line, 'branch': branch}), encoding='utf-8',
-    )
+    _write_budget(root, 'coverage', {'line': line, 'branch': branch})
 
 
 def test_coverage_floor_mutation_fires(tmp_path: Path) -> None:
@@ -172,7 +179,8 @@ def test_coverage_ratchet_mutation_fires(tmp_path: Path) -> None:
     # Head floor is lowered below the base floor with no marker -> fires.
     _write_coverage_budget(tmp_path, line=50, branch=45)
     base_file = tmp_path / 'base.json'
-    base_file.write_text(json.dumps({'line': 80, 'branch': 70}), encoding='utf-8')
+    base_file.write_text(
+        json.dumps({'coverage': {'line': 80, 'branch': 70}}), encoding='utf-8')
     body_file = tmp_path / 'body.txt'
     body_file.write_text('', encoding='utf-8')
     script = _clone_script_into(tmp_path, 'check_coverage_ratchet.py')
@@ -186,9 +194,9 @@ def test_budget_ratchet_mutation_fires(tmp_path: Path) -> None:
     (tmp_path / '.github').mkdir()
     head = {'new_repository_template/foo.py': 200}
     base = {'new_repository_template/foo.py': 100}
-    (tmp_path / '.github' / 'module_budgets.json').write_text(json.dumps(head), encoding='utf-8')
+    _write_budget(tmp_path, 'modules', head)
     base_file = tmp_path / 'base.json'
-    base_file.write_text(json.dumps(base), encoding='utf-8')
+    base_file.write_text(json.dumps({'modules': base}), encoding='utf-8')
     body_file = tmp_path / 'body.txt'
     body_file.write_text('No marker present.', encoding='utf-8')
     script = _clone_script_into(tmp_path, 'check_budget_ratchet.py')

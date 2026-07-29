@@ -36,7 +36,7 @@ mechanically is a comment, not a marker.
 
 Module-level docstrings are a separate gate,
 `governance/check_module_docstrings.py`: one line, required on every non-empty
-module unless `.github/gate_config.json` exempts it. `ruff` D415 already
+module unless [`governance.yml`](../../governance.yml) exempts it. `ruff` D415 already
 requires a title ending in a period, so this gate does not re-check it.
 
 ## What the gate cannot check

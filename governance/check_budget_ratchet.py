@@ -14,7 +14,8 @@ from typing import Final
 
 from _common import REPO_ROOT, fail_setup
 
-HEAD_BUDGET_PATH = REPO_ROOT / '.github' / 'module_budgets.json'
+HEAD_BUDGET_PATH = REPO_ROOT / '.github' / 'budgets.json'
+BUDGET_SECTION = 'modules'
 
 RAISE_MARKER_RE: Final[re.Pattern[str]] = re.compile(
     r'^\[budget-raise:\s*(?P<path>[^:\]]+):\s*(?P<reason>.+?)\]\s*$',
@@ -29,7 +30,7 @@ def _parse_budget(text: str) -> dict[str, int]:
     if not text.strip():
         return {}
     try:
-        data = json.loads(text)
+        data = json.loads(text).get(BUDGET_SECTION, {})
     except json.JSONDecodeError as exc:
         _fail_setup(f'cannot parse budget JSON: {exc}')
     if not isinstance(data, dict):
@@ -43,7 +44,7 @@ def _parse_budget(text: str) -> dict[str, int]:
 
 
 def _base_budget_from_ref(base_ref: str) -> dict[str, int]:
-    cmd = ['git', 'show', f'{base_ref}:.github/module_budgets.json']
+    cmd = ['git', 'show', f'{base_ref}:.github/budgets.json']
     try:
         result = subprocess.run(cmd, check=False, capture_output=True, text=True)
     except FileNotFoundError:

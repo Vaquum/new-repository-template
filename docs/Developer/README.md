@@ -49,9 +49,10 @@ along in a feature slice:
 2. In a PR of its own (law: ruleset changes are their own PR), add the context
    in three places that must agree: a matching law in [`CLAUDE.md`](../../CLAUDE.md)
    — its trailing `*(context)*` annotation must equal the context exactly — the
-   same context in `.github/rulesets/main.json`, and the same context in
-   [`governance.yml`](../../governance.yml)'s `ruleset.required_status_checks`.
-   The `pr_checks_honesty` bijection ties the law to the ruleset; `test_governance_config`
-   ties the ruleset to `governance.yml`. Miss any one and the PR fails.
+   same context in `.github/rulesets/main.json`, and a `gates.<name>` entry in
+   [`governance.yml`](../../governance.yml) with `enabled: true`, `required: true`,
+   and a matching `context:`. The `pr_checks_honesty` three-way bijection ties
+   all three together. Miss any one and the PR fails, naming both sides.
+   [`Configuration.md`](Configuration.md) is the canonical description of that file.
 3. Apply the matching change to the live ruleset so the `pr_checks_ruleset`
    drift gate stays green.

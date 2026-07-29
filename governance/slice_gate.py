@@ -68,7 +68,7 @@ import sys
 from pathlib import Path
 from typing import Final, NoReturn
 
-from _common import CLOSING_KEYWORD_RE
+from _common import CLOSING_KEYWORD_RE, gate_setting
 
 # ``##+`` on both the heading and the terminator: issue-form-created
 # bodies render field labels as ``###``, and a terminator that only
@@ -116,7 +116,8 @@ QUALIFIED_CLOSING_RE: Final[re.Pattern[str]] = re.compile(
 )
 
 # The slice issue plus, on the last open slice, its parent PRD (rule 9).
-MAX_CLOSING_REFERENCES: Final[int] = 2
+BANNER: Final[str] = 'SLICE GATE'
+DEFAULT_MAX_CLOSING_REFERENCES: Final[int] = 2
 
 
 def _fail_setup(message: str, cause: BaseException | None = None) -> NoReturn:
@@ -423,7 +424,10 @@ def _closing_reference_failures(refs: list[int]) -> list[str]:
             'only when the slice is the parent\'s last open slice '
             'sub-issue (rule 9).'
         ]
-    if len(refs) > MAX_CLOSING_REFERENCES:
+    max_refs = gate_setting(
+        'slice', 'max_closing_references', DEFAULT_MAX_CLOSING_REFERENCES, BANNER
+    )
+    if len(refs) > max_refs:
         return [
             f'PR body has {len(refs)} closing references '
             f'({", ".join(f"#{n}" for n in refs)}). The closing set must '

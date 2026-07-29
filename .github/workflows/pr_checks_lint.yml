@@ -57,30 +57,42 @@ jobs:
           uv pip install --python .venv-lint/bin/python --require-hashes -r requirements/ci/build-tools.txt
           uv pip install --python .venv-lint/bin/python --no-build-isolation --no-deps -e .
 
-      - name: Resolve package root
+      - name: Resolve layout
         id: package
         run: |
           set -euo pipefail
-          package_root="$(python - <<'PY'
-          import json
+          .venv-lint/bin/python - <<'PY' >> "$GITHUB_OUTPUT"
+          import sys
           from pathlib import Path
-          data = json.loads(Path('.github/typing_budget.json').read_text())
-          root = data.get('package_root')
-          if not isinstance(root, str) or not root:
-              raise SystemExit('typing_budget.json must set package_root')
-          print(root)
+
+          import yaml
+
+          layout = yaml.safe_load(Path('governance.yml').read_text()).get('layout', {})
+          for key in ('package_root', 'coverage_source'):
+              value = layout.get(key)
+              if not isinstance(value, str) or not value:
+                  sys.exit(f'governance.yml: layout.{key} must be a non-empty string')
+              if not Path(value).is_dir():
+                  sys.exit(f"governance.yml: layout.{key} '{value}' is not a directory")
+              print(f'{key}={value}')
+
+          # The lint plane's sub-checks are individually switchable, so a
+          # repository can adopt part of it. Absent means on.
+          lint = yaml.safe_load(Path('governance.yml').read_text()).get('gates', {}).get('lint', {})
+          for key in ('ruff', 'module_budgets', 'dead_code',
+                      'dependency_vulnerabilities', 'no_swallowed_violations'):
+              value = lint.get(key, True)
+              if not isinstance(value, bool):
+                  sys.exit(f'governance.yml: gates.lint.{key} must be a boolean')
+              print(f'{key}={str(value).lower()}')
           PY
-          )"
-          if [ ! -d "$package_root" ]; then
-            echo "::error::package root '$package_root' does not exist"
-            exit 1
-          fi
-          echo "package_root=$package_root" >> "$GITHUB_OUTPUT"
 
       - name: Run ruff lint
+        if: steps.package.outputs.ruff == 'true'
         run: .venv-lint/bin/python -m ruff check "${{ steps.package.outputs.package_root }}" governance tests
 
       - name: Module line-count budget gate
+        if: steps.package.outputs.module_budgets == 'true'
         run: .venv-lint/bin/python governance/check_module_budgets.py
 
       - name: Module docstring gate
@@ -96,20 +108,23 @@ jobs:
         run: .venv-lint/bin/python governance/check_test_code_ratio.py
 
       - name: Dead-code (vulture)
+        if: steps.package.outputs.dead_code == 'true'
         run: .venv-lint/bin/python -m vulture "${{ steps.package.outputs.package_root }}/" --min-confidence 80
 
       - name: No-swallowed-violations gate
+        if: steps.package.outputs.no_swallowed_violations == 'true'
         run: .venv-lint/bin/python governance/check_no_swallowed_violations.py
 
       - name: Test fallback gate
         run: .venv-lint/bin/python governance/check_test_fallbacks.py
 
       - name: Dependency vulnerability gate
+        if: steps.package.outputs.dependency_vulnerabilities == 'true'
         run: .venv-lint/bin/python governance/check_dependency_vulnerabilities.py
 
       - name: Coverage floor gate
         run: |
-          .venv-lint/bin/python -m coverage run --branch --source="${{ steps.package.outputs.package_root }}" \
+          .venv-lint/bin/python -m coverage run --branch --source="${{ steps.package.outputs.coverage_source }}" \
             -m pytest tests/ governance/tests/ -q
           .venv-lint/bin/python -m coverage json -o coverage.json
           .venv-lint/bin/python governance/check_coverage_floor.py
