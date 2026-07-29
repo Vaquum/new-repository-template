@@ -57,6 +57,37 @@ def fail_setup(banner: str, message: str) -> NoReturn:
     sys.exit(2)
 
 
+GATE_CONFIG: Final[Path] = REPO_ROOT / '.github' / 'gate_config.json'
+
+
+def gate_config(section: str, banner: str) -> dict[str, Any]:
+    """Read one section of `.github/gate_config.json`, failing closed.
+
+    Carries per-repository *shape* -- the assumptions a gate makes about the
+    repository it runs in, which differ between this template and anything
+    derived from it. Distinct from the `*_budget.json` files, which carry
+    ratchets: values that may only move one way. A gate that cannot read its
+    configuration blocks rather than falling back to a default nobody asked
+    for, because a silently-defaulted gate is one that stopped checking what
+    the repository declared.
+
+    A missing section is an empty mapping, so a gate keeps its own defaults
+    and a repository configures only what it needs to change.
+    """
+    if not GATE_CONFIG.is_file():
+        fail_setup(banner, f'missing {GATE_CONFIG.relative_to(REPO_ROOT)}')
+    try:
+        raw = json.loads(GATE_CONFIG.read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError) as exc:
+        fail_setup(banner, f'cannot read {GATE_CONFIG.relative_to(REPO_ROOT)}: {exc}')
+    if not isinstance(raw, dict):
+        fail_setup(banner, f'{GATE_CONFIG.relative_to(REPO_ROOT)} is not a JSON object')
+    value = raw.get(section, {})
+    if not isinstance(value, dict):
+        fail_setup(banner, f'{GATE_CONFIG.relative_to(REPO_ROOT)}["{section}"] must be an object')
+    return value
+
+
 def resolve_package_dir(banner: str) -> Path:
     """Resolve the package directory from `typing_budget.json`'s single
     `package_root`, failing closed under `banner` if it cannot be resolved.

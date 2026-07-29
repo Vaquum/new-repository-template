@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""File size balance gate: largest <= MAX_RATIO x median."""
+"""File size balance gate: largest <= max_ratio x median.
+
+The bound is per-repository: a package of many small single-purpose
+modules and a package of a few large ones are different shapes, and a
+ratio that is right for one is arbitrary for the other. Configured under
+`file_size_balance.max_ratio` in `.github/gate_config.json`; the default
+reproduces the previously hardcoded 16.00.
+"""
 from __future__ import annotations
 
 import statistics
@@ -7,7 +14,7 @@ import sys
 from pathlib import Path
 from typing import Final
 
-from _common import REPO_ROOT, resolve_package_dir
+from _common import REPO_ROOT, fail_setup, gate_config, resolve_package_dir
 
 # A deliberately lenient bootstrap default: 16x lets a young package carry a
 # framework-boundary module or two that must stay physically together, while
@@ -15,7 +22,8 @@ from _common import REPO_ROOT, resolve_package_dir
 # dormant below MIN_FILES_FOR_GATE files, so it only bites once a package has
 # real structure; tighten the ratio as it grows and the largest-file
 # exception stops reflecting a real boundary.
-MAX_RATIO: Final[float] = 16.00
+BANNER: Final[str] = 'FILE SIZE BALANCE GATE'
+DEFAULT_MAX_RATIO: Final[float] = 16.00
 MIN_FILES_FOR_GATE: Final[int] = 3
 
 
@@ -25,8 +33,25 @@ def count_lines(path: Path) -> int:
     return len(path.read_text(encoding='utf-8').splitlines())
 
 
+def _max_ratio() -> float:
+    """The configured bound, or the default when unset.
+
+    Fails closed on a value that is not a positive number: a gate cannot
+    check a shape against a bound it cannot parse.
+    """
+    raw = gate_config('file_size_balance', BANNER).get('max_ratio', DEFAULT_MAX_RATIO)
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)) or raw <= 0:
+        fail_setup(BANNER, f'file_size_balance.max_ratio must be a positive number, got {raw!r}')
+    return float(raw)
+
+
 def main() -> int:
-    source_dir = resolve_package_dir('FILE SIZE BALANCE GATE')
+    source_dir = resolve_package_dir(BANNER)
+    # Resolved before the dormancy checks below: a malformed or missing
+    # config must block on every path, not only the one that reaches the
+    # ratio comparison. Otherwise a repository with too few files to balance
+    # would pass while its configuration was unreadable.
+    max_ratio = _max_ratio()
     sized: list[tuple[Path, int]] = [
         (p, count_lines(p)) for p in sorted(source_dir.rglob('*.py'))
     ]
@@ -53,14 +78,14 @@ def main() -> int:
     largest_path, largest_size = max(sized, key=lambda item: item[1])
     median = statistics.median(nonzero_sizes)
     ratio = largest_size / median
-    if ratio > MAX_RATIO:
+    if ratio > max_ratio:
         print('FILE SIZE BALANCE GATE -- FAIL', file=sys.stderr)
         print('', file=sys.stderr)
         rel = largest_path.relative_to(REPO_ROOT)
         print(f'  largest file:    {rel} ({largest_size} lines)', file=sys.stderr)
         print(f'  median file size: {int(median)} lines', file=sys.stderr)
         print(
-            f'  ratio:            {ratio:.2f} (max allowed: {MAX_RATIO:.2f})',
+            f'  ratio:            {ratio:.2f} (max allowed: {max_ratio:.2f})',
             file=sys.stderr,
         )
         print('', file=sys.stderr)
