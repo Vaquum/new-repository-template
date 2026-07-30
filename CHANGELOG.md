@@ -1,3 +1,8 @@
+# v0.24.3
+
+- Skip the bootstrap workflow on the template repository. It triggers on every push to `main`, and on the template there is nothing to specialize, so it reached the step needing `REPO_BOOTSTRAP_TOKEN` and failed — 40 failures against 1 success. A run history that is almost entirely expected failures gives a real bootstrap failure nowhere to stand out. The guard is a job-level `if`, so the run reports `skipped` rather than a success that would claim bootstrap ran and found nothing to do. A derived repository is unaffected: its name differs, and the rename engine exempts `.github/workflows/`, so the comparison survives specialization intact.
+- This does not fix the two unset secrets. `REPO_BOOTSTRAP_TOKEN` and `RULESET_AUDIT_TOKEN` are still absent, so `audit_main_ruleset` — the post-merge alarm that checks `bypass_actors`, the one thing the PR-time ruleset gate cannot observe — still fails on every push and has never once run.
+
 # v0.24.2
 
 - Reject a `[budget-raise: <path>: ]` marker that states no reason. `(?P<reason>.+?)` backtracks onto the whitespace `\s*` would otherwise consume, so a blank reason satisfied the marker and unlocked the budget raise while recording nothing — worse than no marker, because the gate reported PASS and the PR read as compliant. The reason group now matches the `(?P<reason>.*?\S)` shape `check_coverage_ratchet` and `check_test_runtime` already use, so all three ratchet markers agree; a test pins that agreement rather than this one gate, since the defect was being an outlier.

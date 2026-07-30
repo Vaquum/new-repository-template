@@ -29,6 +29,13 @@ permissions:
 jobs:
   bootstrap:
     name: Bootstrap Repository
+    # Nothing to specialize on the template itself: the package is already
+    # named after this repository, so the run reaches the token-bearing step
+    # and fails every push. Skipping keeps a real bootstrap failure visible
+    # instead of hiding it among expected ones. A derived repository's name
+    # differs, so it runs unchanged -- the rename engine exempts
+    # .github/workflows/, so this literal survives specialization intact.
+    if: github.repository != 'Vaquum/new-repository-template'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
