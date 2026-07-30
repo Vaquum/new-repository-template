@@ -1,3 +1,11 @@
+# v0.24.1
+
+- Guard the test-suite runtime ceiling against being raised by the PR it gates. `runtime.max_total_seconds` was the one budget with no ratchet: a PR could loosen the ceiling it was being measured against. Raising it now needs a `[runtime-raise: <reason>]` marker in the PR body, matching `[budget-raise: ...]` and `[coverage-lower: ...]`; lowering it needs no marker, which is the ratchet working. The base value is read from the protected ref, never from anything the PR can write.
+- Add tests for compare mode in both escape-hatch gates, which had none. Compare mode is the mechanism that stops a PR raising its own ceiling, and it was entirely unproven — the cost showed up as a `NameError` reaching CI on `fail_loud_gate.gate()`, on a path no test had ever called. The new tests drive the real entry points rather than reimplementing the comparison, so a gate that cannot execute fails before CI sees it.
+- Treat an unreadable base as a setup failure on both comparison paths, not just one. `--base-ref` and `--base-file` each fell through to "no base ceiling" when the base could not be read, which skipped the raise check in the one case where it could not be evaluated.
+- Distinguish an unreachable base ref from an absent base ceiling. `git show REF:path` fails identically for both, so returning "no base ceiling" on any failure would have silently disabled the ratchet in exactly the case where it could not be evaluated — a CI job that forgot to fetch the base ref would have reported PASS.
+- Every guard added here is mutation-checked: reverted in turn, each must make its test fail. That run found a further gap — the `any_references` and `pyright_errors` section totals are compared separately from the per-pattern totals, and were untested — which is now covered.
+
 # v0.24.0
 
 - Move every hardcoded gate assumption into `governance.yml`, so adopting this template partially or fully is a config edit rather than a source edit. Thirteen constants that were literals in gate modules — the file-size ratio, the test/code ratio bounds, the coverage track thresholds and slack, the diff-coverage floor, the forbidden docstring verbs, the closing-reference cap, the pyroma score, the slowest-test count — are now read from one file, each still carrying the literal it replaced as its documented default.

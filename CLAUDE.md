@@ -24,7 +24,7 @@ Eleven laws. Ten are workflow gates on every PR; the eleventh is branch protecti
 
 6. **The lint gate passes.** Ruff 0.15.11 across the package, `governance/`, and `tests/`; no dead code (vulture); every package module and `check_*` gate within its declared line budget (the larger gate modules are held to shape by the file-size-balance gate instead), and every module carrying a docstring except where `governance.yml` exempts it; the docstring conventions, file-size balance (against the bound that file declares), and test/code ratio all hold; no test outside the paths `governance.yml` names as infrastructure uses `try`/`except`, and no honesty-violation is swallowed; changed lines arrive covered; declared runtime dependencies carry no known vulnerability (pip-audit, with time-boxed `.github/vuln_exceptions.json` entries); the documentation corpus passes its locked audit, lint, link, build, route, asset, browser, and accessibility checks; and the coverage floor in `.github/budgets.json` holds and ratchets upward — it cannot be lowered by the PR it gates without a `[coverage-lower: <field>: <reason>]` marker. *(pr_checks_lint)*
 
-7. **`pytest tests/package -q --maxfail=1` passes.** *(pr_checks_tests)*
+7. **`pytest tests/package -q --maxfail=1` passes, inside its recorded runtime ceiling.** The suite completes within `runtime.max_total_seconds` in `.github/budgets.json`, and that ceiling cannot be raised by the PR it gates without a `[runtime-raise: <reason>]` marker in the PR body. Lowering it needs no marker. *(pr_checks_tests)*
 
 8. **CodeQL reports no new Python security anti-patterns.** *(PR Checks CodeQL (python))*
 

@@ -128,6 +128,28 @@ gates:
     no_swallowed_violations: true
 ```
 
+## Ratchets and their markers
+
+A ratchet may only move one way without a stated reason. Each has a PR-body
+marker for the direction that loosens it:
+
+| Budget | Loosening direction | Marker |
+| --- | --- | --- |
+| `modules` (per-file line budgets) | raise | `[budget-raise: <path>: <reason>]` |
+| `coverage.line` / `coverage.branch` | lower | `[coverage-lower: <field>: <reason>]` |
+| `runtime.max_total_seconds` | raise | `[runtime-raise: <reason>]` |
+| `typing.*` totals | raise | none — raises are refused outright |
+| `fail_loud.categories.*` totals | raise | none — raises are refused outright |
+
+The first three are calibrated against a repository's own code, so a
+well-argued change is legitimate and the marker records the argument. The last
+two are escape-hatch counts whose target is zero, so there is no reason worth
+recording — a PR needing more `Any` or more swallowed exceptions is the thing
+the gate exists to stop.
+
+Every comparison reads the base copy from the protected ref, never from
+anything the PR can write.
+
 ## What stays duplicated, and why
 
 Two things cannot be pointed at `governance.yml`:
