@@ -19,6 +19,7 @@ skip its own bootstrap and look configured while being untouched.
 """
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 import yaml
@@ -92,7 +93,36 @@ def test_rename_engine_leaves_workflow_files_alone() -> None:
     If it did, a derived repository's guard would name itself and it would
     skip its own bootstrap. The exemption is what makes a literal safe here,
     so it is pinned rather than assumed.
+
+    Matched on the AST rather than on the file text: `continue` appears
+    nineteen times in that module, so a substring check is satisfied by any
+    unrelated one and would keep passing if this branch stopped skipping.
+    The assertion is that the branch testing for `.github/workflows/` skips,
+    which is the thing that has to stay true.
     """
-    source = BOOTSTRAP_SCRIPT.read_text(encoding='utf-8')
-    assert "rel_path.startswith('.github/workflows/')" in source
-    assert 'continue' in source
+    tree = ast.parse(BOOTSTRAP_SCRIPT.read_text(encoding='utf-8'))
+    skipping_branches = [
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.If)
+        and _tests_for_workflows_prefix(node.test)
+        and any(isinstance(stmt, ast.Continue) for stmt in node.body)
+    ]
+    assert skipping_branches, (
+        'no `if` branch testing for the .github/workflows/ prefix skips the file; '
+        'specialization would rewrite the workflow guard into the derived '
+        "repository's own name and it would skip its own bootstrap"
+    )
+
+
+def _tests_for_workflows_prefix(test: ast.expr) -> bool:
+    """Whether this condition is a `startswith('.github/workflows/')` call."""
+    return any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == 'startswith'
+        and any(
+            isinstance(arg, ast.Constant) and arg.value == '.github/workflows/'
+            for arg in node.args
+        )
+        for node in ast.walk(test)
+    )
