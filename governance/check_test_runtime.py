@@ -73,7 +73,12 @@ def base_ceiling(base_ref: str | None, base_file: str | None) -> float | None:
         if result.returncode != 0:
             return None
         text = result.stdout
-    elif base_file is not None and Path(base_file).is_file():
+    elif base_file is not None:
+        # Same rule as the branch above: an unreadable base is a setup failure,
+        # not an absent ceiling. Falling through to None here would skip the
+        # ratchet on a typo'd path -- the loudest possible way to be silent.
+        if not Path(base_file).is_file():
+            fail_setup(BANNER, f'base file {base_file!r} is not a regular file')
         text = Path(base_file).read_text(encoding='utf-8')
     else:
         return None

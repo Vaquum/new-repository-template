@@ -139,3 +139,36 @@ def test_unreachable_base_ref_blocks(tmp_path: Path) -> None:
     )
     assert result.returncode == 2, result.stdout + result.stderr
     assert 'unreachable' in result.stderr
+
+
+def test_missing_base_file_blocks(tmp_path: Path) -> None:
+    """A `--base-file` path that is not a regular file is a setup failure.
+
+    The sibling `--base-ref` branch already blocks on an unreachable base.
+    This branch fell through to "no base ceiling" instead, so a typo'd path
+    skipped the raise check entirely -- the ratchet silently disabled in the
+    one case where it could not be evaluated. Distinct from
+    `test_absent_base_ceiling_is_the_introducing_commit`, which passes a real
+    file whose runtime section is genuinely absent.
+    """
+    (tmp_path / '.github').mkdir(parents=True, exist_ok=True)
+    (tmp_path / 'governance').mkdir(parents=True, exist_ok=True)
+    (tmp_path / '.github' / 'budgets.json').write_text(
+        json.dumps({'runtime': {'max_total_seconds': 9999}}), encoding='utf-8',
+    )
+    profile = tmp_path / 'profile.json'
+    profile.write_text(json.dumps({'total_seconds': 1.0, 'tests': []}), encoding='utf-8')
+    for module in ('_common.py', 'check_test_runtime.py'):
+        (tmp_path / 'governance' / module).write_text(
+            (REPO_ROOT / 'governance' / module).read_text(encoding='utf-8'), encoding='utf-8',
+        )
+    result = subprocess.run(
+        [
+            sys.executable, str(tmp_path / 'governance' / 'check_test_runtime.py'),
+            '--profile', str(profile),
+            '--base-file', str(tmp_path / 'no-such-base.json'),
+        ],
+        capture_output=True, text=True, check=False, cwd=tmp_path,
+    )
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert 'is not a regular file' in result.stderr
