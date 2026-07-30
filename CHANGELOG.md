@@ -1,3 +1,7 @@
+# v0.24.2
+
+- Reject a `[budget-raise: <path>: ]` marker that states no reason. `(?P<reason>.+?)` backtracks onto the whitespace `\s*` would otherwise consume, so a blank reason satisfied the marker and unlocked the budget raise while recording nothing — worse than no marker, because the gate reported PASS and the PR read as compliant. The reason group now matches the `(?P<reason>.*?\S)` shape `check_coverage_ratchet` and `check_test_runtime` already use, so all three ratchet markers agree; a test pins that agreement rather than this one gate, since the defect was being an outlier.
+
 # v0.24.1
 
 - Guard the test-suite runtime ceiling against being raised by the PR it gates. `runtime.max_total_seconds` was the one budget with no ratchet: a PR could loosen the ceiling it was being measured against. Raising it now needs a `[runtime-raise: <reason>]` marker in the PR body, matching `[budget-raise: ...]` and `[coverage-lower: ...]`; lowering it needs no marker, which is the ratchet working. The base value is read from the protected ref, never from anything the PR can write.

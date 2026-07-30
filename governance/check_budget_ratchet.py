@@ -18,7 +18,7 @@ HEAD_BUDGET_PATH = REPO_ROOT / '.github' / 'budgets.json'
 BUDGET_SECTION = 'modules'
 
 RAISE_MARKER_RE: Final[re.Pattern[str]] = re.compile(
-    r'^\[budget-raise:\s*(?P<path>[^:\]]+):\s*(?P<reason>.+?)\]\s*$',
+    r'^\[budget-raise:\s*(?P<path>[^:\]]+):\s*(?P<reason>.*?\S)\s*\]\s*$',
     re.MULTILINE,
 )
 
