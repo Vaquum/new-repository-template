@@ -1,3 +1,14 @@
+# v0.26.0
+
+- Stop three laws from being unenforceable on this repository. `pr_checks_version`, `pr_checks_typing`, `pr_checks_fail_loud` and `pr_checks_ruleset` all shared a mode probe -- `base name == "new-repository-template" and head == repo` -- that is permanently true *in* the template. The version gate printed a warning and exited 0 before `version_gate.py` ran; both ratchets sat locked in `--bootstrap`, skipping the base-vs-head comparison entirely. Laws 3, 4 and 5 were required checks that had never once been evaluated here. The probe now asks what it meant to ask -- does this PR rename the project (`base != head`) -- which is false on every ordinary PR anywhere and true exactly once in a derived repository.
+- Fix the two defects that broke every repository created from this template, and prove the fix by construction. Bootstrap regenerated a literal `120`-line budget for gate modules while one had grown to 172, and a SHA-256 pin covered `VAQUUM_REPO_SPECIFICS.md`, which bootstrap deliberately rewrites. Both landed inside the required lint gate, so a derived repository's bootstrap PR could never go green. Budgets are now carried over from the template's own calibrated values rather than re-derived, and the appendix is held to its shape rather than its bytes -- a file named `REPO_SPECIFICS` that cannot differ per repository was never going to hold.
+- Add `test_bootstrapped_repo_is_green.py`, which bootstraps a scratch copy and runs its suite. It is the only test in this repository that looks at the product the template exists to produce; both defects above were invisible without it, and each would have been caught on its first run.
+- Add `.cff` to the rename sweep, so `CITATION.cff` stops shipping literal `{DISPLAY_NAME}` placeholders to every derived repository.
+- Put `CLAUDE.md` under CODEOWNERS. The laws decide merge verdicts and were the one enforcement surface any contributor could edit without a code-owner review, while `governance.yml` beside them was protected.
+- Reject a `Surfaces` glob that matches every path. `fnmatch` does not treat `/` as a separator, so a bare `*` made law 1's scope contract vacuous while the gate still reported PASS.
+- Delete `deploy_on_merge.yml`, which cannot deploy and does not run on merge, and drop `gates.package_install.context`, which named a check that can never report -- the matrix job reports per interpreter.
+- Remove six stale remote branches left behind by closed probe PRs.
+
 # v0.25.0
 
 - Close the scan-surface hole in `scan_surface_failures`. It compared only `layout.excludes` while both ratcheting gates scan `layout_excludes()`, which merges in `gates.<name>.excludes` — so four lines of config hid a file from the typing and fail-loud ratchets and both still reported PASS. The comparison now takes the same merged view the gates scan with, so the guard and the thing it guards cannot disagree.
