@@ -62,6 +62,15 @@ def test_bootstrap_pr_is_a_valid_slice_shape() -> None:
 
 
 def test_initial_specialization_uses_bootstrap_modes() -> None:
+    """The one-shot probe must test a fact that is actually one-shot.
+
+    It used to be `base == "<the template's own name>" and head == repo`,
+    which is permanently true *in* the template -- so the version gate exited
+    0 before running and both ratchets sat in bootstrap mode on every PR here.
+    Comparing base to head asks the question the probe wanted: does this PR
+    rename the project? False on every ordinary PR anywhere, true exactly
+    once in a derived repository.
+    """
     source_template = 'new' '-repository-template'
     for workflow in (
         RULESET_WORKFLOW,
@@ -70,7 +79,11 @@ def test_initial_specialization_uses_bootstrap_modes() -> None:
         FAIL_LOUD_WORKFLOW,
     ):
         text = workflow.read_text(encoding='utf-8')
-        assert f'base == "{source_template}" and head == repo' in text
+        assert 'base != head' in text, workflow.name
+        assert f'base == "{source_template}"' not in text, (
+            f'{workflow.name} still carries the probe that is permanently true '
+            f'on the template, so its gate never runs here'
+        )
 
 
 def test_lint_workflow_has_no_template_package_root() -> None:

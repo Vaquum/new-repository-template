@@ -200,9 +200,13 @@ def test_every_gate_section_names_a_real_gate() -> None:
     )
     for name, body in data['gates'].items():
         context = body.get('context')
+        # A gate is real if some Python gate names it, or its context appears
+        # in a workflow, or a workflow is named after it. The last case covers
+        # matrix jobs, which report per axis and so declare no bare context.
         known = (
             f"'{name}'" in sources
             or (isinstance(context, str) and context in workflows)
+            or f'pr_checks_{name}' in workflows
         )
         assert known, f'gates.{name} names no gate that runs'
 

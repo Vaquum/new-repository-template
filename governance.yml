@@ -156,8 +156,10 @@ gates:
     pyroma_min: 9
   package_install:
     enabled: true
+    # No context: the install matrix reports per interpreter, as
+    # `pr_checks_package_install (3.12)`, so a bare context could never match.
+    # It is advisory rather than required, so it is owed no law either.
     required: false
-    context: pr_checks_package_install
 
   module_docstrings:
     enabled: true
