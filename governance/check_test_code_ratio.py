@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Final
 
 from _common import (
+    exit_if_disabled,
     gate_setting,
     resolve_package_dir,
     resolve_paths,
@@ -26,6 +27,7 @@ def count_py_sloc(root: Path) -> int:
 
 
 def main() -> int:
+    exit_if_disabled('test_code_ratio', BANNER)
     source_dir = resolve_package_dir('TEST/CODE RATIO GATE')
     source = count_py_sloc(source_dir)
     test = sum(count_py_sloc(path) for path in resolve_paths('test_paths', BANNER))

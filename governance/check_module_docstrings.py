@@ -16,6 +16,7 @@ from pathlib import Path
 
 from _common import (
     REPO_ROOT,
+    exit_if_disabled,
     fail_setup,
     find_python_files,
     gate_config,
@@ -27,7 +28,6 @@ BANNER = 'MODULE DOCSTRING GATE'
 
 
 def first_statement_docstring(source: str) -> ast.Constant | None:
-    # Returns the first-statement docstring node if one exists; else None.
     # Caller is responsible for catching SyntaxError from ast.parse.
     tree = ast.parse(source)
     if not tree.body:
@@ -52,9 +52,7 @@ def check_file(path: Path, *, require_docstring: bool = True) -> str | None:
         docstring = first_statement_docstring(source)
     except SyntaxError as exc:
         return f'cannot parse as Python (SyntaxError: {exc.msg})'
-    if docstring is None:
-        return None if not require_docstring else 'first stmt is not a string literal'
-    value = docstring.value
+    value = docstring.value if docstring is not None else None
     if not isinstance(value, str):
         return None if not require_docstring else 'first stmt is not a string literal'
     if '\n' in value:
@@ -67,9 +65,10 @@ def _public_symbols(tree: ast.Module) -> list[str]:
     """Top-level names a reader would import from this module."""
     names: list[str] = []
     for node in tree.body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            if not node.name.startswith('_'):
-                names.append(node.name)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and (
+            not node.name.startswith('_')
+        ):
+            names.append(node.name)
     return names
 
 
@@ -120,14 +119,14 @@ def _config() -> dict[str, object]:
 
 
 def main() -> int:
+    exit_if_disabled('module_docstrings', BANNER)
     source_dir = resolve_package_dir(BANNER)
     # Read before the scan so an unreadable config blocks on every path.
     config = _config()
     excludes = [*config.get('excludes', []), '__pycache__']
     violations: list[tuple[Path, str]] = []
     for path in find_python_files(source_dir, excludes):
-        source = path.read_text(encoding='utf-8')
-        exempt = _is_exempt(path, source, config)
+        exempt = _is_exempt(path, path.read_text(encoding='utf-8'), config)
         msg = check_file(path, require_docstring=not exempt)
         if msg is not None:
             violations.append((path, msg))

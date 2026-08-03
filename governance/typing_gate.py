@@ -58,6 +58,7 @@ from _common import (
     loads_toml,
     resolve_package_dir,
     scan_surface_failures,
+    write_budget_section,
 )
 
 BANNER: Final[str] = 'TYPING GATE'
@@ -626,7 +627,7 @@ def gate_budget_source(
     # * package_root identical: cannot point the gate at a smaller subtree.
     # * excludes: head must be a subset of base (can remove, never add).
     #   Adding an exclude hides files from the ratchet.
-    failures.extend(scan_surface_failures(base_config_path, BANNER))
+    failures.extend(scan_surface_failures(base_config_path, BANNER, 'typing'))
 
     # Per-pattern regex identity: a regex in head for a key present in
     # base must be the exact same regex. Otherwise a PR could rewrite
@@ -807,8 +808,8 @@ def update_budget(pyright_json_path: str | None) -> None:
         budget['any_references'] = {'total': 0}
         budget['schema_version'] = 2
 
-    package_root = REPO_ROOT / str(budget['package_root'])
-    excludes = [str(x) for x in budget.get('excludes', [])]
+    package_root = resolve_package_dir(BANNER)
+    excludes = layout_excludes('typing', BANNER)
     files = find_python_files(package_root, excludes)
 
     for _name, spec in budget['patterns'].items():
@@ -827,7 +828,7 @@ def update_budget(pyright_json_path: str | None) -> None:
             print(f'warning: could not read pyright output: {e}', file=sys.stderr)
 
     BUDGET_PATH.parent.mkdir(parents=True, exist_ok=True)
-    BUDGET_PATH.write_text(json.dumps(budget, indent=2) + '\n')
+    write_budget_section(BUDGET_SECTION, budget, BANNER)
 
     total_hatches = sum(int(s['total']) for s in budget['patterns'].values())
     any_refs = int(budget['any_references']['total'])

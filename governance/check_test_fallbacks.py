@@ -13,7 +13,14 @@ import ast
 import sys
 from pathlib import Path
 
-from _common import REPO_ROOT, fail_setup, find_python_files, gate_config, resolve_paths
+from _common import (
+    REPO_ROOT,
+    exit_if_disabled,
+    fail_setup,
+    find_python_files,
+    gate_config,
+    resolve_paths,
+)
 
 BANNER = 'TEST FALLBACK GATE'
 
@@ -40,6 +47,7 @@ def find_try_statements(source: str) -> list[int]:
 
 
 def main() -> int:
+    exit_if_disabled('test_fallbacks', BANNER)
     # Read before the scan so an unreadable config blocks even when no test
     # directory exists.
     excludes = _excludes()

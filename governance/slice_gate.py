@@ -68,7 +68,7 @@ import sys
 from pathlib import Path
 from typing import Final, NoReturn
 
-from _common import CLOSING_KEYWORD_RE, gate_setting
+from _common import CLOSING_KEYWORD_RE, section_setting
 
 # ``##+`` on both the heading and the terminator: issue-form-created
 # bodies render field labels as ``###``, and a terminator that only
@@ -424,7 +424,7 @@ def _closing_reference_failures(refs: list[int]) -> list[str]:
             'only when the slice is the parent\'s last open slice '
             'sub-issue (rule 9).'
         ]
-    max_refs = gate_setting(
+    max_refs = section_setting(
         'slice', 'max_closing_references', DEFAULT_MAX_CLOSING_REFERENCES, BANNER
     )
     if len(refs) > max_refs:

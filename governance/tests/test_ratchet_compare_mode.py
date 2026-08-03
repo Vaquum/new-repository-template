@@ -208,3 +208,40 @@ def test_missing_base_config_blocks_rather_than_passing(tmp_path: Path) -> None:
     failures = common.scan_surface_failures(str(tmp_path / 'absent.yml'), 'TEST')
     assert failures, 'a missing base config must be reported'
     assert any('not found' in f for f in failures), failures
+
+
+def _config_with_gates(tmp_path: Path, layout: dict[str, object],
+                       gates: dict[str, object]) -> str:
+    """A base config carrying both halves of the scan surface."""
+    path = tmp_path / 'base_with_gates.yml'
+    path.write_text(yaml.safe_dump({'layout': layout, 'gates': gates}), encoding='utf-8')
+    return str(path)
+
+
+def test_added_per_gate_exclude_is_rejected(tmp_path: Path) -> None:
+    """A `gates.typing.excludes` entry narrows the surface just as `layout` does.
+
+    The gates resolve their tree through `layout_excludes`, which merges the
+    per-gate list into the repo-wide one. Comparing only the repo-wide half
+    left this as an unguarded lever: four lines of config hid a file from both
+    ratchets while both still reported PASS.
+    """
+    base = _config_with_gates(tmp_path, _head_layout(), {'typing': {'enabled': True}})
+    head_gates = dict(common.section('gates', 'TEST'))
+    head_gates['typing'] = {**head_gates.get('typing', {}), 'excludes': ['sneaky.py']}
+    import unittest.mock as mock
+    with mock.patch.object(common, 'config', return_value={
+        'layout': _head_layout(), 'gates': head_gates,
+    }):
+        failures = common.scan_surface_failures(base, 'TEST', 'typing')
+    assert failures, 'a per-gate exclude must be reported'
+    assert any('sneaky.py' in f for f in failures), failures
+
+
+def test_per_gate_exclude_unchanged_is_accepted(tmp_path: Path) -> None:
+    """The repository compared against itself reports nothing, gate included."""
+    base = _config_with_gates(
+        tmp_path, _head_layout(), dict(common.section('gates', 'TEST'))
+    )
+    assert common.scan_surface_failures(base, 'TEST', 'typing') == []
+    assert common.scan_surface_failures(base, 'TEST', 'fail_loud') == []
