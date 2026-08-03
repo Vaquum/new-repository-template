@@ -38,6 +38,20 @@ def _mod(name: str) -> types.ModuleType:
     return importlib.import_module(name)
 
 
+def _gate(data: dict[str, object], name: str) -> dict[str, object]:
+    """One gate's section, narrowed -- so the mutators need no type escape.
+
+    Law 3 forbids new `# type: ignore`, and the typing gate only scans the
+    package, so an escape hatch here would be invisible to it. Narrowing once
+    is both cheaper and honest.
+    """
+    gates = data['gates']
+    assert isinstance(gates, dict)
+    body = gates[name]
+    assert isinstance(body, dict)
+    return body
+
+
 def _scratch(tmp_path: Path, mutate: object = None) -> Path:
     """A throwaway copy of the repository, optionally with an edited config."""
     repo = tmp_path / 'repo'
@@ -61,7 +75,7 @@ def _run_gate(repo: Path, script: str, *args: str) -> subprocess.CompletedProces
 def test_disabling_a_gate_disables_it(tmp_path: Path) -> None:
     """`enabled: false` must stop the gate running, not merely be readable."""
     def off(data: dict[str, object]) -> None:
-        data['gates']['docstrings']['enabled'] = False  # type: ignore[index]
+        _gate(data, 'docstrings')['enabled'] = False
 
     repo = _scratch(tmp_path, off)
     result = _run_gate(repo, 'check_docstrings.py')
@@ -72,7 +86,7 @@ def test_disabling_a_gate_disables_it(tmp_path: Path) -> None:
 def test_absent_enabled_means_the_gate_runs(tmp_path: Path) -> None:
     """Absent means on: a repository that never mentions the key is governed."""
     def drop(data: dict[str, object]) -> None:
-        data['gates']['docstrings'].pop('enabled', None)  # type: ignore[union-attr]
+        _gate(data, 'docstrings').pop('enabled', None)
 
     repo = _scratch(tmp_path, drop)
     result = _run_gate(repo, 'check_docstrings.py')
@@ -83,7 +97,7 @@ def test_absent_enabled_means_the_gate_runs(tmp_path: Path) -> None:
 def test_a_non_boolean_enabled_blocks(tmp_path: Path) -> None:
     """A typo must block rather than silently disable or silently enable."""
     def wrong(data: dict[str, object]) -> None:
-        data['gates']['docstrings']['enabled'] = 'no'  # type: ignore[index]
+        _gate(data, 'docstrings')['enabled'] = 'no'
 
     repo = _scratch(tmp_path, wrong)
     result = _run_gate(repo, 'check_docstrings.py')
