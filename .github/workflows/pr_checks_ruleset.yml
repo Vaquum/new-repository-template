@@ -69,7 +69,7 @@ jobs:
             echo "::error::repository variable RULESET_ID is not set. Configure it to the live Protect-Main ruleset id."
             exit 2
           fi
-          python3 governance/ruleset_gate.py \
+          .venv-ruleset/bin/python governance/ruleset_gate.py \
             --ruleset-file .github/rulesets/main.json \
             --repo "${{ github.repository }}" \
             --ruleset-id "${{ vars.RULESET_ID }}"
