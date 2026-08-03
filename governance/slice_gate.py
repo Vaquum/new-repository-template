@@ -559,6 +559,17 @@ def _scope_failures(
     failures: list[str] = []
 
     allowed_globs = extract_surfaces_globs(issue_body)
+    # `fnmatch` does not treat `/` as a separator, so `*` matches every path
+    # in the repository and the scope contract becomes vacuous while the gate
+    # still reports PASS. A Surfaces entry that allows everything is not a
+    # scope declaration.
+    vacuous = sorted(g for g in allowed_globs if g.strip('*/') == '')
+    if vacuous:
+        failures.append(
+            f'issue #{issue_number} Surfaces contains {vacuous!r}, which matches '
+            f'every path in the repository. That is not a scope declaration -- '
+            f'list the files the slice actually touches.'
+        )
     if not allowed_globs:
         failures.append(
             f'issue #{issue_number} Surfaces section has no allowed '

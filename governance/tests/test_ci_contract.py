@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import pathlib
 import shutil
 import subprocess
 import sys
@@ -200,3 +201,37 @@ def test_closeout_guard_skips_withdrawals() -> None:
     assert "!= 'duplicate'" in condition
     # every other close still goes through the evidence check
     assert "contains(github.event.issue.labels.*.name, 'slice')" in condition
+
+
+def test_version_gate_has_no_permanent_bypass() -> None:
+    """`pr_checks_version` must actually run the gate on this repository.
+
+    Its mode probe was `base == "<the template's own name>" and head == repo`,
+    which is permanently true here -- so the workflow printed a warning and
+    exited 0 before `version_gate.py` ever ran. Law 5 was a required check
+    that had never once been evaluated on the repository that declares it.
+    """
+    root = pathlib.Path(__file__).resolve().parents[2]
+    text = (root / '.github/workflows/pr_checks_version.yml').read_text(encoding='utf-8')
+    seed = 'new' '-repository-template'
+    assert f'base == "{seed}"' not in text, (
+        'the version gate carries a probe that is permanently true on the '
+        'template, so the gate never runs here'
+    )
+    assert 'base != head' in text
+    assert 'governance/version_gate.py' in text
+
+
+def test_ratchet_gates_have_no_permanent_bootstrap_mode() -> None:
+    """The typing and fail-loud ratchets must compare, not sit in bootstrap.
+
+    Same probe, same consequence: both were locked in `--bootstrap` here, so
+    the base-vs-head comparison -- the thing that stops a PR raising its own
+    ceiling -- never ran on this repository.
+    """
+    root = pathlib.Path(__file__).resolve().parents[2]
+    seed = 'new' '-repository-template'
+    for name in ('pr_checks_typing', 'pr_checks_fail_loud', 'pr_checks_ruleset'):
+        text = (root / f'.github/workflows/{name}.yml').read_text(encoding='utf-8')
+        assert f'base == "{seed}"' not in text, name
+        assert 'base != head' in text, name

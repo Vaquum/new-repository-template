@@ -72,8 +72,7 @@ jobs:
 
           if git show "$BASE_REV:.github/budgets.json" > base_budget.json 2>/dev/null; then
             if git show "$BASE_REV:pyproject.toml" > base_pyproject.toml 2>/dev/null; then
-              mode="$(REPOSITORY_NAME="${{ github.event.repository.name }}" python - <<'PY'
-          import os
+              mode="$(python - <<'PY'
           from pathlib import Path
           try:
               import tomllib
@@ -81,8 +80,7 @@ jobs:
               import tomli as tomllib
           base = tomllib.loads(Path("base_pyproject.toml").read_text())["project"]["name"]
           head = tomllib.loads(Path("pyproject.toml").read_text())["project"]["name"]
-          repo = os.environ["REPOSITORY_NAME"]
-          print("bootstrap" if base == "new-repository-template" and head == repo else "compare")
+          print("bootstrap" if base != head else "compare")
           PY
               )"
             else
