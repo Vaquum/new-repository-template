@@ -1,3 +1,8 @@
+# v0.26.1
+
+- Retry transient failures in the external link check. It runs inside the required `pr_checks_lint` gate and makes live requests to third-party hosts, and threw on the first non-2xx -- so one rate-limit response reddened a required check for a reason the author could not influence. A gate that fails for reasons unrelated to the pull request is one people learn to re-run rather than read.
+- Retry only what is transient. `408`, `425`, `429` and the `5xx` family mean "not now"; `404` and its neighbours mean "this link is wrong", which is the thing the check exists to find, so they still fail on the first response. Network-level failures -- DNS, reset, the existing 15-second timeout -- are treated as the host rather than the link. Three attempts, bounded on purpose: an unbounded retry converts a dead host into a hung required check, which is worse than a red one.
+
 # v0.26.0
 
 - Stop three laws from being unenforceable on this repository. `pr_checks_version`, `pr_checks_typing`, `pr_checks_fail_loud` and `pr_checks_ruleset` all shared a mode probe -- `base name == "new-repository-template" and head == repo` -- that is permanently true *in* the template. The version gate printed a warning and exited 0 before `version_gate.py` ran; both ratchets sat locked in `--bootstrap`, skipping the base-vs-head comparison entirely. Laws 3, 4 and 5 were required checks that had never once been evaluated here. The probe now asks what it meant to ask -- does this PR rename the project (`base != head`) -- which is false on every ordinary PR anywhere and true exactly once in a derived repository.
