@@ -53,7 +53,14 @@ import sys
 from pathlib import Path
 from typing import Final
 
-from _common import CC_RE, TOMLDecodeError, fail_setup, loads_toml, section_setting
+from _common import (
+    CC_RE,
+    TOMLDecodeError,
+    exit_if_disabled,
+    fail_setup,
+    loads_toml,
+    section_setting,
+)
 
 # Strict `MAJOR.MINOR.PATCH` only. We explicitly reject prerelease
 # and build-metadata forms because this gate compares as integer
@@ -381,6 +388,7 @@ def _read(path: str, label: str) -> str:
 
 
 def main() -> int:
+    exit_if_disabled('version', BANNER)
     parser = argparse.ArgumentParser(description='Version gate')
     parser.add_argument('--pr-title', required=True)
     parser.add_argument('--base-pyproject', required=True)

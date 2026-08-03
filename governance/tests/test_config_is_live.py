@@ -105,17 +105,23 @@ def test_max_closing_references_is_honoured() -> None:
     # mentioning `section_setting` satisfies a substring check even after the
     # call site has been changed back to the gate reader.
     tree = ast.parse((REPO_ROOT / 'governance' / 'slice_gate.py').read_text(encoding='utf-8'))
-    calls = {
+    # This one call site, not every reader in the module: forbidding
+    # `gate_setting` outright would fail a legitimate future `gates.slice.*`
+    # read under a message about an unrelated setting.
+    readers = {
         node.func.id
         for node in ast.walk(tree)
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+        and any(
+            isinstance(a, ast.Constant) and a.value == 'max_closing_references'
+            for a in node.args
+        )
     }
-    assert 'section_setting' in calls, (
-        'slice_gate must read max_closing_references from the `slice` section; '
-        'reading it through the gate reader looks for `gates.slice`, which the '
-        'config does not declare, so the value is silently inert'
+    assert readers == {'section_setting'}, (
+        f'max_closing_references is read by {readers or "nothing"}; it is declared '
+        f'in the top-level `slice` section, so reading it through the gate reader '
+        f'looks for `gates.slice` and the value is silently inert'
     )
-    assert 'gate_setting' not in calls
 
 
 def test_changelog_header_is_honoured() -> None:
@@ -150,14 +156,38 @@ _NON_PYTHON_READERS = {
 
 
 def _all_leaf_keys(data: dict[str, object], prefix: str = '') -> list[str]:
+    """Every leaf path in the config, `gates` subtree included.
+
+    It used to stop at `gates`, so the whole subtree collapsed to one leaf and
+    no `gates.<name>.<key>` was ever checked -- including `gates.*.enabled`,
+    which this module's docstring names as one of the dead controls the guard
+    exists to catch. The guard could not see the thing it was written for.
+    """
     out: list[str] = []
     for key, value in data.items():
         path = f'{prefix}{key}'
-        if isinstance(value, dict) and path != 'gates':
+        if isinstance(value, dict) and value:
             out.extend(_all_leaf_keys(value, f'{path}.'))
         else:
             out.append(path)
     return out
+
+
+def test_the_key_scan_covers_the_gates_subtree() -> None:
+    """The scan must reach `gates.<name>.<key>`, not stop at `gates`.
+
+    Asserted directly because narrowing the scan can only *reduce* the orphans
+    it finds: a scan that skips a subtree still passes, silently checking less.
+    The coverage is the property, so the coverage is what is pinned.
+    """
+    data = yaml.safe_load(CONFIG.read_text(encoding='utf-8'))
+    paths = _all_leaf_keys({k: v for k, v in data.items() if k != 'schema_version'})
+    assert 'gates' not in paths, 'the scan collapsed the gates subtree to one leaf'
+    deep = [p for p in paths if p.startswith('gates.') and p.count('.') >= 2]
+    assert len(deep) >= 20, (
+        f'the scan reached only {len(deep)} gates.<name>.<key> paths; it is '
+        f'not covering the subtree that carries most of the config'
+    )
 
 
 def test_every_config_key_is_read() -> None:
@@ -169,17 +199,40 @@ def test_every_config_key_is_read() -> None:
     and `changelog.*` all sat inert underneath it.
     """
     data = yaml.safe_load(CONFIG.read_text(encoding='utf-8'))
-    sources = '\n'.join(
-        path.read_text(encoding='utf-8', errors='ignore')
-        for pattern in ('governance/*.py', '.github/workflows/*.yml', 'scripts/*.py')
+    # Whitespace-collapsed so a reader wrapped across lines still matches:
+    # `gate_setting(\n    'runtime_budget', ...)` is one call, and a contiguous
+    # search would call it an orphan. `governance/tests` is in the corpus
+    # because `pr_checks_honesty` runs those tests -- that is how `required`
+    # is read.
+    raw = '\n'.join(
+        path.read_text(encoding='utf-8')
+        for pattern in ('governance/*.py', 'governance/tests/*.py',
+                        '.github/workflows/*.yml', 'scripts/*.py')
         for path in sorted(REPO_ROOT.glob(pattern))
     )
+    sources = ' '.join(raw.split()).replace('( ', '(')
     orphans: list[str] = []
     for path in _all_leaf_keys({k: v for k, v in data.items() if k != 'schema_version'}):
-        leaf = path.rsplit('.', 1)[-1]
+        parts = path.split('.')
+        leaf = parts[-1]
         if any(path == e or path.startswith(f'{e}.') for e in _NON_PYTHON_READERS):
             continue
-        if f"'{leaf}'" in sources or f'"{leaf}"' in sources or f'{leaf}:' in sources:
+        # The leaf must be named *as a config key*, in a call that names its
+        # owner too. Matching the bare leaf against the whole tree let generic
+        # words -- `excludes`, `header`, `newest`, `types` -- be satisfied by
+        # any unrelated literal, which is how three dead controls passed.
+        owner = parts[-2] if len(parts) > 1 else parts[0]
+        reads = (
+            f"gate_setting('{owner}', '{leaf}'",
+            f"section_setting('{owner}', '{leaf}'",
+            f"gate_config('{owner}', ",
+            f"layout_excludes('{owner}'",
+            f"exit_if_disabled('{owner}'",
+            f"resolve_paths('{leaf}'",
+            f"get('{leaf}'",
+            f'outputs.{leaf}',
+        )
+        if any(r in sources for r in reads):
             continue
         orphans.append(path)
     assert not orphans, (
@@ -189,24 +242,61 @@ def test_every_config_key_is_read() -> None:
     )
 
 
+def test_every_gate_with_an_enabled_switch_consults_it() -> None:
+    """`enabled: false` must reach the gate it names, gate by gate.
+
+    The generic key scan cannot carry this: `_common` contains one generic
+    `.get('enabled', ...)`, which satisfies a corpus-wide search for every
+    gate at once. So the switch stayed dead for the five largest gates while
+    the guard reported the key as read.
+    """
+    data = yaml.safe_load(CONFIG.read_text(encoding='utf-8'))
+    sources = ' '.join(
+        ' '.join(p.read_text(encoding='utf-8').split()).replace('( ', '(')
+        for p in sorted((REPO_ROOT / 'governance').glob('*.py'))
+    )
+    workflows = ' '.join(
+        ' '.join(p.read_text(encoding='utf-8').split())
+        for p in sorted((REPO_ROOT / '.github/workflows').glob('*.yml'))
+    )
+    deaf = [
+        name for name, body in data['gates'].items()
+        if 'enabled' in body
+        and f"exit_if_disabled('{name}'" not in sources
+        and f'gates.{name}.' not in workflows
+    ]
+    assert not deaf, (
+        f'gates declaring `enabled` that never consult it: {deaf}. Setting '
+        f'`enabled: false` on these runs the gate anyway.'
+    )
+
+
 def test_every_gate_section_names_a_real_gate() -> None:
     """A `gates.<name>` section must correspond to something that runs."""
     data = yaml.safe_load(CONFIG.read_text(encoding='utf-8'))
-    workflows = '\n'.join(
-        p.read_text(encoding='utf-8') for p in sorted((REPO_ROOT / '.github/workflows').glob('*.yml'))
+    workflows = ' '.join(
+        ' '.join(p.read_text(encoding='utf-8').split())
+        for p in sorted((REPO_ROOT / '.github/workflows').glob('*.yml'))
     )
-    sources = '\n'.join(
-        p.read_text(encoding='utf-8') for p in sorted((REPO_ROOT / 'governance').glob('*.py'))
+    sources = ' '.join(
+        ' '.join(p.read_text(encoding='utf-8').split()).replace('( ', '(')
+        for p in sorted((REPO_ROOT / 'governance').glob('*.py'))
     )
     for name, body in data['gates'].items():
         context = body.get('context')
         # A gate is real if some Python gate names it, or its context appears
         # in a workflow, or a workflow is named after it. The last case covers
         # matrix jobs, which report per axis and so declare no bare context.
+        # Not "the name appears somewhere in governance/": every gate now
+        # names itself in an `exit_if_disabled` call, so that form is true by
+        # construction and could not fail. A gate is real when something
+        # actually schedules it -- a workflow context or a workflow named for
+        # it -- or when a gate module reads its settings.
         known = (
-            f"'{name}'" in sources
-            or (isinstance(context, str) and context in workflows)
+            (isinstance(context, str) and context in workflows)
             or f'pr_checks_{name}' in workflows
+            or f"gate_setting('{name}'" in sources
+            or f"gate_config('{name}'" in sources
         )
         assert known, f'gates.{name} names no gate that runs'
 

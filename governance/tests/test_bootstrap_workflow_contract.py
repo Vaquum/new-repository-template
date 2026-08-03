@@ -79,11 +79,15 @@ def test_initial_specialization_uses_bootstrap_modes() -> None:
         FAIL_LOUD_WORKFLOW,
     ):
         text = workflow.read_text(encoding='utf-8')
+        # All three conditions. The original probe was `base == <seed> and
+        # head == repo`, permanently true in the template. Dropping the seed
+        # test entirely fixed that but made any rename a bypass, so the probe
+        # now needs the base to still be the seed, the name to change, and the
+        # repository not to be the template -- true exactly once, in a derived
+        # repository's bootstrap PR.
+        assert f'base == "{source_template}"' in text, workflow.name
         assert 'base != head' in text, workflow.name
-        assert f'base == "{source_template}"' not in text, (
-            f'{workflow.name} still carries the probe that is permanently true '
-            f'on the template, so its gate never runs here'
-        )
+        assert f'repo != "{source_template}"' in text, workflow.name
 
 
 def test_lint_workflow_has_no_template_package_root() -> None:

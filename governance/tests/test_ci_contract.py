@@ -214,11 +214,17 @@ def test_version_gate_has_no_permanent_bypass() -> None:
     root = pathlib.Path(__file__).resolve().parents[2]
     text = (root / '.github/workflows/pr_checks_version.yml').read_text(encoding='utf-8')
     seed = 'new' '-repository-template'
-    assert f'base == "{seed}"' not in text, (
-        'the version gate carries a probe that is permanently true on the '
-        'template, so the gate never runs here'
+    # All three conditions, not just the rename. `base != head` alone hands any
+    # author a one-file bypass: renaming `[project].name` puts the gate into
+    # specialization mode on the same PR. Requiring the base to still be the
+    # template's seed name, and the repository not to be the template, makes
+    # the bypass reachable exactly once -- in a derived repo's bootstrap PR.
+    seed_q = f'"{seed}"'
+    assert f'base == {seed_q}' in text and 'base != head' in text \
+        and f'repo != {seed_q}' in text, (
+        'the specialization probe must require all three conditions; any one '
+        'of them alone is a bypass'
     )
-    assert 'base != head' in text
     assert 'governance/version_gate.py' in text
 
 
@@ -231,7 +237,10 @@ def test_ratchet_gates_have_no_permanent_bootstrap_mode() -> None:
     """
     root = pathlib.Path(__file__).resolve().parents[2]
     seed = 'new' '-repository-template'
+    seed_q = f'"{seed}"'
     for name in ('pr_checks_typing', 'pr_checks_fail_loud', 'pr_checks_ruleset'):
         text = (root / f'.github/workflows/{name}.yml').read_text(encoding='utf-8')
-        assert f'base == "{seed}"' not in text, name
-        assert 'base != head' in text, name
+        assert f'base == {seed_q}' in text and 'base != head' in text \
+            and f'repo != {seed_q}' in text, (
+            f'{name}: the bootstrap probe must require all three conditions'
+        )

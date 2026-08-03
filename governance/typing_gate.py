@@ -53,6 +53,7 @@ from typing import Final
 from _common import (
     REPO_ROOT,
     TOMLDecodeError,
+    exit_if_disabled,
     find_python_files,
     layout_excludes,
     loads_toml,
@@ -875,6 +876,7 @@ def load_budget() -> dict[str, object]:
 
 
 def main() -> int:
+    exit_if_disabled('typing', BANNER)
     parser = argparse.ArgumentParser(description='Typing gate')
     parser.add_argument(
         '--pyright-json',

@@ -48,6 +48,7 @@ from typing import Final
 
 from _common import (
     REPO_ROOT,
+    exit_if_disabled,
     find_python_files,
     layout_excludes,
     resolve_package_dir,
@@ -379,6 +380,7 @@ def update_budget() -> None:
 # --------------------------------------------------------------------
 
 def main() -> int:
+    exit_if_disabled('fail_loud', BANNER)
     parser = argparse.ArgumentParser(description='Fail-loud gate')
     parser.add_argument(
         '--base-config',

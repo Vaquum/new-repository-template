@@ -68,7 +68,7 @@ import sys
 from pathlib import Path
 from typing import Final, NoReturn
 
-from _common import CLOSING_KEYWORD_RE, section_setting
+from _common import CLOSING_KEYWORD_RE, exit_if_disabled, section_setting
 
 # ``##+`` on both the heading and the terminator: issue-form-created
 # bodies render field labels as ``###``, and a terminator that only
@@ -748,6 +748,7 @@ def gate(
 
 
 def main() -> int:
+    exit_if_disabled('slice', BANNER)
     parser = argparse.ArgumentParser(description='Slice gate')
     parser.add_argument(
         '--pr-title',

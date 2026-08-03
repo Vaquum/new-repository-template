@@ -105,15 +105,17 @@ jobs:
           echo "base CHANGELOG bytes:  $(wc -c < base_CHANGELOG.md)"
           echo "head CHANGELOG bytes:  $(wc -c < head_CHANGELOG.md)"
 
-          mode="$(python - <<'PY'
+          mode="$(REPOSITORY_NAME="${{ github.event.repository.name }}" python - <<'PY'
+          import os
           from pathlib import Path
           try:
               import tomllib
           except ModuleNotFoundError:  # Python 3.10 fallback
               import tomli as tomllib
           base = tomllib.loads(Path("base_pyproject.toml").read_text())["project"]["name"]
+          repo = os.environ["REPOSITORY_NAME"]
           head = tomllib.loads(Path("head_pyproject.toml").read_text())["project"]["name"]
-          print("template-specialization" if base != head else "normal")
+          print("template-specialization" if base == "new-repository-template" and base != head and repo != "new-repository-template" else "normal")
           PY
           )"
           echo "mode=$mode" >> "$GITHUB_OUTPUT"

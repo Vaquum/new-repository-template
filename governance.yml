@@ -98,6 +98,12 @@ ruleset:
 #   enabled  -- does this gate run at all
 #   required -- is its check required on `main`, and therefore owed a law
 #
+# `enabled` appears only on gates with a Python entry point that can consult
+# it. The rest -- honesty, tests, codeql, package_install -- are the workflow
+# itself, so they are switched off by removing the workflow, which is what
+# `bootstrap_repository.disable_codeql` already does for CodeQL. A key that
+# could not be honoured would be exactly the dead control this file forbids.
+#
 # The two are separate because a gate can legitimately run without blocking:
 # packaging and the install matrix do exactly that today.
 gates:
@@ -122,7 +128,6 @@ gates:
     required: true
     context: pr_checks_version
   honesty:
-    enabled: true
     required: true
     context: pr_checks_honesty
   ruleset:
@@ -130,11 +135,9 @@ gates:
     required: true
     context: pr_checks_ruleset
   tests:
-    enabled: true
     required: true
     context: pr_checks_tests
   codeql:
-    enabled: true
     required: true
     context: PR Checks CodeQL (python)
 
@@ -155,7 +158,6 @@ gates:
     context: pr_checks_packaging
     pyroma_min: 9
   package_install:
-    enabled: true
     # No context: the install matrix reports per interpreter, as
     # `pr_checks_package_install (3.12)`, so a bare context could never match.
     # It is advisory rather than required, so it is owed no law either.

@@ -63,7 +63,7 @@ import sys
 from pathlib import Path
 from typing import Final
 
-from _common import CC_RE, CLOSING_KEYWORD_RE, section_setting
+from _common import CC_RE, CLOSING_KEYWORD_RE, exit_if_disabled, section_setting
 
 # git log --format=%H%x09%P%x09%s yields exactly three tab-separated fields.
 GIT_LOG_FIELD_COUNT: Final[int] = 3
@@ -344,6 +344,7 @@ def gate(
 
 
 def main() -> int:
+    exit_if_disabled('cc', BANNER)
     parser = argparse.ArgumentParser(description='Conventional Commits gate')
     parser.add_argument('--pr-title', required=True)
     parser.add_argument('--pr-body-file', required=True)
