@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import pathlib
 import shutil
 import subprocess
 import sys
@@ -200,3 +201,46 @@ def test_closeout_guard_skips_withdrawals() -> None:
     assert "!= 'duplicate'" in condition
     # every other close still goes through the evidence check
     assert "contains(github.event.issue.labels.*.name, 'slice')" in condition
+
+
+def test_version_gate_has_no_permanent_bypass() -> None:
+    """`pr_checks_version` must actually run the gate on this repository.
+
+    Its mode probe was `base == "<the template's own name>" and head == repo`,
+    which is permanently true here -- so the workflow printed a warning and
+    exited 0 before `version_gate.py` ever ran. Law 5 was a required check
+    that had never once been evaluated on the repository that declares it.
+    """
+    root = pathlib.Path(__file__).resolve().parents[2]
+    text = (root / '.github/workflows/pr_checks_version.yml').read_text(encoding='utf-8')
+    seed = 'new' '-repository-template'
+    # All three conditions, not just the rename. `base != head` alone hands any
+    # author a one-file bypass: renaming `[project].name` puts the gate into
+    # specialization mode on the same PR. Requiring the base to still be the
+    # template's seed name, and the repository not to be the template, makes
+    # the bypass reachable exactly once -- in a derived repo's bootstrap PR.
+    seed_q = f'"{seed}"'
+    assert f'base == {seed_q}' in text and 'base != head' in text \
+        and f'repo != {seed_q}' in text, (
+        'the specialization probe must require all three conditions; any one '
+        'of them alone is a bypass'
+    )
+    assert 'governance/version_gate.py' in text
+
+
+def test_ratchet_gates_have_no_permanent_bootstrap_mode() -> None:
+    """The typing and fail-loud ratchets must compare, not sit in bootstrap.
+
+    Same probe, same consequence: both were locked in `--bootstrap` here, so
+    the base-vs-head comparison -- the thing that stops a PR raising its own
+    ceiling -- never ran on this repository.
+    """
+    root = pathlib.Path(__file__).resolve().parents[2]
+    seed = 'new' '-repository-template'
+    seed_q = f'"{seed}"'
+    for name in ('pr_checks_typing', 'pr_checks_fail_loud', 'pr_checks_ruleset'):
+        text = (root / f'.github/workflows/{name}.yml').read_text(encoding='utf-8')
+        assert f'base == {seed_q}' in text and 'base != head' in text \
+            and f'repo != {seed_q}' in text, (
+            f'{name}: the bootstrap probe must require all three conditions'
+        )

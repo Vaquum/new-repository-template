@@ -181,21 +181,56 @@ async function request(url, method) {
   throw new Error(`${url} exceeded five redirects`);
 }
 
-async function checkLink(url) {
+// Statuses that mean "not now" rather than "this link is wrong". Retrying the
+// second class -- 404 and its neighbours -- would turn a real broken link into
+// a slow real broken link, which is the opposite of what this check is for.
+export const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
+// Bounded on purpose: an unbounded retry converts a dead host into a hung
+// required check, which is worse than a red one.
+export const MAX_ATTEMPTS = 3;
+const RETRY_BASE_MS = 500;
+
+async function attemptLink(url) {
   const response = await request(url, 'HEAD');
   if (response.statusCode === 405) {
     response.resume();
     const getResponse = await request(url, 'GET');
     getResponse.resume();
-    if (getResponse.statusCode < 200 || getResponse.statusCode >= 300) {
-      throw new Error(`${url} returned ${getResponse.statusCode}`);
-    }
-    return;
+    return getResponse.statusCode;
   }
   response.resume();
-  if (response.statusCode < 200 || response.statusCode >= 300) {
-    throw new Error(`${url} returned ${response.statusCode}`);
+  return response.statusCode;
+}
+
+export async function checkLink(url, attempt = async (u) => attemptLink(u), sleep = null) {
+  let lastStatus = null;
+  for (let tries = 1; tries <= MAX_ATTEMPTS; tries += 1) {
+    let status;
+    try {
+      status = await attempt(url);
+    } catch (error) {
+      // A network-level failure -- DNS, reset, the 15s timeout -- is the same
+      // class as a 5xx: the host, not the link.
+      if (tries === MAX_ATTEMPTS) {
+        throw error;
+      }
+      if (sleep) {
+        await sleep(RETRY_BASE_MS * tries);
+      }
+      continue;
+    }
+    if (status >= 200 && status < 300) {
+      return;
+    }
+    lastStatus = status;
+    if (!RETRYABLE_STATUS.has(status) || tries === MAX_ATTEMPTS) {
+      break;
+    }
+    if (sleep) {
+      await sleep(RETRY_BASE_MS * tries);
+    }
   }
+  throw new Error(`${url} returned ${lastStatus}`);
 }
 
 async function main() {

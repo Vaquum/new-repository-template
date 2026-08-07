@@ -9,6 +9,7 @@
 # just the enforcement surfaces. Ordinary PRs keep the plain
 # one-approval rule.
 
+/CLAUDE.md @mikkokotila @pdey @bit-mis @zero-bang
 /governance/ @mikkokotila @pdey @bit-mis @zero-bang
 /.github/ @mikkokotila @pdey @bit-mis @zero-bang
 /governance.yml @mikkokotila @pdey @bit-mis @zero-bang

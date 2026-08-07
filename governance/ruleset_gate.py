@@ -10,6 +10,10 @@ import sys
 from pathlib import Path
 from typing import Any, Final
 
+from _common import exit_if_disabled
+
+BANNER: Final[str] = 'RULESET GATE'
+
 REQUIRED_TOP_LEVEL_FIELDS: Final[frozenset[str]] = frozenset({
     'name',
     'target',
@@ -175,6 +179,7 @@ def normalize_live_ruleset(payload: dict[str, Any]) -> tuple[dict[str, Any], fro
 
 
 def main() -> int:
+    exit_if_disabled('ruleset', BANNER)
     parser = argparse.ArgumentParser(description='Ruleset drift gate')
     parser.add_argument('--ruleset-file', required=True)
     parser.add_argument('--repo')

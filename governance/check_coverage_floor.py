@@ -22,7 +22,7 @@ import sys
 from functools import partial
 from typing import Final
 
-from _common import REPO_ROOT, fail_setup, gate_setting
+from _common import REPO_ROOT, exit_if_disabled, fail_setup, gate_setting
 
 COVERAGE_JSON = REPO_ROOT / 'coverage.json'
 BUDGET_PATH = REPO_ROOT / '.github' / 'budgets.json'
@@ -91,6 +91,7 @@ def _track_violation(
 
 
 def main() -> int:
+    exit_if_disabled('coverage', BANNER)
     if not COVERAGE_JSON.is_file():
         _fail_setup(f'no coverage.json at {COVERAGE_JSON} (run `coverage json` first)')
     data = json.loads(COVERAGE_JSON.read_text(encoding='utf-8'))

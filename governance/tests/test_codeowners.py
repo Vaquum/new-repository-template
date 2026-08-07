@@ -22,6 +22,7 @@ from _common import REPO_ROOT
 CODEOWNERS = REPO_ROOT / '.github' / 'CODEOWNERS'
 RULESET_SNAPSHOT = REPO_ROOT / '.github' / 'rulesets' / 'main.json'
 ENFORCEMENT_PATHS = frozenset({
+    '/CLAUDE.md',
     '/governance/',
     '/.github/',
     '/governance.yml',

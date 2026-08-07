@@ -80,9 +80,9 @@ jobs:
           except ModuleNotFoundError:  # Python 3.10 fallback
               import tomli as tomllib
           base = tomllib.loads(Path("base_pyproject.toml").read_text())["project"]["name"]
-          head = tomllib.loads(Path("pyproject.toml").read_text())["project"]["name"]
           repo = os.environ["REPOSITORY_NAME"]
-          print("bootstrap" if base == "new-repository-template" and head == repo else "compare")
+          head = tomllib.loads(Path("pyproject.toml").read_text())["project"]["name"]
+          print("bootstrap" if base == "new-repository-template" and base != head and repo != "new-repository-template" else "compare")
           PY
               )"
             else

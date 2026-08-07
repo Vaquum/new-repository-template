@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 from typing import Any, Final
 
-from _common import REPO_ROOT, fail_setup, gate_setting
+from _common import REPO_ROOT, exit_if_disabled, fail_setup, gate_setting
 
 BANNER: Final[str] = 'TEST RUNTIME GATE'
 BUDGET_PATH: Final[Path] = REPO_ROOT / '.github' / 'budgets.json'
@@ -125,6 +125,7 @@ def slowest(profile: dict[str, Any], limit: int) -> list[tuple[str, float]]:
 
 
 def main() -> int:
+    exit_if_disabled('runtime_budget', BANNER)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--profile', required=True, help='runtime profile JSON')
     parser.add_argument('--enforce', action='store_true',

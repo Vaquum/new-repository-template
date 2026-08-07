@@ -131,7 +131,6 @@ def test_governance_config_schema_is_minimal() -> None:
         'slice',
         'commits',
         'changelog',
-        'release',
         'bootstrap',
         'ruleset',
         'gates',

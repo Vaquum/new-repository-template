@@ -36,6 +36,7 @@ TEMPLATE_LABEL_REPOSITORY: Final[str] = 'Vaquum/new-repository-template'
 
 TEXT_SUFFIXES: Final[frozenset[str]] = frozenset({
     '',
+    '.cff',
     '.cfg',
     '.gitignore',
     '.ini',
@@ -317,6 +318,21 @@ def _fail_loud_budget() -> dict[str, object]:
     return {'categories': {category: {'total': 0} for category in categories}}
 
 
+def _existing_module_budgets() -> dict[str, int]:
+    """The module budgets this repository already declares, if any."""
+    path = REPO_ROOT / '.github' / 'budgets.json'
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except json.JSONDecodeError:
+        return {}
+    modules = data.get('modules') if isinstance(data, dict) else None
+    if not isinstance(modules, dict):
+        return {}
+    return {str(k): v for k, v in modules.items() if isinstance(v, int)}
+
+
 def _module_budgets(package_name: str) -> dict[str, int]:
     payload: dict[str, int] = {}
     package_dir = REPO_ROOT / package_name
@@ -328,9 +344,16 @@ def _module_budgets(package_name: str) -> dict[str, int]:
     if governance_dir.is_dir():
         if (governance_dir / '__init__.py').is_file():
             payload['governance/__init__.py'] = 10
-        for script in sorted(governance_dir.glob('check_*.py')):
-            rel = script.relative_to(REPO_ROOT).as_posix()
-            payload[rel] = 120
+        # The template's governance budgets are already calibrated -- several
+        # are deliberately tighter than a measurement would give. Carry them
+        # over and measure only modules that have none, rather than re-deriving
+        # every number: a second, re-derived copy is what drifted from the
+        # first and left every derived repository's opening PR failing the
+        # module-budget gate.
+        existing = _existing_module_budgets()
+        for module in sorted(governance_dir.glob('*.py')):
+            rel = module.relative_to(REPO_ROOT).as_posix()
+            payload[rel] = existing.get(rel, max(10, _significant_lines(module) + 20))
     return payload
 
 

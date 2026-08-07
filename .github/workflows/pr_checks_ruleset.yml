@@ -51,9 +51,9 @@ jobs:
           except ModuleNotFoundError:  # Python 3.10 fallback
               import tomli as tomllib
           base = tomllib.loads(Path("base_pyproject.toml").read_text())["project"]["name"]
-          head = tomllib.loads(Path("pyproject.toml").read_text())["project"]["name"]
           repo = os.environ["REPOSITORY_NAME"]
-          print("template-specialization" if base == "new-repository-template" and head == repo else "normal")
+          head = tomllib.loads(Path("pyproject.toml").read_text())["project"]["name"]
+          print("template-specialization" if base == "new-repository-template" and base != head and repo != "new-repository-template" else "normal")
           PY
               )"
               if [ "$mode" = "template-specialization" ]; then
@@ -69,7 +69,7 @@ jobs:
             echo "::error::repository variable RULESET_ID is not set. Configure it to the live Protect-Main ruleset id."
             exit 2
           fi
-          python3 governance/ruleset_gate.py \
+          .venv-ruleset/bin/python governance/ruleset_gate.py \
             --ruleset-file .github/rulesets/main.json \
             --repo "${{ github.repository }}" \
             --ruleset-id "${{ vars.RULESET_ID }}"

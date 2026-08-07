@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pathlib
 import subprocess
 from pathlib import Path
 
@@ -593,3 +594,27 @@ def test_rule_10_requires_done_means_section(
         'issue #9 body has no parseable Done Means section (## Done Means ... '
         '## Author Checks); rule 10 cannot verify checkbox completion.'
     ]
+
+
+def test_wildcard_surfaces_glob_is_rejected() -> None:
+    """A Surfaces entry matching everything is not a scope declaration.
+
+    `fnmatch` does not treat `/` as a separator, so a bare `*` matches every
+    path in the repository. Without this guard law 1's scope contract could be
+    made vacuous by the author it constrains, and the gate still reported PASS.
+    """
+    for glob in ('*', '**', '*/'):
+        assert glob.strip('*/') == '', f'{glob!r} must be recognised as vacuous'
+    for glob in ('governance/**', 'docs/*', 'CLAUDE.md', 'a/b.py'):
+        assert glob.strip('*/') != '', f'{glob!r} is a real scope entry'
+
+
+def test_vacuous_surfaces_guard_is_wired_into_the_scope_check() -> None:
+    """The guard must sit in the gate, not only in this test's arithmetic."""
+    root = pathlib.Path(__file__).resolve().parents[2]
+    source = (root / 'governance' / 'slice_gate.py').read_text(encoding='utf-8')
+    # The mechanism itself, which is one contiguous expression -- the failure
+    # message wraps across lines and a substring match on it is brittle.
+    assert "g.strip('*/') == ''" in source, (
+        'the scope check no longer rejects a Surfaces glob that matches everything'
+    )

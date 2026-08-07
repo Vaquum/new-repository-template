@@ -63,16 +63,28 @@ import sys
 from pathlib import Path
 from typing import Final
 
-from _common import CC_RE, CLOSING_KEYWORD_RE
+from _common import CC_RE, CLOSING_KEYWORD_RE, exit_if_disabled, section_setting
 
 # git log --format=%H%x09%P%x09%s yields exactly three tab-separated fields.
 GIT_LOG_FIELD_COUNT: Final[int] = 3
 
 # Allowed types per the widely-followed set (Angular convention + CC v1.0.0).
-CC_TYPES: Final[frozenset[str]] = frozenset({
+# The default; `commits.types` in governance.yml overrides it, because a
+# derived repository narrowing the set is a legitimate thing to want and the
+# section declaring it was previously read by nothing.
+BANNER: Final[str] = 'CC GATE'
+
+DEFAULT_CC_TYPES: Final[frozenset[str]] = frozenset({
     'feat', 'fix', 'docs', 'style', 'refactor', 'perf',
     'test', 'build', 'ci', 'chore', 'revert',
 })
+
+
+def cc_types() -> frozenset[str]:
+    """The Conventional Commits types this repository accepts."""
+    return frozenset(
+        section_setting('commits', 'types', sorted(DEFAULT_CC_TYPES), BANNER)
+    )
 
 # AI/LLM attribution scan. Commit metadata in this org never names an
 # AI/LLM assistant, so the PR title and every non-merge commit message
@@ -118,10 +130,10 @@ def check_cc(subject: str) -> str | None:
             "'<type>[(scope)][!]: <description>'"
         )
     cc_type = match.group('type')
-    if cc_type not in CC_TYPES:
+    if cc_type not in cc_types():
         return (
             f"type {cc_type!r} is not one of the allowed CC types "
-            f"(allowed: {sorted(CC_TYPES)!r})"
+            f"(allowed: {sorted(cc_types())!r})"
         )
     description = match.group('description')
     if not description or not description.strip():
@@ -332,6 +344,7 @@ def gate(
 
 
 def main() -> int:
+    exit_if_disabled('cc', BANNER)
     parser = argparse.ArgumentParser(description='Conventional Commits gate')
     parser.add_argument('--pr-title', required=True)
     parser.add_argument('--pr-body-file', required=True)

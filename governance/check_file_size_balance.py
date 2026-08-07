@@ -16,6 +16,7 @@ from typing import Final
 
 from _common import (
     REPO_ROOT,
+    exit_if_disabled,
     fail_setup,
     gate_config,
     gate_setting,
@@ -52,6 +53,7 @@ def _max_ratio() -> float:
 
 
 def main() -> int:
+    exit_if_disabled('file_size_balance', BANNER)
     source_dir = resolve_package_dir(BANNER)
     # Resolved before the dormancy checks below: a malformed or missing
     # config must block on every path, not only the one that reaches the

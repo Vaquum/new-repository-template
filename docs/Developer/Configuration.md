@@ -67,6 +67,11 @@ point a ratchet at a smaller subtree, or exclude the very files carrying its
 new escape hatches, and pass on a count taken over less code than the base ref
 was measured against.
 
+The comparison covers **both halves** of the surface — `layout.excludes` and
+the calling gate's own `gates.<name>.excludes`. It once covered only the first,
+which left the second as an unguarded lever: four lines of config hid a file
+from both ratchets while both still reported PASS.
+
 ## `gates` — the control surface
 
 Each gate carries two independent switches:
@@ -89,7 +94,10 @@ in [`CLAUDE.md`](../../CLAUDE.md), and the required status checks in
 three away from the other two fails, and the failure names both sides.
 
 To adopt this template partially, set `enabled: false` on the gates you do not
-want — that withdraws the gate from all three descriptions at once.
+want — that withdraws the gate from all three descriptions at once, and the
+gate itself reports `SKIP` rather than running. A value that is not a boolean
+blocks rather than being read as either on or off, because a typo that
+silently disabled a gate is the failure this switch exists to make visible.
 
 ### Policy settings
 
@@ -101,6 +109,8 @@ literal rather than against the config file:
 | Setting | Default | Gate |
 | --- | --- | --- |
 | `slice.max_closing_references` | `2` | `slice_gate` |
+| `commits.types` | the 11 Conventional Commits types | `cc_gate` |
+| `changelog.header` / `.newest` | `# v{version}` / `first` | `version_gate` |
 | `gates.file_size_balance.max_ratio` | `16.0` | `check_file_size_balance` |
 | `gates.file_size_balance.min_files` | `3` | `check_file_size_balance` |
 | `gates.test_code_ratio.min` / `.max` | `0.60` / `2.00` | `check_test_code_ratio` |
@@ -172,6 +182,16 @@ failure rather than a harmless extra:
 - `test_every_layout_key_is_read_by_a_gate` does the same for `layout`
 
 So add the reader in the same change as the key. Read it through
-`_common.gate_setting`, which validates the type and rejects a non-positive
-number where the default is positive — a gate cannot check against a bound it
-cannot parse.
+`_common.gate_setting` for a `gates.<name>.*` setting, or
+`_common.section_setting` for a top-level one — both validate the type and
+reject a non-positive number where the default is positive, because a gate
+cannot check against a bound it cannot parse.
+
+Picking the wrong one of those two is not a style question: reading a
+top-level setting through the gate reader looks for `gates.<section>`, which
+does not exist, so the declared value is silently ignored and the gate uses
+its own default. `slice.max_closing_references` and `changelog.*` both shipped
+that way. `test_config_is_live.py` now asserts liveness by changing a value
+and watching the verdict change, rather than by grepping for a reader — a grep
+is satisfied by any coincidental string literal, which is how the earlier
+guard passed while three controls were dead.

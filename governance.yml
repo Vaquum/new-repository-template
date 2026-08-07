@@ -22,9 +22,7 @@
 schema_version: 2
 
 repository:
-  owner: Vaquum
   name: new-repository-template
-  display_name: New Repository Template
   description: Gate-enforced Python repository template.
 
 # Where things live. Every gate that scans a tree resolves it from here rather
@@ -46,11 +44,6 @@ layout:
 
 runtime:
   python_version: "3.12"
-  # The interpreters the built wheel must install and import on.
-  supported_pythons:
-    - "3.12"
-    - "3.13"
-  runner: ubuntu-latest
 
 toolchain:
   ruff_version: "0.15.11"
@@ -58,11 +51,9 @@ toolchain:
 
 review:
   approving_authority: zero-bang
-  required_approvals: 1
 
 slice:
   label: slice
-  planning_label: planning
   issue_template: .github/ISSUE_TEMPLATE/slice.yml
   # A PR closes its slice, plus the parent PRD when the slice is the PRD's
   # last open sub-issue. Nothing legitimate needs a third reference.
@@ -88,13 +79,6 @@ changelog:
   header: "# v{version}"
   newest: first
 
-release:
-  enabled: true
-  tag_pattern: '^v\d+\.\d+\.\d+$'
-  # Inert until a PyPI project with trusted publishing exists. A publish path
-  # that fires by default is one that fires by accident.
-  publish_to_pypi: false
-  source_date_epoch: 1704067200
 
 bootstrap:
   timeout_minutes: 30
@@ -113,6 +97,12 @@ ruleset:
 #
 #   enabled  -- does this gate run at all
 #   required -- is its check required on `main`, and therefore owed a law
+#
+# `enabled` appears only on gates with a Python entry point that can consult
+# it. The rest -- honesty, tests, codeql, package_install -- are the workflow
+# itself, so they are switched off by removing the workflow, which is what
+# `bootstrap_repository.disable_codeql` already does for CodeQL. A key that
+# could not be honoured would be exactly the dead control this file forbids.
 #
 # The two are separate because a gate can legitimately run without blocking:
 # packaging and the install matrix do exactly that today.
@@ -138,7 +128,6 @@ gates:
     required: true
     context: pr_checks_version
   honesty:
-    enabled: true
     required: true
     context: pr_checks_honesty
   ruleset:
@@ -146,11 +135,9 @@ gates:
     required: true
     context: pr_checks_ruleset
   tests:
-    enabled: true
     required: true
     context: pr_checks_tests
   codeql:
-    enabled: true
     required: true
     context: PR Checks CodeQL (python)
 
@@ -171,9 +158,10 @@ gates:
     context: pr_checks_packaging
     pyroma_min: 9
   package_install:
-    enabled: true
+    # No context: the install matrix reports per interpreter, as
+    # `pr_checks_package_install (3.12)`, so a bare context could never match.
+    # It is advisory rather than required, so it is owed no law either.
     required: false
-    context: pr_checks_package_install
 
   module_docstrings:
     enabled: true

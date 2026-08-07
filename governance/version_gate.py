@@ -53,7 +53,14 @@ import sys
 from pathlib import Path
 from typing import Final
 
-from _common import CC_RE, TOMLDecodeError, fail_setup, gate_config, loads_toml
+from _common import (
+    CC_RE,
+    TOMLDecodeError,
+    exit_if_disabled,
+    fail_setup,
+    loads_toml,
+    section_setting,
+)
 
 # Strict `MAJOR.MINOR.PATCH` only. We explicitly reject prerelease
 # and build-metadata forms because this gate compares as integer
@@ -159,7 +166,7 @@ def _header_re() -> re.Pattern[str]:
     matched literally, and runs of spaces become `\\s+` so header spacing is
     not load-bearing.
     """
-    form = str(gate_config('changelog', BANNER).get('header', DEFAULT_HEADER))
+    form = str(section_setting('changelog', 'header', DEFAULT_HEADER, BANNER))
     if '{version}' not in form:
         fail_setup(BANNER, f"changelog.header must contain '{{version}}', got {form!r}")
     before, _, after = form.partition('{version}')
@@ -193,7 +200,7 @@ def _newest_first() -> bool:
     style repositories append. The gate checks the *new* section, so it has
     to know which end that is.
     """
-    raw = gate_config('changelog', BANNER).get('newest', DEFAULT_NEWEST)
+    raw = section_setting('changelog', 'newest', DEFAULT_NEWEST, BANNER)
     if raw not in ('first', 'last'):
         fail_setup(BANNER, f"changelog.newest must be 'first' or 'last', got {raw!r}")
     return raw == 'first'
@@ -381,6 +388,7 @@ def _read(path: str, label: str) -> str:
 
 
 def main() -> int:
+    exit_if_disabled('version', BANNER)
     parser = argparse.ArgumentParser(description='Version gate')
     parser.add_argument('--pr-title', required=True)
     parser.add_argument('--base-pyproject', required=True)

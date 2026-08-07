@@ -68,7 +68,7 @@ import sys
 from pathlib import Path
 from typing import Final, NoReturn
 
-from _common import CLOSING_KEYWORD_RE, gate_setting
+from _common import CLOSING_KEYWORD_RE, exit_if_disabled, section_setting
 
 # ``##+`` on both the heading and the terminator: issue-form-created
 # bodies render field labels as ``###``, and a terminator that only
@@ -424,7 +424,7 @@ def _closing_reference_failures(refs: list[int]) -> list[str]:
             'only when the slice is the parent\'s last open slice '
             'sub-issue (rule 9).'
         ]
-    max_refs = gate_setting(
+    max_refs = section_setting(
         'slice', 'max_closing_references', DEFAULT_MAX_CLOSING_REFERENCES, BANNER
     )
     if len(refs) > max_refs:
@@ -559,6 +559,17 @@ def _scope_failures(
     failures: list[str] = []
 
     allowed_globs = extract_surfaces_globs(issue_body)
+    # `fnmatch` does not treat `/` as a separator, so `*` matches every path
+    # in the repository and the scope contract becomes vacuous while the gate
+    # still reports PASS. A Surfaces entry that allows everything is not a
+    # scope declaration.
+    vacuous = sorted(g for g in allowed_globs if g.strip('*/') == '')
+    if vacuous:
+        failures.append(
+            f'issue #{issue_number} Surfaces contains {vacuous!r}, which matches '
+            f'every path in the repository. That is not a scope declaration -- '
+            f'list the files the slice actually touches.'
+        )
     if not allowed_globs:
         failures.append(
             f'issue #{issue_number} Surfaces section has no allowed '
@@ -737,6 +748,7 @@ def gate(
 
 
 def main() -> int:
+    exit_if_disabled('slice', BANNER)
     parser = argparse.ArgumentParser(description='Slice gate')
     parser.add_argument(
         '--pr-title',

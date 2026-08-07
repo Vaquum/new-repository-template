@@ -111,8 +111,49 @@ def gate_config(name: str, banner: str) -> dict[str, Any]:
 
 
 def gate_enabled(name: str, banner: str = 'CONFIG') -> bool:
-    """Whether a gate is switched on. Absent means on."""
-    return gate_config(name, banner).get('enabled', True) is not False
+    """Whether a gate is switched on. Absent means on.
+
+    Validated rather than truthy-tested: `enabled: no` is a string in YAML's
+    eyes under some quoting, and an unvalidated read would treat any typo as
+    "on" -- or, with the opposite test, silently disable a gate. Both are the
+    failure this switch exists to make visible, so a non-boolean blocks.
+    """
+    return _validated(
+        f'gates.{name}', 'enabled', gate_config(name, banner).get('enabled', True), True, banner
+    )
+
+
+def _validated[T](where: str, key: str, value: object, default: T, banner: str) -> T:
+    """Validate one configured value against the shape of its default."""
+    if isinstance(default, bool):
+        if not isinstance(value, bool):
+            fail_setup(banner, f'{where}.{key} must be a boolean, got {value!r}')
+        return cast('T', value)
+    if isinstance(default, (int, float)):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            fail_setup(banner, f'{where}.{key} must be a number, got {value!r}')
+        if default > 0 and value <= 0:
+            fail_setup(banner, f'{where}.{key} must be positive, got {value!r}')
+        return cast('T', type(default)(value))
+    if isinstance(default, (list, tuple, frozenset, set)):
+        if not isinstance(value, (list, tuple)) or not all(isinstance(e, str) for e in value):
+            fail_setup(banner, f'{where}.{key} must be a list of strings, got {value!r}')
+        return cast('T', type(default)(value))
+    if not isinstance(value, type(default)):
+        fail_setup(banner, f'{where}.{key} must be {type(default).__name__}, got {value!r}')
+    return cast('T', value)
+
+
+def exit_if_disabled(name: str, banner: str) -> None:
+    """Leave the gate immediately when the repository switched it off.
+
+    One line at each call site rather than three, because the gate scripts are
+    held to a 120-line self-limit and a switch is not worth 3% of that budget
+    in every one of them.
+    """
+    if not gate_enabled(name, banner):
+        print(f'{banner} -- SKIP (gates.{name}.enabled is false)')
+        raise SystemExit(0)
 
 
 def gate_setting[T](gate: str, key: str, default: T, banner: str) -> T:
@@ -123,24 +164,22 @@ def gate_setting[T](gate: str, key: str, default: T, banner: str) -> T:
     and silently substituting the default would enforce something the
     repository did not ask for.
     """
-    value = gate_config(gate, banner).get(key, default)
-    if isinstance(default, bool):
-        if not isinstance(value, bool):
-            fail_setup(banner, f'gates.{gate}.{key} must be a boolean, got {value!r}')
-        return cast('T', value)
-    if isinstance(default, (int, float)):
-        if isinstance(value, bool) or not isinstance(value, (int, float)):
-            fail_setup(banner, f'gates.{gate}.{key} must be a number, got {value!r}')
-        if default > 0 and value <= 0:
-            fail_setup(banner, f'gates.{gate}.{key} must be positive, got {value!r}')
-        return cast('T', type(default)(value))
-    if isinstance(default, (list, tuple, frozenset, set)):
-        if not isinstance(value, (list, tuple)) or not all(isinstance(e, str) for e in value):
-            fail_setup(banner, f'gates.{gate}.{key} must be a list of strings, got {value!r}')
-        return cast('T', type(default)(value))
-    if not isinstance(value, type(default)):
-        fail_setup(banner, f'gates.{gate}.{key} must be {type(default).__name__}, got {value!r}')
-    return cast('T', value)
+    return _validated(
+        f'gates.{gate}', key, gate_config(gate, banner).get(key, default), default, banner
+    )
+
+
+def section_setting[T](name: str, key: str, default: T, banner: str) -> T:
+    """Read one typed setting from a top-level section.
+
+    Distinct from `gate_setting` because `slice` and `changelog` are not
+    gates. Reading them through the gate reader looked for `gates.slice` and
+    `gates.changelog`, which do not exist, so the declared values were inert
+    and every gate silently used its own default.
+    """
+    return _validated(
+        name, key, section(name, banner).get(key, default), default, banner
+    )
 
 
 def section(name: str, banner: str = 'CONFIG') -> dict[str, Any]:
@@ -162,6 +201,29 @@ def budgets(banner: str) -> dict[str, Any]:
     if not isinstance(raw, dict):
         fail_setup(banner, f'{BUDGETS.relative_to(REPO_ROOT)} is not a JSON object')
     return raw
+
+
+def write_budget_section(section_name: str, payload: dict[str, Any], banner: str) -> Path:
+    """Merge one section into `.github/budgets.json`, preserving the others.
+
+    The budgets were one file per gate before they were merged; each gate's
+    `--update-budget` wrote its whole dict back, which is still correct for a
+    file it owns alone and destroys five ratchets in a file it shares. The
+    merge happens here so neither gate can get it wrong independently.
+    """
+    existing: dict[str, Any] = {}
+    if BUDGETS.is_file():
+        try:
+            loaded = json.loads(BUDGETS.read_text(encoding='utf-8'))
+        except (OSError, json.JSONDecodeError) as exc:
+            fail_setup(banner, f'cannot read {BUDGETS.relative_to(REPO_ROOT)}: {exc}')
+        if not isinstance(loaded, dict):
+            fail_setup(banner, f'{BUDGETS.relative_to(REPO_ROOT)} is not a JSON object')
+        existing = loaded
+    existing[section_name] = payload
+    BUDGETS.parent.mkdir(parents=True, exist_ok=True)
+    BUDGETS.write_text(json.dumps(existing, indent=2) + '\n', encoding='utf-8')
+    return BUDGETS
 
 
 def resolve_package_dir(banner: str) -> Path:
@@ -208,7 +270,9 @@ def layout_excludes(gate: str, banner: str) -> list[str]:
     return merged
 
 
-def scan_surface_failures(base_config_path: str | None, banner: str) -> list[str]:
+def scan_surface_failures(
+    base_config_path: str | None, banner: str, gate: str | None = None
+) -> list[str]:
     """Report any way the PR narrows the tree its own ratchets are measured over.
 
     `package_root` and `excludes` live in `governance.yml`, so a PR editing
@@ -216,6 +280,13 @@ def scan_surface_failures(base_config_path: str | None, banner: str) -> list[str
     files carrying its new escape hatches, and pass on a count taken over
     less code than the base ref was measured against. Both ratcheting gates
     call this, so the two cannot drift apart.
+
+    `gate` names the calling gate so the comparison covers the same excludes
+    the gate actually scans. A gate resolves its tree through
+    `layout_excludes`, which merges `gates.<gate>.excludes` into the repo-wide
+    list; comparing only the repo-wide half left the per-gate half as an
+    unguarded lever, which is the exact defect this function exists to
+    prevent. Passing None compares the repo-wide list alone.
     """
     if base_config_path is None:
         return []
@@ -247,14 +318,21 @@ def scan_surface_failures(base_config_path: str | None, banner: str) -> list[str
             f'layout.package_root changed from {base_root!r} (base) to {head_root!r} '
             f'(head). The scan surface cannot be narrowed by the PR it gates.'
         )
-    base_excludes = base_layout.get('excludes', [])
-    head_excludes = head_layout.get('excludes', [])
-    added = set(head_excludes if isinstance(head_excludes, list) else []) - set(
-        base_excludes if isinstance(base_excludes, list) else []
-    )
+    def _merged(raw: dict[str, Any], layout: dict[str, Any]) -> set[str]:
+        """The excludes one revision actually scans with: repo-wide plus per-gate."""
+        entries = list(layout.get('excludes', []) or [])
+        if gate is not None:
+            gates = raw.get('gates', {})
+            body = gates.get(gate, {}) if isinstance(gates, dict) else {}
+            if isinstance(body, dict):
+                entries += list(body.get('excludes', []) or [])
+        return {entry for entry in entries if isinstance(entry, str)}
+
+    added = _merged(config(banner), head_layout) - _merged(base_raw, base_layout)
     if added:
+        where = 'layout.excludes' if gate is None else f'layout/gates.{gate} excludes'
         failures.append(
-            f'layout.excludes added in head that are not in base: {sorted(added)!r}. '
+            f'{where} added in head that are not in base: {sorted(added)!r}. '
             f'New excludes hide files from the ratchet; add them in a separate PR '
             f'that ratchets the totals first.'
         )

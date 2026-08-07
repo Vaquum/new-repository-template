@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 from typing import Final
 
-from _common import REPO_ROOT, gate_setting, resolve_package_dir
+from _common import REPO_ROOT, exit_if_disabled, gate_setting, resolve_package_dir
 
 BANNER: Final[str] = 'DOCSTRING GATE'
 DEFAULT_FORBIDDEN_TITLE_VERBS: Final[frozenset[str]] = frozenset({
@@ -68,6 +68,7 @@ def find_violations(
 
 
 def main() -> int:
+    exit_if_disabled('docstrings', BANNER)
     source_dir = resolve_package_dir('DOCSTRING CONVENTIONS GATE')
     violations: list[tuple[Path, int, str, str]] = []
     forbidden = frozenset(

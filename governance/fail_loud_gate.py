@@ -48,10 +48,12 @@ from typing import Final
 
 from _common import (
     REPO_ROOT,
+    exit_if_disabled,
     find_python_files,
     layout_excludes,
     resolve_package_dir,
     scan_surface_failures,
+    write_budget_section,
 )
 
 BUDGET_PATH: Final[Path] = REPO_ROOT / '.github' / 'budgets.json'
@@ -302,7 +304,7 @@ def gate(
     # Structural: head must not narrow the scan surface, must preserve
     # every category key, and must not raise any total.
     if budget_base is not None:
-        failures.extend(scan_surface_failures(base_config_path, BANNER))
+        failures.extend(scan_surface_failures(base_config_path, BANNER, 'fail_loud'))
         base_cats = set((budget_base.get('categories') or {}).keys())
         head_cats = set((budget_head.get('categories') or {}).keys())
         for missing in base_cats - head_cats:
@@ -367,7 +369,7 @@ def update_budget() -> None:
         cats[cat]['total'] = current[cat]
 
     BUDGET_PATH.parent.mkdir(parents=True, exist_ok=True)
-    BUDGET_PATH.write_text(json.dumps(budget, indent=2) + '\n')
+    write_budget_section(BUDGET_SECTION, budget, BANNER)
     print(f'budget updated -> {BUDGET_PATH.relative_to(REPO_ROOT)}')
     for cat in CATEGORIES:
         print(f'  {cat:<25} {current[cat]}')
@@ -378,6 +380,7 @@ def update_budget() -> None:
 # --------------------------------------------------------------------
 
 def main() -> int:
+    exit_if_disabled('fail_loud', BANNER)
     parser = argparse.ArgumentParser(description='Fail-loud gate')
     parser.add_argument(
         '--base-config',
