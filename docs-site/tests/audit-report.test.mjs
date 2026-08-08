@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import {fileURLToPath} from 'node:url';
@@ -97,12 +98,68 @@ test('rootsFrom follows npm nesting rather than assuming a flat tree', () => {
   assert.deepEqual([...roots.get('deep')], ['root-b']);
 });
 
-test('productionRoots places every package the real audit can report', () => {
+test('a severity colliding with Object.prototype fails loud', () => {
+  // `constructor` and `__proto__` resolve to inherited members on an object
+  // literal, which would slip past the unknown-severity guard and then rank as
+  // harmless against the floor.
+  for (const severity of ['constructor', 'toString', '__proto__', 'valueOf']) {
+    assert.match(
+      auditFailure(report(severity), reached('victim', 'react')),
+      /unknown severity/,
+      `severity ${severity} did not fail loud`
+    );
+  }
+});
+
+test('rootsFrom refuses a production root the lockfile cannot place', () => {
+  // Silently dropping it would relax: packages shared with the docusaurus stack
+  // would keep docusaurus-only attribution and fall to the critical floor.
+  assert.throws(
+    () => rootsFrom({'node_modules/present': {}}, ['present', 'absent']),
+    /production dependency 'absent'.*no entry in package-lock\.json/s
+  );
+});
+
+test('rootsFrom walks optional and peer edges, not dependencies alone', () => {
+  const packages = {
+    'node_modules/strict': {optionalDependencies: {shared: '1'}},
+    'node_modules/relaxed': {dependencies: {shared: '1'}},
+    'node_modules/peered': {peerDependencies: {shared: '1'}},
+    'node_modules/shared': {},
+  };
+  const roots = rootsFrom(packages, ['strict', 'relaxed', 'peered']);
+  // Walking `dependencies` alone would attribute `shared` to `relaxed` only.
+  assert.deepEqual(
+    [...roots.get('shared')].sort(),
+    ['peered', 'relaxed', 'strict']
+  );
+});
+
+test('productionRoots places transitive packages, not just the roots themselves', () => {
   const roots = productionRoots(siteRoot);
-  assert.ok(roots.size > 0);
-  // The stack the relaxed floor exists for must actually resolve, otherwise
-  // every advisory silently falls back to the default floor.
-  for (const root of RELAXED_ROOTS) {
-    assert.ok(roots.has(root), `${root} is not reachable in the production tree`);
+  const manifest = JSON.parse(readFileSync(path.join(siteRoot, 'package.json'), 'utf8'));
+  const direct = Object.keys(manifest.dependencies);
+
+  for (const root of direct) {
+    assert.ok(roots.has(root), `${root} is not placed`);
+  }
+  // The map must be dominated by packages that are not direct dependencies,
+  // otherwise the walk stopped at the roots and every transitive advisory would
+  // be attributed to nothing.
+  const transitive = [...roots.keys()].filter((name) => !direct.includes(name));
+  assert.ok(transitive.length > 100, `only ${transitive.length} transitive packages placed`);
+
+  // At least one package must be owned by a root outside the relaxed set. If no
+  // strict root ever resolves, every shared package silently relaxes.
+  const strictlyOwned = [...roots.values()]
+    .filter((owners) => [...owners].some((owner) => !RELAXED_ROOTS.includes(owner)));
+  assert.ok(strictlyOwned.length > 0, 'no package is attributed to a strict root');
+
+  // Every recorded owner must be a declared production dependency.
+  for (const [name, owners] of roots) {
+    assert.ok(owners.size > 0, `${name} has an empty owner set`);
+    for (const owner of owners) {
+      assert.ok(direct.includes(owner), `${name} names a non-root owner ${owner}`);
+    }
   }
 });

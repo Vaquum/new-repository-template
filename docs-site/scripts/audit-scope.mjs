@@ -28,6 +28,23 @@ function packageName(packages, packagePath) {
     ?? packagePath.slice(packagePath.lastIndexOf(NODE_MODULES) + NODE_MODULES.length);
 }
 
+// npm installs and audits optional and peer edges too. Walking only
+// `dependencies` would attribute a package that a strict root reaches solely
+// through one of those edges to the docusaurus roots alone, which is exactly
+// how a high-severity advisory would stop blocking. Adding edges can only widen
+// a package's root set, and a wider set can only make `floorFor` stricter.
+const EDGE_KINDS = Object.freeze(['dependencies', 'optionalDependencies', 'peerDependencies']);
+
+function edgeNames(entry) {
+  const names = new Set();
+  for (const kind of EDGE_KINDS) {
+    for (const name of Object.keys(entry[kind] ?? {})) {
+      names.add(name);
+    }
+  }
+  return names;
+}
+
 /**
  * Map each package in the tree to the set of direct dependencies that reach it.
  *
@@ -41,7 +58,16 @@ export function rootsFrom(packages, directDependencies) {
   for (const root of directDependencies) {
     const start = resolveFrom(packages, '', root);
     if (start === null) {
-      continue;
+      // Dropping the root silently would relax, not tighten: every package it
+      // shares with the docusaurus stack would be left with docusaurus-only
+      // attribution and fall to the `critical` floor. A lockfile that cannot
+      // place a declared production dependency is out of sync, and the gate
+      // says so instead of guessing.
+      throw new Error(
+        `production dependency '${root}' is declared in package.json but has no entry `
+        + 'in package-lock.json. Run `npm install` to resync the lockfile: severity '
+        + 'floors cannot be attributed while a production root is unplaceable.'
+      );
     }
     const pending = [start];
     const visited = new Set([start]);
@@ -52,7 +78,10 @@ export function rootsFrom(packages, directDependencies) {
         roots.set(name, new Set());
       }
       roots.get(name).add(root);
-      for (const dependency of Object.keys(packages[current].dependencies ?? {})) {
+      for (const dependency of edgeNames(packages[current])) {
+        // An unresolvable transitive edge is ordinary: optional dependencies go
+        // uninstalled and peers are satisfied by the parent. Only a declared
+        // production root is required to resolve.
         const resolved = resolveFrom(packages, current, dependency);
         if (resolved !== null && !visited.has(resolved)) {
           visited.add(resolved);

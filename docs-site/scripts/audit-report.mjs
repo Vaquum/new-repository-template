@@ -19,7 +19,18 @@ export const RELAXED_ROOTS = Object.freeze([
 export const RELAXED_FLOOR = 'critical';
 export const DEFAULT_FLOOR = 'high';
 
-const RANK = Object.freeze({info: 0, low: 1, moderate: 2, high: 3, critical: 4});
+// A Map, not an object literal: `RANK.constructor` and `RANK.__proto__` resolve
+// through `Object.prototype` on a literal, so a severity string colliding with
+// an inherited key would pass the unknown-severity guard below as a function and
+// then compare false against the floor -- ranking the advisory as harmless,
+// which is the behaviour that guard exists to prevent.
+const RANK = new Map([
+  ['info', 0],
+  ['low', 1],
+  ['moderate', 2],
+  ['high', 3],
+  ['critical', 4],
+]);
 
 function floorFor(roots) {
   const relaxed = roots !== undefined
@@ -48,14 +59,14 @@ export function auditFailure(report, rootsByPackage) {
 
   const blocking = [];
   for (const [name, vulnerability] of Object.entries(report.vulnerabilities)) {
-    const rank = RANK[vulnerability.severity];
+    const rank = RANK.get(vulnerability.severity);
     if (rank === undefined) {
       return `npm audit reported unknown severity ${JSON.stringify(vulnerability.severity)} `
         + `for ${name}`;
     }
     const roots = rootsByPackage.get(name);
     const floor = floorFor(roots);
-    if (rank >= RANK[floor]) {
+    if (rank >= RANK.get(floor)) {
       const via = roots === undefined ? 'unresolved' : [...roots].sort().join(', ');
       blocking.push(`${name} (${vulnerability.severity}, floor ${floor}, via ${via})`);
     }
