@@ -4,6 +4,7 @@
 - Translate each glob instead of reaching for `PurePath.full_match`, which lands in 3.13 while the gate runs on 3.12. `*` and `?` now stop at a separator, `**` crosses them, and `**/` matches zero directories as well, so `**/x.py` still covers a top-level `x.py`. Path characters that are regex metacharacters stay literal -- under a naive translation `a.py` would have matched `axpy`.
 - Keep rejecting a glob that covers everything. `*` is no longer vacuous now that it stops at the first separator, but `**` genuinely is, and rule 7 still refuses it as a scope declaration.
 - Cover the matcher with the cases that must NOT match, since those are the ones a scope contract exists for: a star crossing a separator, a partial match at either end, a `?` standing in for `/`, and a glob pointed at a different subtree.
+- Keep `Out of Scope` covering the subtree beneath what it names. The two lists are not symmetric: narrowing the allow-list makes rule 7 stricter, but the same narrowing on the deny-list makes rule 8 weaker -- an `Out of Scope: governance/*` entry would have stopped excluding `governance/tests/deep.py`, so a PR touching an explicitly excluded nested path would have passed in silence. Rule 8 now matches the named path or anything beneath it, and a test asserts the deny side is never weaker than the allow side for the same glob.
 
 # v0.26.0
 

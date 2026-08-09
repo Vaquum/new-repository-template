@@ -277,6 +277,18 @@ def path_matches(path: str, glob: str) -> bool:
     return _glob_pattern(glob).match(path) is not None
 
 
+def path_denied(path: str, glob: str) -> bool:
+    """Whether one path is excluded by one Out of Scope glob.
+
+    A deny entry also covers everything beneath what it names. The two lists
+    are not symmetric: narrowing the allow-list makes the gate stricter, but
+    the same narrowing on the deny-list makes it weaker -- `governance/*` would
+    stop excluding `governance/tests/deep.py`, and a PR touching an explicitly
+    excluded path would pass rule 8 in silence. Rule 8 fails closed instead.
+    """
+    return path_matches(path, glob) or path_matches(path, f"{glob.rstrip('/')}/**")
+
+
 def read_lines(path: Path) -> list[str]:
     try:
         text = path.read_text(encoding='utf-8')
@@ -628,7 +640,7 @@ def _scope_failures(
     if denied_globs:
         hits = [
             f for f in pr_files
-            if any(path_matches(f, g) for g in denied_globs)
+            if any(path_denied(f, g) for g in denied_globs)
         ]
         if hits:
             failures.append(
