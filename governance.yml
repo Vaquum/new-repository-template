@@ -15,10 +15,11 @@
 # gates, the laws in CLAUDE.md, and the required status checks on `main` to
 # agree exactly, and names both sides when they do not.
 #
-# Two things deliberately stay duplicated: ruff and pyright read
-# `pyproject.toml`, and GitHub reads workflow YAML. Neither can be pointed here.
-# They are mirrors, and `governance/tests/test_governance_config.py` fails when
-# a mirror disagrees with this file.
+# One thing deliberately stays elsewhere: GitHub reads workflow YAML, which
+# cannot be pointed here, so `governance/tests/test_governance_config.py` fails
+# when that mirror disagrees with this file. Tool versions are NOT mirrored --
+# ruff and pyright are pinned in `pyproject.toml` alone, and everything else
+# derives from it, so a dependency bump has one file to find.
 schema_version: 2
 
 repository:
@@ -44,10 +45,6 @@ layout:
 
 runtime:
   python_version: "3.12"
-
-toolchain:
-  ruff_version: "0.16.1"
-  pyright_version: "1.1.408"
 
 review:
   approving_authority: zero-bang

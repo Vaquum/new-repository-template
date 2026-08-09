@@ -16,7 +16,20 @@ RULESET_SNAPSHOT: Final[Path] = REPO_ROOT / '.github/rulesets/main.json'
 DEV_ENV_IN: Final[Path] = REPO_ROOT / 'requirements/ci/dev-env.in'
 DEV_ENV_TXT: Final[Path] = REPO_ROOT / 'requirements/ci/dev-env.txt'
 BAD_FIXTURE: Final[Path] = REPO_ROOT / 'governance/tests/fixtures/lint/bad_imports.py'
-RUFF_VERSION: Final[str] = '0.16.1'
+def _pinned_dev_tool(package: str) -> str:
+    """The version `pyproject.toml` pins for one dev tool.
+
+    Read rather than restated: a literal here was a sixth place a bump had to
+    find, and the one most easily missed because nothing installs from it.
+    """
+    pyproject = loads_toml((REPO_ROOT / 'pyproject.toml').read_text(encoding='utf-8'))
+    dev = pyproject['project']['optional-dependencies']['dev']
+    pins = [e.split('==', 1)[1] for e in dev if e.startswith(f'{package}==')]
+    assert len(pins) == 1, f'{package} must be pinned exactly once, got {pins}'
+    return pins[0]
+
+
+RUFF_VERSION: Final[str] = _pinned_dev_tool('ruff')
 EXPECTED_RUFF_POLICY: Final[dict[str, object]] = {
     "exclude": [
         ".git",

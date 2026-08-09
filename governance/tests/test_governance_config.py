@@ -98,11 +98,31 @@ def _setup_python_versions() -> dict[str, list[str]]:
     return versions
 
 
+def _pinned_dev_tool(pyproject: dict[str, object], package: str) -> str:
+    """The version `pyproject.toml` pins for one dev tool.
+
+    This is the only place a tool version is written. `dev-env.in` resolves
+    `.[dev]`, so the compiled set derives from here rather than restating it,
+    and a bump has one file to find.
+    """
+    project = _mapping(pyproject.get('project'), 'pyproject [project]')
+    extras = _mapping(project.get('optional-dependencies'), '[project.optional-dependencies]')
+    dev = extras.get('dev')
+    assert isinstance(dev, list), 'the dev extra must be a list'
+    pins = [
+        entry.split('==', 1)[1]
+        for entry in dev
+        if isinstance(entry, str) and entry.startswith(f'{package}==')
+    ]
+    assert len(pins) == 1, f'{package} must be pinned exactly once in the dev extra, got {pins}'
+    return pins[0]
+
+
 def _requirement_pins(package: str) -> list[str]:
-    # Workflows install the compiled dev-env.txt, and operators edit
-    # dev-env.in; both must carry exactly one identical pin, so a
-    # hand-edited compiled set cannot ship an ungoverned tool while the
-    # source still reads correctly.
+    # Only the compiled set carries a literal pin now: `dev-env.in` resolves
+    # `.[dev]`, so the version it installs comes from pyproject. Reading both
+    # still catches a hand-edited compiled set, which would otherwise ship an
+    # ungoverned tool while every source it derives from reads correctly.
     sources = [
         REPO_ROOT / 'requirements' / 'ci' / 'dev-env.in',
         REPO_ROOT / 'requirements' / 'ci' / 'dev-env.txt',
@@ -126,7 +146,6 @@ def test_governance_config_schema_is_minimal() -> None:
         'repository',
         'layout',
         'runtime',
-        'toolchain',
         'review',
         'automation',
         'slice',
@@ -169,11 +188,13 @@ def test_ruleset_required_checks_match_config() -> None:
 
 def test_workflow_runtime_and_tooling_match_config() -> None:
     runtime = _section('runtime')
-    toolchain = _section('toolchain')
     python_version = _str(runtime, 'python_version')
-    ruff_version = _str(toolchain, 'ruff_version')
-    pyright_version = _str(toolchain, 'pyright_version')
     pyproject = loads_toml((REPO_ROOT / 'pyproject.toml').read_text(encoding='utf-8'))
+    # pyproject is the only place a tool version is written; the compiled
+    # requirement sets are derived from it, so they are checked against it
+    # rather than against a second declaration.
+    ruff_version = _pinned_dev_tool(pyproject, 'ruff')
+    pyright_version = _pinned_dev_tool(pyproject, 'pyright')
 
     assert _setup_python_versions()
     for workflow_name, versions in _setup_python_versions().items():
@@ -189,8 +210,6 @@ def test_workflow_runtime_and_tooling_match_config() -> None:
     assert _requirement_pins('ruff') == [ruff_version]
     assert _requirement_pins('pyright') == [pyright_version]
     assert pyproject['project']['requires-python'] == f'>={python_version}'
-    assert f'ruff=={ruff_version}' in pyproject['project']['optional-dependencies']['dev']
-    assert f'pyright=={pyright_version}' in pyproject['project']['optional-dependencies']['dev']
     assert pyproject['tool']['pyright']['pythonVersion'] == python_version
 
 
