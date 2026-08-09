@@ -60,11 +60,11 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
-import fnmatch
 import json
 import re
 import subprocess
 import sys
+from functools import cache
 from pathlib import Path
 from typing import Final, NoReturn
 
@@ -241,6 +241,40 @@ def extract_out_of_scope_globs(issue_body: str) -> list[str]:
     of these globs fails the gate, even if the file ALSO matches a
     Surfaces allow-list entry."""
     return _extract_globs_from_section(issue_body, OUT_OF_SCOPE_SECTION_RE)
+
+
+@cache
+def _glob_pattern(glob: str) -> re.Pattern[str]:
+    """Compile one Surfaces glob, treating `/` as a real path separator.
+
+    `fnmatch` does not: under it `*` matches `/` as well, so `governance/*`
+    silently covers `governance/tests/deep.py` and the scope contract is wider
+    than the issue reads. Here `*` and `?` stop at a separator, `**` crosses
+    them, and `**/` also matches zero directories so `**/x.py` still covers a
+    top-level `x.py`.
+    """
+    out: list[str] = []
+    index = 0
+    while index < len(glob):
+        char = glob[index]
+        if char == '*' and glob[index + 1:index + 2] == '*':
+            crosses_zero = glob[index + 2:index + 3] == '/'
+            out.append('(?:[^/]+/)*' if crosses_zero else '.*')
+            index += 3 if crosses_zero else 2
+            continue
+        if char == '*':
+            out.append('[^/]*')
+        elif char == '?':
+            out.append('[^/]')
+        else:
+            out.append(re.escape(char))
+        index += 1
+    return re.compile(''.join(out) + r'\Z')
+
+
+def path_matches(path: str, glob: str) -> bool:
+    """Whether one repository path is covered by one Surfaces glob."""
+    return _glob_pattern(glob).match(path) is not None
 
 
 def read_lines(path: Path) -> list[str]:
@@ -559,10 +593,8 @@ def _scope_failures(
     failures: list[str] = []
 
     allowed_globs = extract_surfaces_globs(issue_body)
-    # `fnmatch` does not treat `/` as a separator, so `*` matches every path
-    # in the repository and the scope contract becomes vacuous while the gate
-    # still reports PASS. A Surfaces entry that allows everything is not a
-    # scope declaration.
+    # `**` still matches every path in the repository, and a Surfaces entry
+    # that allows everything is not a scope declaration.
     vacuous = sorted(g for g in allowed_globs if g.strip('*/') == '')
     if vacuous:
         failures.append(
@@ -579,7 +611,7 @@ def _scope_failures(
     else:
         not_in_surfaces = [
             f for f in pr_files
-            if not any(fnmatch.fnmatch(f, g) for g in allowed_globs)
+            if not any(path_matches(f, g) for g in allowed_globs)
         ]
         if not_in_surfaces:
             failures.append(
@@ -596,7 +628,7 @@ def _scope_failures(
     if denied_globs:
         hits = [
             f for f in pr_files
-            if any(fnmatch.fnmatch(f, g) for g in denied_globs)
+            if any(path_matches(f, g) for g in denied_globs)
         ]
         if hits:
             failures.append(
