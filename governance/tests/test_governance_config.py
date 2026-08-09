@@ -137,6 +137,38 @@ def _requirement_pins(package: str) -> list[str]:
     return sorted(pins)
 
 
+def test_an_exactly_pinned_tool_is_not_also_given_a_range() -> None:
+    """A tool pinned exactly lives in `pyproject.toml` and nowhere else.
+
+    Restating an exact pin as a range in `constraints.txt` documents nothing,
+    adds a second place a bump has to find, and is easy to get wrong in a way
+    nothing catches -- nothing installs from that file. `pyright>=1.1` read
+    like a floor while admitting every release pyright has ever published,
+    because they are all 1.1.x.
+    """
+    pyproject = loads_toml((REPO_ROOT / 'pyproject.toml').read_text(encoding='utf-8'))
+    project = _mapping(pyproject.get('project'), 'pyproject [project]')
+    extras = _mapping(project.get('optional-dependencies'), '[project.optional-dependencies]')
+    dev = extras.get('dev')
+    assert isinstance(dev, list)
+    pinned = sorted(
+        entry.split('==', 1)[0]
+        for entry in dev
+        if isinstance(entry, str) and '==' in entry
+    )
+    assert pinned, 'no dev tool is pinned exactly; this guard would be vacuous'
+
+    constraints = (REPO_ROOT / 'requirements' / 'constraints.txt').read_text(encoding='utf-8')
+    restated = [
+        package for package in pinned
+        if re.search(rf'^{re.escape(package)}\s*[><=]', constraints, re.MULTILINE)
+    ]
+    assert not restated, (
+        f'{restated} are pinned exactly in pyproject.toml and also given a range in '
+        f'constraints.txt. Two declarations of one version is what this slice removed.'
+    )
+
+
 def test_governance_config_schema_is_minimal() -> None:
     config = _config()
 
