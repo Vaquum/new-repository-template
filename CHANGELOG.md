@@ -1,3 +1,9 @@
+# v0.26.2
+
+- Move the lint toolchain to ruff 0.16.1. It reports no new findings against this tree, so the bump is the pin and its mirrors rather than a round of fixes.
+- Update every source the version is pinned in, which is the reason a bot could not do this one. Six places have to agree: `requirements/ci/dev-env.in`, the compiled `dev-env.txt` and its hashes, `requirements/constraints.txt`, `pyproject.toml`, `governance.yml`, and the `RUFF_VERSION` contract constant -- plus law 6, which names the version in prose. Dependabot edits `pyproject.toml` alone, so its pull request fails the mirror check in `test_governance_config` and the pin-consistency check in `test_lint_ci_contract` before it reaches lint at all.
+- Recompile the hash-pinned set rather than hand-editing hashes: `uv pip compile --universal --generate-hashes --python-version 3.12`, the command recorded in the file's own header. The diff is nineteen hash lines and nothing else.
+
 # v0.26.1
 
 - Make a `Surfaces` glob mean what the issue author reads it to mean. Rule 7 matched with `fnmatch`, which does not treat `/` as a path separator, so `governance/*` silently covered `governance/tests/deep.py` and every other file in the subtree beneath it. The scope contract is the only thing standing between a slice and an unrelated file, and it was quietly wider than it read while the gate reported PASS.
