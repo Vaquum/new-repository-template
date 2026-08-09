@@ -8,7 +8,7 @@ interesting cases here are the ones that must NOT match.
 from __future__ import annotations
 
 import pytest
-from slice_gate import path_matches
+from slice_gate import path_denied, path_matches
 
 
 @pytest.mark.parametrize(
@@ -67,6 +67,59 @@ def test_regex_metacharacters_in_a_path_are_literal() -> None:
     assert not path_matches('axpy', 'a.py')
     assert not path_matches('docs/a+b.md', 'docs/a+.md')
     assert path_matches('docs/a+b.md', 'docs/a+b.md')
+
+
+@pytest.mark.parametrize(
+    ('path', 'glob'),
+    [
+        # The allow-list narrowing is safe; the same narrowing on the deny-list
+        # is not, so a deny entry covers everything beneath what it names.
+        ('governance/tests/deep.py', 'governance/*'),
+        ('governance/tests/deep.py', 'governance/**'),
+        ('governance/slice_gate.py', 'governance/*'),
+        ('docs/Developer/Configuration.md', 'docs/*'),
+        ('docs/Developer/Configuration.md', 'docs'),
+        ('governance/tests/fixtures/x.py', 'governance/tests'),
+        ('governance/tests/fixtures/x.py', 'governance/tests/'),
+    ],
+)
+def test_out_of_scope_covers_the_subtree_beneath_what_it_names(
+    path: str, glob: str
+) -> None:
+    assert path_denied(path, glob)
+
+
+@pytest.mark.parametrize(
+    ('path', 'glob'),
+    [
+        # Widening the deny-list must not reach a sibling or another subtree.
+        ('governance.yml', 'governance/*'),
+        ('governance_extra/x.py', 'governance/*'),
+        ('tests/package/test_x.py', 'governance'),
+        ('docs.md', 'docs'),
+    ],
+)
+def test_out_of_scope_does_not_reach_beyond_its_own_subtree(
+    path: str, glob: str
+) -> None:
+    assert not path_denied(path, glob)
+
+
+def test_the_deny_list_is_never_weaker_than_the_allow_list() -> None:
+    """Anything rule 7 would allow-match, rule 8 must also deny-match.
+
+    Rule 8 is the finer-grained block, so a path the same glob covers on the
+    allow side must never slip through on the deny side.
+    """
+    cases = [
+        ('governance/slice_gate.py', 'governance/*'),
+        ('governance/tests/deep.py', 'governance/**'),
+        ('CHANGELOG.md', '*.md'),
+        ('x.py', '**/x.py'),
+    ]
+    for path, glob in cases:
+        assert path_matches(path, glob)
+        assert path_denied(path, glob)
 
 
 def test_the_double_star_that_still_covers_everything() -> None:
