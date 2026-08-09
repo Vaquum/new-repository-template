@@ -7,6 +7,8 @@ interesting cases here are the ones that must NOT match.
 """
 from __future__ import annotations
 
+import fnmatch
+
 import pytest
 from slice_gate import path_denied, path_matches
 
@@ -103,6 +105,47 @@ def test_out_of_scope_does_not_reach_beyond_its_own_subtree(
     path: str, glob: str
 ) -> None:
     assert not path_denied(path, glob)
+
+
+@pytest.mark.parametrize(
+    ('path', 'glob'),
+    [
+        # Suffix-shaped deny entries: a trailing `*.py` names no directory, so
+        # appending `/**` cannot rescue it -- the star itself has to reach.
+        ('governance/tests/deep.py', 'governance/*.py'),
+        ('docs/a/b/c.md', 'docs/*.md'),
+        ('a/b/c.py', '*.py'),
+        ('governance/tests/fixtures/x.py', 'governance/*.py'),
+    ],
+)
+def test_a_suffix_shaped_deny_glob_still_reaches_nested_paths(
+    path: str, glob: str
+) -> None:
+    assert path_denied(path, glob)
+
+
+def test_the_deny_list_is_never_weaker_than_fnmatch() -> None:
+    """Rule 8 may block more than `fnmatch` did, never less.
+
+    `fnmatch` is the behaviour this gate shipped with, so anything it excluded
+    must stay excluded; a deny-list that quietly stopped blocking a path is the
+    one direction of this change that is unsafe.
+    """
+    cases = [
+        ('governance/tests/deep.py', 'governance/*'),
+        ('governance/tests/deep.py', 'governance/*.py'),
+        ('governance/slice_gate.py', 'governance/*.py'),
+        ('docs/a/b/c.md', 'docs/*.md'),
+        ('a/b/c.py', '*.py'),
+        ('governance/tests/deep.py', 'governance/**'),
+        ('x/y.md', '*.md'),
+        ('governance/a/b/c/d.py', 'governance/*'),
+    ]
+    weaker = [
+        (path, glob) for path, glob in cases
+        if fnmatch.fnmatch(path, glob) and not path_denied(path, glob)
+    ]
+    assert not weaker, f'deny-list stopped excluding paths fnmatch excluded: {weaker}'
 
 
 def test_the_deny_list_is_never_weaker_than_the_allow_list() -> None:

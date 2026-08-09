@@ -244,15 +244,20 @@ def extract_out_of_scope_globs(issue_body: str) -> list[str]:
 
 
 @cache
-def _glob_pattern(glob: str) -> re.Pattern[str]:
-    """Compile one Surfaces glob, treating `/` as a real path separator.
+def _glob_pattern(glob: str, star_crosses_separators: bool = False) -> re.Pattern[str]:
+    """Compile one Surfaces glob against a chosen `/` policy.
 
-    `fnmatch` does not: under it `*` matches `/` as well, so `governance/*`
-    silently covers `governance/tests/deep.py` and the scope contract is wider
-    than the issue reads. Here `*` and `?` stop at a separator, `**` crosses
-    them, and `**/` also matches zero directories so `**/x.py` still covers a
-    top-level `x.py`.
+    With the default policy `/` is a real separator: `*` and `?` stop at one,
+    `**` crosses them, and `**/` also matches zero directories so `**/x.py`
+    still covers a top-level `x.py`. `fnmatch` has no such policy -- under it
+    `*` matches `/` too, which is why `governance/*` silently covered the whole
+    subtree beneath it.
+
+    `star_crosses_separators` restores that reach on purpose, for the deny-list
+    only. See `path_denied`.
     """
+    single_star = '.*' if star_crosses_separators else '[^/]*'
+    any_char = '.' if star_crosses_separators else '[^/]'
     out: list[str] = []
     index = 0
     while index < len(glob):
@@ -263,9 +268,9 @@ def _glob_pattern(glob: str) -> re.Pattern[str]:
             index += 3 if crosses_zero else 2
             continue
         if char == '*':
-            out.append('[^/]*')
+            out.append(single_star)
         elif char == '?':
-            out.append('[^/]')
+            out.append(any_char)
         else:
             out.append(re.escape(char))
         index += 1
@@ -280,13 +285,20 @@ def path_matches(path: str, glob: str) -> bool:
 def path_denied(path: str, glob: str) -> bool:
     """Whether one path is excluded by one Out of Scope glob.
 
-    A deny entry also covers everything beneath what it names. The two lists
-    are not symmetric: narrowing the allow-list makes the gate stricter, but
-    the same narrowing on the deny-list makes it weaker -- `governance/*` would
-    stop excluding `governance/tests/deep.py`, and a PR touching an explicitly
-    excluded path would pass rule 8 in silence. Rule 8 fails closed instead.
+    The two lists are not symmetric, so they do not share a `/` policy.
+    Narrowing the allow-list makes rule 7 stricter; the identical narrowing on
+    the deny-list makes rule 8 weaker, and a PR touching an explicitly excluded
+    path would pass in silence. Rule 8 therefore keeps the reach `fnmatch` had
+    -- a `*` crosses separators here -- which is the fail-closed direction, and
+    additionally covers everything beneath a glob that names a directory, so a
+    bare `Out of Scope: docs` excludes the tree under it.
     """
-    return path_matches(path, glob) or path_matches(path, f"{glob.rstrip('/')}/**")
+    return (
+        _glob_pattern(glob, star_crosses_separators=True).match(path) is not None
+        or _glob_pattern(
+            f"{glob.rstrip('/')}/**", star_crosses_separators=True
+        ).match(path) is not None
+    )
 
 
 def read_lines(path: Path) -> list[str]:
