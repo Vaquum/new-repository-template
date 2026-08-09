@@ -3,6 +3,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 import {auditFailure} from './audit-report.mjs';
+import {productionRoots} from './audit-scope.mjs';
 
 const scriptPath = fileURLToPath(import.meta.url);
 const siteRoot = path.resolve(path.dirname(scriptPath), '..');
@@ -15,7 +16,7 @@ if (!result.stdout) {
   process.exit(result.status || 1);
 }
 const report = JSON.parse(result.stdout);
-const failure = auditFailure(report);
+const failure = auditFailure(report, productionRoots(siteRoot));
 if (failure) {
   process.stderr.write(`${failure}\n`);
   process.exit(1);
