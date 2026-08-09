@@ -156,6 +156,23 @@ def exit_if_disabled(name: str, banner: str) -> None:
         raise SystemExit(0)
 
 
+def exit_if_bot_exempt(name: str, author: str, banner: str) -> None:
+    """Leave the gate when a listed bot authored the pull request.
+
+    Both lists default to empty, so a repository that never configures
+    `automation` enforces every law on every author. The skip is announced with
+    the author and the gate that let it through: an exemption nobody can see in
+    the log is one nobody audits.
+    """
+    if not author:
+        return
+    authors = section_setting('automation', 'bot_authors', [], banner)
+    exempt = section_setting('automation', 'exempt_gates', [], banner)
+    if author in authors and name in exempt:
+        print(f'{banner} -- SKIP (automation.exempt_gates lists {name} for bot {author})')
+        raise SystemExit(0)
+
+
 def gate_setting[T](gate: str, key: str, default: T, banner: str) -> T:
     """Read one typed setting from a gate's section, failing closed.
 

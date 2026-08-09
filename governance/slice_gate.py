@@ -68,7 +68,7 @@ import sys
 from pathlib import Path
 from typing import Final, NoReturn
 
-from _common import CLOSING_KEYWORD_RE, exit_if_disabled, section_setting
+from _common import CLOSING_KEYWORD_RE, exit_if_bot_exempt, exit_if_disabled, section_setting
 
 # ``##+`` on both the heading and the terminator: issue-form-created
 # bodies render field labels as ``###``, and a terminator that only
@@ -780,7 +780,15 @@ def main() -> int:
         required=True,
         help='GitHub repository in owner/name form (e.g. Vaquum/new-repository-template).',
     )
+    parser.add_argument(
+        '--pr-author',
+        default='',
+        help='Login of the account that opened the PR. When it appears in '
+             '`automation.bot_authors` and this gate is in '
+             '`automation.exempt_gates`, the gate skips. Empty means enforce.',
+    )
     args = parser.parse_args()
+    exit_if_bot_exempt('slice', args.pr_author, BANNER)
 
     try:
         pr_body = Path(args.pr_body_file).read_text(encoding='utf-8')

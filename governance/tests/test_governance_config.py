@@ -128,6 +128,7 @@ def test_governance_config_schema_is_minimal() -> None:
         'runtime',
         'toolchain',
         'review',
+        'automation',
         'slice',
         'commits',
         'changelog',

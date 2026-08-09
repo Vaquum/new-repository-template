@@ -138,6 +138,43 @@ gates:
     no_swallowed_violations: true
 ```
 
+## `automation` — the bot exemption
+
+Dependency updates arrive as pull requests opened by a bot. They close no slice
+issue and bump no version, so laws 1 and 5 block every one of them permanently:
+the repository accumulates unmergeable pull requests until someone hand-wraps
+each bump in a slice issue and a version bump.
+
+`automation` names the gates that step aside, and the authors they step aside
+for:
+
+```yaml
+automation:
+  bot_authors:
+    - dependabot[bot]
+  exempt_gates:
+    - slice
+    - version
+```
+
+| Setting | Default in code | Read by |
+| --- | --- | --- |
+| `automation.bot_authors` | `[]` | `_common.exit_if_bot_exempt` |
+| `automation.exempt_gates` | `[]` | `_common.exit_if_bot_exempt` |
+
+A gate skips only when the PR author appears in `bot_authors` **and** the gate
+is named in `exempt_gates`. Both default to empty in code, so a repository that
+never writes this section enforces every law on every author — the shipped
+`governance.yml` is what turns the exemption on, not the gate.
+
+Set `exempt_gates: []` to hold bots to laws 1 and 5 like anyone else. The
+remaining nine laws — typing, fail-loud, lint, tests, CodeQL, honesty, ruleset,
+conventional commits, and branch protection — run on bot pull requests either
+way; this exempts two, not the gate suite.
+
+The skip is printed with the author and the gate that allowed it, because an
+exemption that leaves no trace in the log is one nobody audits.
+
 ## Ratchets and their markers
 
 A ratchet may only move one way without a stated reason. Each has a PR-body

@@ -97,4 +97,5 @@ jobs:
             --pr-body-file pr_body.txt \
             --pr-files-file pr_files.txt \
             --template .github/ISSUE_TEMPLATE/slice.yml \
-            --repo "${{ github.repository }}"
+            --repo "${{ github.repository }}" \
+            --pr-author "${{ github.event.pull_request.user.login }}"
