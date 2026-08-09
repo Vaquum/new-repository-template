@@ -9,6 +9,13 @@ venv/
 dist/
 build/
 
+# `uv run --with <tool>` writes a lockfile for the ad-hoc environment it
+# builds. This project does not resolve through uv -- CI installs the compiled,
+# hash-pinned sets under requirements/ci/ -- so a uv.lock here is a local
+# artifact, not a dependency source. Committing one adds a file no gate governs
+# and breaks the manifest check, which compares the sdist against VCS.
+uv.lock
+
 __pycache__/
 **/__pycache__/
 *.pyc

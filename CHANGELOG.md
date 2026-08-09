@@ -1,3 +1,9 @@
+# v0.26.4
+
+- Ignore `uv.lock`. `uv run --with <tool>` writes one for the ad-hoc environment it builds, and a `git add -A` swept a 776-line file into a commit where it broke the manifest check -- which compares the sdist against VCS -- and put a path no gate governs inside a slice's diff. This project does not resolve through uv; CI installs the compiled, hash-pinned sets under `requirements/ci/`, so a lockfile here is a local artifact and never a dependency source.
+- Ask git whether a path is ignored rather than pattern-matching `.gitignore`. A test that only checked the literal line was present would keep passing while a later negation or ordering change silently re-exposed the file.
+- Skip those checks outside a git work tree, and say why. A bootstrapped repository is a plain directory copy until someone runs `git init`, so `git check-ignore` has no answer there; asserting anyway would have shipped a failing suite to every derived repository. The template's own suite always runs them, because the condition is never true here.
+
 # v0.26.3
 
 - Put every tool version in `pyproject.toml` and nowhere else. Bumping ruff meant editing six sources that had to agree -- `dev-env.in`, the compiled `dev-env.txt`, `constraints.txt`, `pyproject.toml`, `governance.yml`, and a `RUFF_VERSION` test constant -- plus law 6 in prose. Dependabot edits one of those, which is why its bump could never pass, and why the last one had to be built by hand.
