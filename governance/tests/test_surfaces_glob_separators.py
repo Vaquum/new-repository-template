@@ -124,6 +124,35 @@ def test_a_suffix_shaped_deny_glob_still_reaches_nested_paths(
     assert path_denied(path, glob)
 
 
+@pytest.mark.parametrize(
+    ('path', 'glob', 'covered'),
+    [
+        # `fnmatch` honours character classes. Escaping the bracket would make
+        # the whole entry a literal that matches no real path -- and on the
+        # deny-list, an entry that matches nothing excludes nothing.
+        ('governance/ab.py', 'governance/[ab]*.py', True),
+        ('a.py', '[ab].py', True),
+        ('b.py', '[ab].py', True),
+        ('c.py', '[ab].py', False),
+        # Negation, spelled `!` by fnmatch and `^` by re.
+        ('c.py', '[!ab].py', True),
+        ('a.py', '[!ab].py', False),
+        # Ranges.
+        ('a-b.py', '[a-c]-b.py', True),
+        ('z-b.py', '[a-c]-b.py', False),
+        # A class does not cross a separator on the allow side.
+        ('governance/tests/deep.py', 'governance/[ab]*.py', False),
+        # An unterminated bracket is a literal, as in fnmatch.
+        ('lit[.py', 'lit[.py', True),
+    ],
+)
+def test_character_classes_behave_as_fnmatch_did(
+    path: str, glob: str, covered: bool
+) -> None:
+    assert path_matches(path, glob) is covered
+    assert fnmatch.fnmatch(path, glob) is covered
+
+
 def test_the_deny_list_is_never_weaker_than_fnmatch() -> None:
     """Rule 8 may block more than `fnmatch` did, never less.
 

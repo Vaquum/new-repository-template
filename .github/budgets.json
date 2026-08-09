@@ -101,7 +101,7 @@
     "governance/fail_loud_gate.py": 400,
     "governance/privileged_ruleset_audit.py": 134,
     "governance/ruleset_gate.py": 203,
-    "governance/slice_gate.py": 745,
+    "governance/slice_gate.py": 769,
     "governance/typing_gate.py": 766,
     "governance/version_gate.py": 352
   },

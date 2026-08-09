@@ -243,6 +243,24 @@ def extract_out_of_scope_globs(issue_body: str) -> list[str]:
     return _extract_globs_from_section(issue_body, OUT_OF_SCOPE_SECTION_RE)
 
 
+def _closing_bracket(glob: str, start: int) -> int:
+    """Index of the `]` closing the class opened at `start`, or -1.
+
+    Follows `fnmatch`: a leading `!` or `^` negates, and a `]` immediately
+    after that is a literal member rather than the terminator.
+    """
+    index = start + 1
+    if index < len(glob) and glob[index] in '!^':
+        index += 1
+    if index < len(glob) and glob[index] == ']':
+        index += 1
+    while index < len(glob):
+        if glob[index] == ']':
+            return index
+        index += 1
+    return -1
+
+
 @cache
 def _glob_pattern(glob: str, star_crosses_separators: bool = False) -> re.Pattern[str]:
     """Compile one Surfaces glob against a chosen `/` policy.
@@ -267,6 +285,18 @@ def _glob_pattern(glob: str, star_crosses_separators: bool = False) -> re.Patter
             out.append('(?:[^/]+/)*' if crosses_zero else '.*')
             index += 3 if crosses_zero else 2
             continue
+        if char == '[':
+            # A character class, which `fnmatch` honours. Escaping the bracket
+            # instead would make `[ab]*.py` a literal that matches no real path
+            # -- silently, and on the deny-list that means excluding nothing.
+            close = _closing_bracket(glob, index)
+            if close != -1:
+                body = glob[index + 1:close].replace('\\', '\\\\')
+                if body.startswith(('!', '^')):
+                    body = '^' + body[1:]
+                out.append(f'[{body}]')
+                index = close + 1
+                continue
         if char == '*':
             out.append(single_star)
         elif char == '?':
