@@ -3,6 +3,8 @@
 - Ignore `uv.lock`. `uv run --with <tool>` writes one for the ad-hoc environment it builds, and a `git add -A` swept a 776-line file into a commit where it broke the manifest check -- which compares the sdist against VCS -- and put a path no gate governs inside a slice's diff. This project does not resolve through uv; CI installs the compiled, hash-pinned sets under `requirements/ci/`, so a lockfile here is a local artifact and never a dependency source.
 - Ask git whether a path is ignored rather than pattern-matching `.gitignore`. A test that only checked the literal line was present would keep passing while a later negation or ordering change silently re-exposed the file.
 - Skip those checks outside a git work tree, and say why. A bootstrapped repository is a plain directory copy until someone runs `git init`, so `git check-ignore` has no answer there; asserting anyway would have shipped a failing suite to every derived repository. The template's own suite always runs them, because the condition is never true here.
+- Skip only on the answer git actually gives. Treating every non-zero exit as "not a work tree" would let a dubious-ownership refusal or an unreadable repository disable all three checks in a repository where they were meant to run; anything other than "not a git repository" now raises.
+- Probe the directory patterns through a path inside them. A trailing-slash rule is directory-only and `git check-ignore` matches one only once the directory exists, so asserting on a bare `venv` would have gone red on any checkout that had not created it yet -- with the ignore rules entirely intact.
 
 # v0.26.3
 

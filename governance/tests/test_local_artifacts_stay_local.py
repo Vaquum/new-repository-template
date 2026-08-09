@@ -17,6 +17,14 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _in_git_work_tree() -> bool:
+    """Whether this tree is a git work tree, distinguishing "no" from "cannot tell".
+
+    Collapsing every git failure into `False` would let a dubious-ownership
+    refusal, or an unreadable repository, silently skip all three checks in a
+    repository where they were meant to run. Only the answer git actually gives
+    -- no repository here -- is allowed to skip; anything else is raised, which
+    fails collection loudly rather than passing quietly.
+    """
     result = subprocess.run(
         ['git', 'rev-parse', '--is-inside-work-tree'],
         cwd=REPO_ROOT,
@@ -24,7 +32,14 @@ def _in_git_work_tree() -> bool:
         capture_output=True,
         text=True,
     )
-    return result.returncode == 0 and result.stdout.strip() == 'true'
+    if result.returncode == 0:
+        return result.stdout.strip() == 'true'
+    if 'not a git repository' in result.stderr.lower():
+        return False
+    raise RuntimeError(
+        f'git could not determine whether {REPO_ROOT} is a work tree '
+        f'(exit {result.returncode}): {result.stderr.strip()}'
+    )
 
 
 # A derived repository is a plain directory copy until someone runs `git init`,
@@ -63,15 +78,26 @@ def test_a_uv_lockfile_cannot_be_committed() -> None:
 
 
 def test_the_environments_that_produce_it_are_ignored_too() -> None:
-    """The lockfile is one of a family; the venvs beside it stay local as well."""
-    for path in ('.venv', 'venv/', '.ruff_cache', '__pycache__'):
+    """The lockfile is one of a family; the venvs beside it stay local as well.
+
+    Probed through a path *inside* each directory rather than the bare name. A
+    trailing-slash pattern is directory-only, and `git check-ignore` matches one
+    only once the directory exists, so asserting on `venv` alone would go red on
+    any checkout that has not created it yet -- while the rule was intact.
+    """
+    for path in (
+        '.venv/pyvenv.cfg',
+        'venv/lib/python3.12/site-packages/x.py',
+        '.ruff_cache/content.json',
+        'governance/__pycache__/slice_gate.pyc',
+    ):
         assert _is_ignored(path), f'{path} is not ignored'
 
 
 def test_no_local_artifact_is_tracked_right_now() -> None:
     """Ignoring a path does nothing once the file is already tracked."""
     tracked = subprocess.run(
-        ['git', 'ls-files', 'uv.lock', '.venv', '.ruff_cache'],
+        ['git', 'ls-files', 'uv.lock', '.venv', '.ruff_cache', 'venv'],
         cwd=REPO_ROOT,
         check=True,
         capture_output=True,
