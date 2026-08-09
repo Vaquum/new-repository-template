@@ -100,11 +100,28 @@ def test_a_misshapen_list_blocks_rather_than_guessing(configured: Path) -> None:
     assert exc.value.code != 0
 
 
-def test_the_shipped_config_exempts_the_two_laws_a_bump_cannot_satisfy() -> None:
+def test_a_configured_automation_section_names_only_real_gates() -> None:
+    """Check the shape, never the policy.
+
+    Asserting the shipped values would ship a failing test to every derived
+    repository that took the documented advice: `exempt_gates: []` and omitting
+    `automation` entirely are both supported, and an equality assertion here
+    would turn either into an unmergeable branch. What must hold everywhere is
+    that an exemption cannot name a gate that does not exist -- a typo there
+    would look configured and exempt nothing.
+    """
     data = yaml.safe_load(CONFIG.read_text(encoding='utf-8'))
-    automation = data['automation']
-    assert 'dependabot[bot]' in automation['bot_authors']
-    assert sorted(automation['exempt_gates']) == ['slice', 'version']
+    automation = data.get('automation')
+    if automation is not None:
+        bot_authors = automation.get('bot_authors', [])
+        exempt_gates = automation.get('exempt_gates', [])
+        assert isinstance(bot_authors, list)
+        assert isinstance(exempt_gates, list)
+        unknown = sorted(set(exempt_gates) - set(data.get('gates', {})))
+        assert not unknown, (
+            f'automation.exempt_gates names gates that do not exist: {unknown}. '
+            f'A misspelled gate reads as configured and exempts nothing.'
+        )
 
 
 def test_both_exempted_gates_are_told_who_opened_the_pull_request() -> None:
