@@ -16,7 +16,7 @@ RULESET_SNAPSHOT: Final[Path] = REPO_ROOT / '.github/rulesets/main.json'
 DEV_ENV_IN: Final[Path] = REPO_ROOT / 'requirements/ci/dev-env.in'
 DEV_ENV_TXT: Final[Path] = REPO_ROOT / 'requirements/ci/dev-env.txt'
 BAD_FIXTURE: Final[Path] = REPO_ROOT / 'governance/tests/fixtures/lint/bad_imports.py'
-RUFF_VERSION: Final[str] = '0.15.11'
+RUFF_VERSION: Final[str] = '0.16.1'
 EXPECTED_RUFF_POLICY: Final[dict[str, object]] = {
     "exclude": [
         ".git",
