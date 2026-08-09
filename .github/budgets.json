@@ -95,7 +95,7 @@
     "governance/check_test_runtime.py": 175,
     "governance/closeout_evidence.py": 120,
     "new_repository_template/__init__.py": 22,
-    "governance/_common.py": 315,
+    "governance/_common.py": 325,
     "governance/bootstrap_repository.py": 580,
     "governance/cc_gate.py": 318,
     "governance/fail_loud_gate.py": 400,

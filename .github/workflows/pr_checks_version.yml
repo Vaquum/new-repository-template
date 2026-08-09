@@ -133,4 +133,5 @@ jobs:
             --base-pyproject base_pyproject.toml \
             --head-pyproject head_pyproject.toml \
             --base-changelog base_CHANGELOG.md \
-            --head-changelog head_CHANGELOG.md
+            --head-changelog head_CHANGELOG.md \
+            --pr-author "${{ github.event.pull_request.user.login }}"

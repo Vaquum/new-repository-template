@@ -56,6 +56,7 @@ from typing import Final
 from _common import (
     CC_RE,
     TOMLDecodeError,
+    exit_if_bot_exempt,
     exit_if_disabled,
     fail_setup,
     loads_toml,
@@ -395,7 +396,15 @@ def main() -> int:
     parser.add_argument('--head-pyproject', required=True)
     parser.add_argument('--base-changelog', required=True)
     parser.add_argument('--head-changelog', required=True)
+    parser.add_argument(
+        '--pr-author',
+        default='',
+        help='Login of the account that opened the PR. When it appears in '
+             '`automation.bot_authors` and this gate is in '
+             '`automation.exempt_gates`, the gate skips. Empty means enforce.',
+    )
     args = parser.parse_args()
+    exit_if_bot_exempt('version', args.pr_author, BANNER)
 
     base_pyproject = _read(args.base_pyproject, 'base-pyproject')
     head_pyproject = _read(args.head_pyproject, 'head-pyproject')
