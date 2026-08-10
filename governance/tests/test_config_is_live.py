@@ -160,7 +160,6 @@ def test_commit_types_come_from_the_config() -> None:
 _NON_PYTHON_READERS = {
     'repository.name', 'repository.description',
     'runtime.python_version',
-    'toolchain.ruff_version', 'toolchain.pyright_version',
     'review.approving_authority',
     'slice.label', 'slice.issue_template',
     'bootstrap.timeout_minutes', 'bootstrap.label_template_repository',

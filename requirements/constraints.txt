@@ -14,9 +14,13 @@
 pyyaml>=6.0,<7
 tomli>=2.0,<3; python_version < '3.11'
 
-# Lint and type
-ruff>=0.16.1,<0.17
-pyright>=1.1.408,<1.2
+# Lint and type.
+#
+# ruff and pyright are pinned exactly, in `pyproject.toml`, so they are absent
+# here on purpose. A range restating an exact pin documents nothing and is a
+# second place a bump has to find -- and the mechanical way to write one is
+# wrong as often as not: `pyright>=1.1` reads like a floor while admitting every
+# release in the only series pyright has ever published.
 vulture>=2.14,<3
 
 # Test and coverage
