@@ -60,11 +60,11 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
-import fnmatch
 import json
 import re
 import subprocess
 import sys
+from functools import cache
 from pathlib import Path
 from typing import Final, NoReturn
 
@@ -241,6 +241,94 @@ def extract_out_of_scope_globs(issue_body: str) -> list[str]:
     of these globs fails the gate, even if the file ALSO matches a
     Surfaces allow-list entry."""
     return _extract_globs_from_section(issue_body, OUT_OF_SCOPE_SECTION_RE)
+
+
+def _closing_bracket(glob: str, start: int) -> int:
+    """Index of the `]` closing the class opened at `start`, or -1.
+
+    Follows `fnmatch`: a leading `!` or `^` negates, and a `]` immediately
+    after that is a literal member rather than the terminator.
+    """
+    index = start + 1
+    if index < len(glob) and glob[index] in '!^':
+        index += 1
+    if index < len(glob) and glob[index] == ']':
+        index += 1
+    while index < len(glob):
+        if glob[index] == ']':
+            return index
+        index += 1
+    return -1
+
+
+@cache
+def _glob_pattern(glob: str, star_crosses_separators: bool = False) -> re.Pattern[str]:
+    """Compile one Surfaces glob against a chosen `/` policy.
+
+    With the default policy `/` is a real separator: `*` and `?` stop at one,
+    `**` crosses them, and `**/` also matches zero directories so `**/x.py`
+    still covers a top-level `x.py`. `fnmatch` has no such policy -- under it
+    `*` matches `/` too, which is why `governance/*` silently covered the whole
+    subtree beneath it.
+
+    `star_crosses_separators` restores that reach on purpose, for the deny-list
+    only. See `path_denied`.
+    """
+    single_star = '.*' if star_crosses_separators else '[^/]*'
+    any_char = '.' if star_crosses_separators else '[^/]'
+    out: list[str] = []
+    index = 0
+    while index < len(glob):
+        char = glob[index]
+        if char == '*' and glob[index + 1:index + 2] == '*':
+            crosses_zero = glob[index + 2:index + 3] == '/'
+            out.append('(?:[^/]+/)*' if crosses_zero else '.*')
+            index += 3 if crosses_zero else 2
+            continue
+        if char == '[':
+            # A character class, which `fnmatch` honours. Escaping the bracket
+            # instead would make `[ab]*.py` a literal that matches no real path
+            # -- silently, and on the deny-list that means excluding nothing.
+            close = _closing_bracket(glob, index)
+            if close != -1:
+                body = glob[index + 1:close].replace('\\', '\\\\')
+                if body.startswith(('!', '^')):
+                    body = '^' + body[1:]
+                out.append(f'[{body}]')
+                index = close + 1
+                continue
+        if char == '*':
+            out.append(single_star)
+        elif char == '?':
+            out.append(any_char)
+        else:
+            out.append(re.escape(char))
+        index += 1
+    return re.compile(''.join(out) + r'\Z')
+
+
+def path_matches(path: str, glob: str) -> bool:
+    """Whether one repository path is covered by one Surfaces glob."""
+    return _glob_pattern(glob).match(path) is not None
+
+
+def path_denied(path: str, glob: str) -> bool:
+    """Whether one path is excluded by one Out of Scope glob.
+
+    The two lists are not symmetric, so they do not share a `/` policy.
+    Narrowing the allow-list makes rule 7 stricter; the identical narrowing on
+    the deny-list makes rule 8 weaker, and a PR touching an explicitly excluded
+    path would pass in silence. Rule 8 therefore keeps the reach `fnmatch` had
+    -- a `*` crosses separators here -- which is the fail-closed direction, and
+    additionally covers everything beneath a glob that names a directory, so a
+    bare `Out of Scope: docs` excludes the tree under it.
+    """
+    return (
+        _glob_pattern(glob, star_crosses_separators=True).match(path) is not None
+        or _glob_pattern(
+            f"{glob.rstrip('/')}/**", star_crosses_separators=True
+        ).match(path) is not None
+    )
 
 
 def read_lines(path: Path) -> list[str]:
@@ -559,10 +647,8 @@ def _scope_failures(
     failures: list[str] = []
 
     allowed_globs = extract_surfaces_globs(issue_body)
-    # `fnmatch` does not treat `/` as a separator, so `*` matches every path
-    # in the repository and the scope contract becomes vacuous while the gate
-    # still reports PASS. A Surfaces entry that allows everything is not a
-    # scope declaration.
+    # `**` still matches every path in the repository, and a Surfaces entry
+    # that allows everything is not a scope declaration.
     vacuous = sorted(g for g in allowed_globs if g.strip('*/') == '')
     if vacuous:
         failures.append(
@@ -579,7 +665,7 @@ def _scope_failures(
     else:
         not_in_surfaces = [
             f for f in pr_files
-            if not any(fnmatch.fnmatch(f, g) for g in allowed_globs)
+            if not any(path_matches(f, g) for g in allowed_globs)
         ]
         if not_in_surfaces:
             failures.append(
@@ -596,7 +682,7 @@ def _scope_failures(
     if denied_globs:
         hits = [
             f for f in pr_files
-            if any(fnmatch.fnmatch(f, g) for g in denied_globs)
+            if any(path_denied(f, g) for g in denied_globs)
         ]
         if hits:
             failures.append(
