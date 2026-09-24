@@ -1,3 +1,9 @@
+# v0.26.5
+
+- Record `require_extra_approval_for_unattributed_changes` in the branch-protection snapshot. GitHub added the field to the ruleset API and defaults it on, so the live ruleset carried a key the committed snapshot did not and `pr_checks_ruleset` reported drift on every open pull request. Nobody changed branch protection; the platform grew a field.
+- Pin the direction of that sync, because syncing a snapshot to live is the move that could launder a weakening into law. Every protection flag is asserted still required, `bypass_actors` asserted empty, and enforcement asserted active -- so the next snapshot sync inherits the check rather than the judgement. The added field is itself a tightening.
+- Bring the ruleset gate's live fixtures in line with the same field, so its drift tests keep exercising a realistic payload.
+
 # v0.26.4
 
 - Ignore `uv.lock`. `uv run --with <tool>` writes one for the ad-hoc environment it builds, and a `git add -A` swept a 776-line file into a commit where it broke the manifest check -- which compares the sdist against VCS -- and put a path no gate governs inside a slice's diff. This project does not resolve through uv; CI installs the compiled, hash-pinned sets under `requirements/ci/`, so a lockfile here is a local artifact and never a dependency source.
