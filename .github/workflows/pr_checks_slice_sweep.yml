@@ -111,9 +111,13 @@ jobs:
             # (which caps at 100 and would silently under-enforce
             # rules 7 and 8 on large PRs).
             gh pr view "$PR_NUM" --repo "$REPO" \
-              --json title,body,changedFiles > pr_view.json
+              --json title,body,changedFiles,author > pr_view.json
             jq -r '.title' pr_view.json > pr_title.txt
             jq -r '.body // ""' pr_view.json > pr_body.txt
+            # The author decides the automation exemption. Without it the
+            # gate sees an empty author, enforces, and publishes a failure
+            # over the SKIP the pull_request run correctly reported.
+            PR_AUTHOR=$(jq -r '.author.login // ""' pr_view.json)
             EXPECTED_FILES=$(jq -r '.changedFiles' pr_view.json)
 
             gh api "repos/$REPO/pulls/$PR_NUM/files" \
@@ -145,7 +149,8 @@ jobs:
               --pr-body-file pr_body.txt \
               --pr-files-file pr_files.txt \
               --template .github/ISSUE_TEMPLATE/slice.yml \
-              --repo "$REPO" 2>&1)
+              --repo "$REPO" \
+              --pr-author "$PR_AUTHOR" 2>&1)
             GATE_EXIT=$?
             set -e
             echo "$GATE_OUT"
