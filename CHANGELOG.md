@@ -1,6 +1,7 @@
-# v0.26.6
+# v0.26.7
 
 - Pass the pull-request author to the slice gate from the scheduled sweep. The sweep re-runs the gate from `main` to close the self-attestation channel, but it gathered the PR's title, body and files without its author -- so `exit_if_bot_exempt` saw an empty string, enforced, and published a failure over the `SKIP` the pull_request run had correctly reported an hour earlier. A green required check turned red on a timer, and every open Dependabot pull request was blocked by it.
+- Read that author from the REST pull request payload rather than `gh pr view --json author`, which serialises a GitHub App as `app/dependabot` while the pull_request event -- and therefore `automation.bot_authors` -- carries `dependabot[bot]`. Passing the first form is worse than passing nothing: the gate receives a non-empty author matching no configured bot, so it enforces and overturns a correct SKIP while looking correctly wired.
 - Pin argument parity between the two call sites rather than the presence of one flag. They run the same gate over the same pull request, so handing it different inputs is how they reach different verdicts; asserting only `--pr-author` would pass while a later argument was added to one and forgotten in the other.
 
 # v0.26.5

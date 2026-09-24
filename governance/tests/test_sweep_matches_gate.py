@@ -52,13 +52,41 @@ def _gate_invocation(workflow: Path) -> set[str]:
     return set(_FLAG_RE.findall('\n'.join(lines)))
 
 
-def test_sweep_requests_the_author_field() -> None:
-    """`gh pr view` must fetch the author, or there is nothing to pass."""
+def test_sweep_reads_the_author_from_the_rest_user_login() -> None:
+    """The author must be read the way the pull_request event carries it.
+
+    `gh pr view --json author` serialises a GitHub App as `app/dependabot`;
+    the pull_request event, and therefore `automation.bot_authors`, carries
+    `dependabot[bot]`. Passing the first form is worse than passing nothing:
+    the gate receives a non-empty author that matches no configured bot, so
+    it enforces and overturns a correct SKIP while looking correctly wired.
+    """
     text = SWEEP.read_text(encoding='utf-8')
-    assert '--json title,body,changedFiles,author' in text, (
-        'the sweep does not request the PR author, so it cannot tell a bot PR '
-        'from a human one and will overturn the gate\'s SKIP'
+    assert ".user.login" in text, (
+        'the sweep must read the author from the REST pull request payload, '
+        'which carries the same login the pull_request event does'
     )
+    assert '--json title,body,changedFiles,author' not in text, (
+        "`gh pr view --json author` yields `app/<slug>` for a GitHub App, "
+        "which never matches the `<slug>[bot]` form in automation.bot_authors"
+    )
+
+
+def test_configured_bot_authors_are_in_event_login_form() -> None:
+    """The configured authors must be the form the gate actually receives.
+
+    Pins the other half of the same mismatch: a `bot_authors` entry written as
+    `app/dependabot` would match the sweep's old source and never match the
+    pull_request run, splitting the two verdicts the other way.
+    """
+    import yaml
+
+    config = yaml.safe_load((REPO_ROOT / 'governance.yml').read_text(encoding='utf-8'))
+    for author in config.get('automation', {}).get('bot_authors', []):
+        assert not author.startswith('app/'), (
+            f'automation.bot_authors lists {author!r}; the pull_request event '
+            f'carries the `<slug>[bot]` form, so an `app/` entry never matches'
+        )
 
 
 def test_sweep_passes_the_pr_author() -> None:

@@ -111,13 +111,16 @@ jobs:
             # (which caps at 100 and would silently under-enforce
             # rules 7 and 8 on large PRs).
             gh pr view "$PR_NUM" --repo "$REPO" \
-              --json title,body,changedFiles,author > pr_view.json
+              --json title,body,changedFiles > pr_view.json
             jq -r '.title' pr_view.json > pr_title.txt
             jq -r '.body // ""' pr_view.json > pr_body.txt
-            # The author decides the automation exemption. Without it the
-            # gate sees an empty author, enforces, and publishes a failure
-            # over the SKIP the pull_request run correctly reported.
-            PR_AUTHOR=$(jq -r '.author.login // ""' pr_view.json)
+            # The author decides the automation exemption. Read from REST
+            # rather than `gh pr view --json author`: for a GitHub App the
+            # latter serializes the login as `app/dependabot`, while the
+            # pull_request event -- and therefore `automation.bot_authors` --
+            # carries `dependabot[bot]`. The two never match, so the sweep
+            # would enforce and publish a failure over a correct SKIP.
+            PR_AUTHOR=$(gh api "repos/$REPO/pulls/$PR_NUM" --jq '.user.login // ""')
             EXPECTED_FILES=$(jq -r '.changedFiles' pr_view.json)
 
             gh api "repos/$REPO/pulls/$PR_NUM/files" \
