@@ -1,6 +1,10 @@
-# v0.26.8
+# v0.26.9
 
 - Enforce the parsed shared PR concurrency expression in the readiness contract and reject an event-name suffix using a mutant derived from the actual workflow. Preserve the existing active-run cancellation guard and workflow behavior.
+
+# v0.26.8
+
+- Pin patched docs dependencies to restore the critical vulnerability audit.
 
 # v0.26.7
 
