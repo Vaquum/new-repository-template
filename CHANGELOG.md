@@ -1,3 +1,7 @@
+# v0.26.8
+
+- Enforce the parsed shared PR concurrency expression in the readiness contract and reject an event-name suffix using a mutant derived from the actual workflow. Preserve the existing active-run cancellation guard and workflow behavior.
+
 # v0.26.7
 
 - Pass the pull-request author to the slice gate from the scheduled sweep. The sweep re-runs the gate from `main` to close the self-attestation channel, but it gathered the PR's title, body and files without its author -- so `exit_if_bot_exempt` saw an empty string, enforced, and published a failure over the `SKIP` the pull_request run had correctly reported an hour earlier. A green required check turned red on a timer, and every open Dependabot pull request was blocked by it.
