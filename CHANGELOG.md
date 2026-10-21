@@ -1,3 +1,7 @@
+# v0.26.10
+
+- Stop automatic Copilot code review on every push; reviews remain available on request.
+
 # v0.26.9
 
 - Enforce the parsed shared PR concurrency expression in the readiness contract and reject an event-name suffix using a mutant derived from the actual workflow. Preserve the existing active-run cancellation guard and workflow behavior.
