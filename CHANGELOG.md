@@ -1,3 +1,7 @@
+# v0.26.11
+
+- Remove Dependabot version-update configuration; automated security fixes are disabled.
+
 # v0.26.10
 
 - Stop automatic Copilot code review on every push; reviews remain available on request.
